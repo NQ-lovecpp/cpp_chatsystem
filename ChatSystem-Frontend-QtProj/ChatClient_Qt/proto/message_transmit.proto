@@ -1,0 +1,39 @@
+/*
+    消息转发服务器的子服务注册信息： /service/message_transmit/instance_id
+        服务名称：/service/message_transmit
+        实例ID: instance_id     每个能够提供用户操作服务的子服务器唯一ID
+    当服务发现的时候，通过 /service/message_transmit 进行服务发现，就可以发现所有的能够提供用户操作的实例信息了
+*/
+//消息转发服务器接口
+syntax = "proto3";
+package bite_im;
+import "base.proto";
+
+option cc_generic_services = true;
+
+//这个用于和网关进行通信
+message NewMessageReq {
+    string request_id = 1;
+    optional string user_id = 2;
+    optional string session_id = 3;
+    string chat_session_id = 4;
+    MessageContent message = 5;
+}
+message NewMessageRsp {
+    string request_id = 1;
+    bool success = 2;
+    string errmsg = 3; 
+}
+
+//这个用于内部的通信,生成完整的消息信息，并获取消息的转发人员列表
+message GetTransmitTargetRsp {
+    string request_id = 1;
+    bool success = 2;
+    string errmsg = 3; 
+    MessageInfo message = 4;
+    repeated string target_id_list = 5;
+}
+
+service MsgTransmitService {
+    rpc GetTransmitTarget(NewMessageReq) returns (GetTransmitTargetRsp);
+}

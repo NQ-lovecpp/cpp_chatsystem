@@ -1,0 +1,51 @@
+#include "widget.h"
+
+#include <QApplication>
+
+#include "server.h"
+
+int main(int argc, char *argv[])
+{
+
+    QApplication a(argc, argv);
+
+    HttpServer* httpServer = HttpServer::getInstance();
+    if(!httpServer->init()) {
+        qDebug() << "HTTP 服务器启动失败!";
+        return 1;
+    }
+    qDebug() << "HTTP 服务器启动成功!";
+
+    WebsocketServer* websocketServer = WebsocketServer::getInstance();
+    if (!websocketServer->init()) {
+        qDebug() << "websocket 服务器启动失败!";
+        return 1;
+    }
+    qDebug() << "websocket 服务器启动成功!";
+
+    Widget w;
+
+
+    if (QOperatingSystemVersion::current() >= QOperatingSystemVersion::Windows11) {
+        QPalette palette;
+        palette.setColor(QPalette::Window, QColor(255, 255, 255)); // 白色背景
+        palette.setColor(QPalette::WindowText, QColor(0, 0, 0));  // 黑色文字
+        palette.setColor(QPalette::Base, QColor(255, 255, 255));  // 输入框背景色
+        palette.setColor(QPalette::AlternateBase, QColor(240, 240, 240)); // 交替背景色
+        palette.setColor(QPalette::ToolTipBase, QColor(255, 255, 255));
+        palette.setColor(QPalette::ToolTipText, QColor(0, 0, 0));
+        palette.setColor(QPalette::Text, QColor(0, 0, 0));
+        palette.setColor(QPalette::Button, QColor(255, 255, 255)); // 按钮背景
+        palette.setColor(QPalette::ButtonText, QColor(0, 0, 0));  // 按钮文字
+        palette.setColor(QPalette::Highlight, QColor(0, 120, 215)); // 选中项目的高亮色
+        palette.setColor(QPalette::HighlightedText, QColor(255, 255, 255)); // 选中文字色
+
+        app.setPalette(palette);
+
+        // 使用 Windows 风格（确保与系统主题更一致）
+        app.setStyle(QStyleFactory::create("Windows"));
+    }
+
+    w.show();
+    return a.exec();
+}

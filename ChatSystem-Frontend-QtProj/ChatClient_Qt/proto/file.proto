@@ -1,0 +1,71 @@
+/*
+    文件操作服务器的子服务注册信息： /service/file/instance_id
+        服务名称：/service/file
+        实例ID: instance_id     每个能够提供用户操作服务的子服务器唯一ID
+    当服务发现的时候，通过 /service/file 进行服务发现，就可以发现所有的能够提供用户操作的实例信息了
+*/
+syntax = "proto3";
+package bite_im;
+import "base.proto";
+
+option cc_generic_services = true;
+
+
+message GetSingleFileReq {
+    string request_id = 1;
+    string file_id = 2;
+    optional string user_id = 3;
+    optional string session_id = 4;
+}
+message GetSingleFileRsp {
+    string request_id = 1;
+    bool success = 2;
+    string errmsg = 3; 
+    FileDownloadData file_data = 4;
+}
+
+message GetMultiFileReq {
+    string request_id = 1;
+    optional string user_id = 2;
+    optional string session_id = 3;
+    repeated string file_id_list = 4;
+}
+message GetMultiFileRsp {
+    string request_id = 1;
+    bool success = 2;
+    string errmsg = 3; 
+    repeated FileDownloadData file_data = 4;
+}
+
+message PutSingleFileReq {
+    string request_id = 1;
+    optional string user_id = 2;
+    optional string session_id = 3;
+    FileUploadData file_data = 4;
+}
+message PutSingleFileRsp {
+    string request_id = 1;
+    bool success = 2;
+    string errmsg = 3;
+    FileMessageInfo file_info = 4;
+}
+
+message PutMultiFileReq {
+    string request_id = 1;
+    optional string user_id = 2;
+    optional string session_id = 3;
+    repeated FileUploadData file_data = 4;
+}
+message PutMultiFileRsp {
+    string request_id = 1;
+    bool success = 2;
+    string errmsg = 3; 
+    repeated FileMessageInfo file_info = 4;
+}
+
+service FileService {
+    rpc GetSingleFile(GetSingleFileReq) returns (GetSingleFileRsp);
+    rpc GetMultiFile(GetMultiFileReq) returns (GetMultiFileRsp);
+    rpc PutSingleFile(PutSingleFileReq) returns (PutSingleFileRsp);
+    rpc PutMultiFile(PutMultiFileReq) returns (PutMultiFileRsp);
+}
