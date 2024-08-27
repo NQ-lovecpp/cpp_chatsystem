@@ -182,3 +182,252 @@ gRPC
 ## 后台服务技术框架图
 
 ![](Pics/%E9%A1%B9%E7%9B%AE%E6%80%BB%E6%A1%86%E6%9E%B6%E5%9B%BE.png)
+
+
+
+# 三、开发环境的快速搭建
+
+开发环境的搭建是一个非常重要的步骤，它确保了开发过程中可以顺利进行编译、调试以及最终的部署。下面将详细介绍如何在Linux系统中搭建一个完整的C++开发环境。所有组件的用法，详见[组件教程](./Playground/Kit_Tutorial.md)
+
+## 1. 基础工具安装
+
+首先，我们需要安装一些基础的开发工具。这些工具包括编辑器、编译器、调试器、构建工具、传输工具和版本管理工具。
+
+### 1.1 编辑器安装
+
+```bash
+sudo apt-get install vim
+```
+
+Vim 是一个功能强大的文本编辑器，在C++开发中非常常用。
+
+### 1.2 编译器安装
+
+```bash
+sudo apt-get install gcc g++
+```
+
+GCC 和 G++ 是 GNU 的编译器集合，分别用于C和C++语言的编译。
+
+### 1.3 调试器安装
+
+```bash
+sudo apt-get install gdb
+```
+
+GDB 是GNU的调试器，用于调试C/C++程序。
+
+### 1.4 项目构建工具安装
+
+```bash
+sudo apt-get install make cmake
+```
+
+Make 和 CMake 是常用的构建工具，用于自动化构建过程。
+
+### 1.5 传输工具安装
+
+```bash
+sudo apt-get install lrzsz
+```
+
+Lrzsz 是一组文件传输工具，支持X/Y/ZMODEM协议。
+
+### 1.6 版本管理工具安装
+
+```bash
+sudo apt-get install git
+```
+
+Git 是目前最流行的分布式版本控制系统，用于跟踪源代码的变化。
+
+## 2. 常用框架安装
+
+在开发C++应用程序时，通常会使用一些第三方框架来简化开发工作。以下是一些常用框架的安装步骤。
+
+### 2.1 gflags 框架安装
+
+```bash
+sudo apt-get install libgflags-dev
+```
+
+Gflags 是一个命令行标志解析库。
+
+### 2.2 gtest 框架安装
+
+```bash
+sudo apt-get install libgtest-dev
+```
+
+GTest 是一个Google发布的C++测试框架。
+
+### 2.3 spdlog 框架安装
+
+```bash
+sudo apt-get install libspdlog-dev
+```
+
+Spdlog 是一个非常快速且易用的C++日志库。
+
+### 2.4 brpc 框架安装
+
+首先，安装brpc的依赖项：
+
+```bash
+sudo apt-get install -y git g++ make libssl-dev libprotobuf-dev libprotoc-dev protobuf-compiler libleveldb-dev
+```
+
+然后，安装brpc：
+
+```bash
+git clone https://github.com/apache/brpc.git
+cd brpc/
+mkdir build && cd build
+cmake -DCMAKE_INSTALL_PREFIX=/usr .. && cmake --build . -j6
+make && sudo make install
+```
+
+### 2.5 etcd 框架安装
+
+首先，安装etcd：
+
+```bash
+sudo apt-get install etcd
+sudo systemctl start etcd
+sudo systemctl enable etcd
+```
+
+然后，安装etcd的C++客户端API：
+
+```bash
+sudo apt-get install libboost-all-dev protobuf-compiler-grpc
+sudo apt-get install libgrpc-dev libgrpc++-dev libcpprest-dev
+git clone https://github.com/etcd-cpp-apiv3/etcd-cpp-apiv3.git
+cd etcd-cpp-apiv3
+mkdir build && cd build
+cmake .. -DCMAKE_INSTALL_PREFIX=/usr
+make -j$(nproc) && sudo make install
+```
+
+### 2.6 Elasticsearch 框架安装
+
+安装 Elasticsearch：
+
+```bash
+curl -s https://artifacts.elastic.co/GPG-KEY-elasticsearch | sudo gpg --no-default-keyring --keyring gnupg-ring:/etc/apt/trusted.gpg.d/icsearch.gpg --import
+echo "deb https://artifacts.elastic.co/packages/7.x/apt stable main" | sudo tee /etc/apt/sources.list.d/elasticsearch.list
+sudo apt update
+sudo apt-get install elasticsearch=7.17.21
+```
+
+安装中文分词插件：
+
+```bash
+sudo /usr/share/elasticsearch/bin/elasticsearch-plugin install https://get.infini.cloud/elasticsearch/analysis-ik/7.17.21
+```
+
+修改 Elasticsearch 配置以启用外部访问：
+
+```bash
+sudo vim /etc/elasticsearch/elasticsearch.yml
+```
+
+添加或修改以下配置项：
+
+```bash
+network.host: 0.0.0.0
+http.port: 9200
+```
+
+启动 Elasticsearch 并设置开机启动：
+
+```bash
+sudo systemctl restart elasticsearch
+sudo systemctl enable elasticsearch
+```
+
+### 2.7 ODB 框架安装
+
+首先，安装 ODB 编译器：
+
+```bash
+curl -sSfO https://download.build2.org/0.17.0/build2-install-0.17.0.sh
+sh build2-install-0.17.0.sh
+sudo apt-get install gcc-11-plugin-dev
+mkdir odb-build && cd odb-build
+bpkg create -d odb-gcc-N cc config.cxx=g++ config.cc.coptions=-O3 config.bin.rpath=/usr/lib config.install.root=/usr/ config.install.sudo=sudo
+cd odb-gcc-N
+bpkg build odb@https://pkg.cppget.org/1/beta
+bpkg test odb
+bpkg install odb
+```
+
+然后，安装 ODB 运行时库：
+
+```bash
+cd .. 
+bpkg create -d libodb-gcc-N cc config.cxx=g++ config.cc.coptions=-O3 config.install.root=/usr/ config.install.sudo=sudo
+cd libodb-gcc-N
+bpkg add https://pkg.cppget.org/1/beta
+bpkg fetch
+bpkg build libodb
+bpkg build libodb-mysql
+```
+
+### 2.8 Redis 安装
+
+```bash
+sudo apt install redis -y
+```
+
+修改 `/etc/redis/redis.conf` 文件以支持远程连接：
+
+```bash
+sudo vim /etc/redis/redis.conf
+```
+
+修改以下配置项：
+
+```bash
+# bind 127.0.0.1   # 注释掉这行 
+bind 0.0.0.0       # 添加这行
+protected-mode no  # 把 yes 改成 no
+```
+
+启动 Redis 并设置开机启动：
+
+```bash
+sudo systemctl start redis-server
+sudo systemctl enable redis-server
+```
+
+### 2.9 RabbitMQ 安装
+
+```bash
+sudo apt install rabbitmq-server
+```
+
+启动 RabbitMQ 服务并检查状态：
+
+```bash
+sudo systemctl start rabbitmq-server
+sudo systemctl status rabbitmq-server
+```
+
+添加一个 `administrator` 用户：
+
+```bash
+sudo rabbitmqctl add_user root 123456
+sudo rabbitmqctl set_user_tags root administrator
+sudo rabbitmqctl set_permissions -p / root "." "." ".*"
+```
+
+启用 RabbitMQ 的 Web 管理界面：
+
+```bash
+sudo rabbitmq-plugins enable rabbitmq_management
+```
+
+访问 Web UI 界面，默认端口为 `15672`。
+
+
