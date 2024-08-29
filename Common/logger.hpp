@@ -39,7 +39,7 @@ void init_logger(bool mode, const std::string &file_name, int log_level)
     }
 
     // 4. 设置格式 [日志器名称][时间][线程ID][日志等级全称]
-    g_default_logger->set_pattern("[%n][%H:%M:%S][%t][%^%-8l%$]%v");
+    g_default_logger->set_pattern("[%n][%H:%M:%S][%t][%^%-8l%$]%^%v%$");
 }
 
 // [文件名:行号]

@@ -1,4 +1,3 @@
-
 # 1. gflags安装及使用
 
 ## 1.1 gflags介绍
@@ -927,3 +926,5017 @@ Glog 是由 Google 开发的一个开源 C++ 日志库，提供了丰富的日�
 ## 3.5 总结
 
 Spdlog 是一个功能强大且易于使用的 C++ 日志库，它提供了丰富的功能和高性能的日志记录能力。通过简单的 API，开发者可以快速地在项目中实现日志记录，保持代码的清晰和可维护性。无论是在开发阶段还是生产环境中，spdlog 都能提供稳定和高效的日志服务。
+
+
+
+# 4. etcd的安装与使用
+
+## 4.1 介绍
+
+Etcd 是一个由 Golang 编写的分布式、高可用的一致性键值存储系统，通常用于配置共享和服务发现。它使用 Raft 一致性算法来保持集群数据的一致性，客户端可以通过长连接的 `watch` 功能，及时收到数据变化的通知。相较于 Zookeeper，etcd 更加轻量化。![Alt text](../Pics/etcd%E6%9C%BA%E5%88%B6.png)
+
+![Alt text](../Pics/keepalive_watcher.png)
+## 4.2 安装Etcd
+
+### 4.2.1 安装Etcd
+
+在Linux系统上安装Etcd的基本步骤如下：
+
+```bash
+sudo apt-get install etcd
+```
+
+### 4.2.2 启动Etcd服务
+
+```bash
+sudo systemctl start etcd
+```
+
+### 4.2.3 设置Etcd开机自启
+
+```bash
+sudo systemctl enable etcd
+```
+### 4.2.4 检查套接字
+
+![Alt text](../Pics/PixPin_2024-08-27_23-44-24.png)
+
+
+## 4.3 节点配置
+
+对于单节点集群，可以无需进行配置，etcd 的默认配置即可使用。默认情况下，集群节点的通信端口为2380，客户端访问端口为2379。
+
+如果需要修改，可以配置 `/etc/default/etcd` 文件：
+
+```bash
+# etcd 配置文件
+
+# 节点名称，建议使用服务器的hostname或者唯一标识符，以确保在集群中唯一
+ETCD_NAME="etcd-node-1"
+
+# 数据存储目录，etcd的数据将存储在这里
+ETCD_DATA_DIR="/var/lib/etcd/default.etcd"
+
+# 监听来自其他etcd节点的peer通信URL
+# 这里绑定到服务器的内网IP，也可以用公网
+ETCD_LISTEN_PEER_URLS="http://117.72.15.209:2380"
+
+# 监听来自客户端请求的URL
+# 绑定到0.0.0.0以允许通过内网和公网访问，如果只允许内网访问，可以改为内网IP
+ETCD_LISTEN_CLIENT_URLS="http://0.0.0.0:2379"
+
+# 集群内部节点的URL，用于相互通信
+ETCD_INITIAL_ADVERTISE_PEER_URLS="http://117.72.15.209:2380"
+
+# 对外公告的客户端访问URL
+# 这里绑定到公网IP，以允许外部客户端访问
+ETCD_ADVERTISE_CLIENT_URLS="http://117.72.15.209:2379"
+
+# 初始集群配置，后续扩展时，可以在此添加新节点
+# 使用`name=http://peer-url`的格式定义集群中的各个节点
+# ETCD_INITIAL_CLUSTER="etcd-node-1=http://xxx:2380"
+
+# 初始集群状态
+# 设置为 "new" 表示这是一个新的集群；如果添加新节点到现有集群，请将新节点的值设置为 "existing"
+# ETCD_INITIAL_CLUSTER_STATE="new"
+
+# 集群标识符，用于唯一标识一个集群
+# ETCD_INITIAL_CLUSTER_TOKEN="etcd-cluster-token"
+
+# 快照文件的最大数量，超过数量将自动删除旧的快照文件
+ETCD_MAX_SNAPSHOTS="5"
+
+# wal文件的最大数量，超过数量将自动删除旧的wal文件
+ETCD_MAX_WALS="5"
+
+# 是否启用v2 API，建议关闭以使用v3 API
+ETCD_ENABLE_V2="false"
+
+# 启用日志调试级别，生产环境建议关闭
+ETCD_DEBUG="false"
+```
+
+## 4.4 运行验证
+
+在安装和配置完etcd后，可以通过以下命令进行验证：
+
+```bash
+etcdctl put mykey "this is awesome"
+etcdctl get mykey
+```
+
+如果在运行 `etcdctl` 时遇到如下错误：
+
+```bash
+No help topic for 'put'
+```
+
+可以通过设置环境变量来解决：
+
+```bash
+export ETCDCTL_API=3
+```
+
+然后重新加载配置文件并测试：
+
+```bash
+source ~/.bashrc
+etcdctl put mykey "this is awesome"
+etcdctl get mykey
+```
+
+## 4.5 搭建服务注册发现中心
+
+使用 Etcd 作为服务注册发现中心，主要涉及以下几个操作：
+
+1. **服务注册**：服务启动时，向 Etcd 注册自己的地址和端口。
+2. **服务发现**：客户端通过 Etcd 获取服务的地址和端口，用于远程调用。
+3. **健康检查**：服务定期向 Etcd 发送心跳，以维持其注册信息的有效性。
+
+
+
+Etcd 采用 Golang 编写，v3 版本通信采用 gRPC API（即HTTP2+protobuf）。官方仅维护了 Go 语言版本的 client 库，对于 C/C++ 语言需要使用非官方的 `etcd-cpp-apiv3` 库。
+
+### 4.5.1 etcd-cpp-apiv3
+
+`etcd-cpp-apiv3` 是一个 etcd 的 C++ 客户端 API，依赖于 `mipsasm`, `boost`, `protobuf`, `gRPC`, `cpprestsdk` 等库。
+
+GitHub地址：[etcd-cpp-apiv3](https://github.com/etcd-cpp-apiv3/etcd-cpp-apiv3)
+
+### 4.5.2 依赖安装
+
+在使用 `etcd-cpp-apiv3` 之前，需要安装以下依赖：
+
+```bash
+sudo apt-get install libssl1.1=1.1.1f-1ubuntu2.23
+sudo apt-get install libboost-all-dev libssl-dev
+sudo apt-get install libprotobuf-dev protobuf-compiler-grpc
+sudo apt-get install libgrpc-dev libgrpc++-dev  
+sudo apt-get install libcpprest-dev
+```
+
+### 4.5.3 API框架安装
+
+安装 `etcd-cpp-apiv3`：
+
+```bash
+git clone https://github.com/etcd-cpp-apiv3/etcd-cpp-apiv3.git
+cd etcd-cpp-apiv3
+mkdir build && cd build
+cmake .. -DCMAKE_INSTALL_PREFIX=/usr
+cmake .. -DCMAKE_INSTALL_PREFIX=/usr -DCPPREST_INCLUDE_DIR=/usr/include -DCPPREST_LIB=/usr/lib/x86_64-linux-gnu/libcpprest.so
+make -j$(nproc) && sudo make install
+```
+
+## 4.6 客户端类与接口介绍
+
+`etcd-cpp-apiv3` 提供了丰富的客户端类与接口，用于实现与 etcd 的交互操作。
+
+```cpp
+namespace etcd {
+    class Value {
+        bool is_dir();  // 判断是否是一个目录
+        std::string const& key();  // 键值对的 key 值
+        std::string const& as_string();  // 键值对的 val 值
+        int64_t lease();  // 用于创建租约的响应中，返回租约 ID
+    }
+
+    class Event {
+        enum class EventType {
+            PUT,  // 键值对新增或数据发生改变
+            DELETE_,  // 键值对被删除
+            INVALID,
+        };
+        enum EventType event_type();
+        const Value& kv();
+        const Value& prev_kv();
+    }
+
+    class Response {
+        bool is_ok();
+        std::string const& error_message();
+        Value const& value();  // 当前的数值或者一个请求的处理结果
+        Value const& prev_value();  // 之前的数值
+        std::vector<Event> const& events();  // 触发的事件
+    }
+
+    class KeepAlive {
+        KeepAlive(Client const& client, int ttl, int64_t lease_id = 0);
+        int64_t Lease();  // 返回租约 ID
+        void Cancel();  // 停止保活动作
+    }
+
+    class Client {
+        Client(std::string const& etcd_url, std::string const& load_balancer = "round_robin");
+        pplx::task<Response> put(std::string const& key, std::string const& value);  // 新增一个键值对
+        pplx::task<Response> put(std::string const& key, std::string const& value, const int64_t leaseId);  // 新增带有租约的键值对
+        pplx::task<Response> ls(std::string const& key);  // 获取一个指定 key 目录下的数据列表
+        pplx::task<Response> leasegrant(int ttl);  // 创建并获取一个存活 ttl 时间的租约
+        pplx::task<std::shared_ptr<KeepAlive>> leasekeepalive(int ttl);  // 获取一个租约保活对象
+        pplx::task<Response> leaserevoke(int64_t lease_id);  // 撤销一个指定的租约
+        pplx::task<Response> lock(std::string const& key);  // 数据锁
+    }
+
+    class Watcher {
+        Watcher(Client const& client, std::string const& key, std::function<void(Response)> callback, bool recursive = false);
+        bool Wait();  // 阻塞等待，直到监控任务被停止
+        bool Cancel();  // 取消监控
+    }
+}
+```
+
+## 4.7 使用样例
+
+### 4.7.1 服务注册示例
+
+```cpp
+#include <etcd/Client.hpp>
+#include <etcd/Response.hpp>
+#include <etcd/KeepAlive.hpp>
+#include <thread>
+
+int main() {
+    std::string registry_host = "http://127.0.0.1:2379";
+    std::string service_key = "/service/user/instance";
+    std::string service_host = "112.23.23.120:9090";
+    etcd::Client etcd(registry_host);
+
+    std::shared_ptr<etcd::KeepAlive> keepalive = etcd.leasekeepalive(3).get();
+    auto lease_id = keepalive->Lease();
+    auto resp_task = etcd.put(service_key, service_host, lease_id);
+    auto resp = resp_task.get();
+    if (!resp.is_ok()) {
+        std::cout << resp.error_message() << std::endl;
+        return -1;
+    }
+    std::cout << "添加数据成功！" << std::endl;
+    getchar();
+    etcd.leaserevoke(lease_id);
+
+    return 0;
+}
+```
+
+### 4.7.2 服务发现示例
+
+```cpp
+#include <etcd/Client.hpp>
+#include <etcd/Watcher.hpp>
+
+void watcherCallback(etcd::Response const& resp) {
+    if (resp.error_code()) {
+        std::cout << "Watcher Error:" << resp.error_code() << "-" << resp.error_message() << std::endl;
+    } else {
+        for (auto const& ev : resp.events()) {
+            if (ev.event_type() == etcd::Event::EventType::PUT) {
+                std::cout << "服务 " << ev
+
+.kv().key() << " 新增主机：" << ev.kv().as_string() << std::endl;
+            } else if (ev.event_type() == etcd::Event::EventType::DELETE_) {
+                std::cout << "服务 " << ev.kv().key() << " 下线主机：" << ev.prev_kv().as_string() << std::endl;
+            }
+        }
+    }
+}
+
+int main() {
+    std::string registry_host = "http://127.0.0.1:2379";
+    std::string service_key = "/service/user/instance";
+    etcd::Client etcd(registry_host);
+    etcd::Response resp = etcd.ls(service_key).get();
+    if (resp.is_ok()) {
+        for (int i = 0; i < resp.keys().size(); i++) {
+            std::cout << resp.key(i) << "=" << resp.value(i).as_string() << std::endl;
+        }
+    } else {
+        std::cout << "Get Service Error:" << resp.error_code() << "-" << resp.error_message() << std::endl;
+    }
+
+    etcd::Watcher watcher(registry_host, service_key, watcherCallback, true);
+    getchar();
+    watcher.Cancel();
+
+    return 0;
+}
+```
+
+### 4.7.3 Makefile
+
+```makefile
+all: registry discoverer
+
+registry: registry.cc
+    g++ -std=c++17 $^ -o $@ -letcd-cpp-api -lcpprest
+
+discoverer: discoverer.cc
+    g++ -std=c++17 $^ -o $@ -letcd-cpp-api -lcpprest
+
+clean:
+    rm -rf registry discoverer
+```
+
+## 4.8 封装服务发现与注册功能
+
+在服务的注册与发现中，主要基于 etcd 所提供的可以设置有效时间的键值对存储来实现。
+
+### 4.8.1 服务注册
+
+服务注册的主要逻辑是在 etcd 服务器上存储一个租期为 ns 的保活键值对，表示所能提供指定服务的节点主机，例如：
+
+`<key, val> -- < /service/user/instance-1, 127.0.0.1:9000>`
+
+### 4.8.2 服务发现
+
+服务发现的过程包括：
+
+- **初次发现**：通过 `ls` 命令获取所有提供指定服务的实例信息。
+- **动态监控**：通过 `watcher` 对关心的服务进行监控，当有新的服务上线或服务下线时，收到通知进行节点管理。
+
+### 4.8.3 封装思想
+
+通过封装 etcd 的操作，可以简化服务注册和发现的逻辑，向外提供以下接口：
+
+- 服务注册接口：向 etcd 添加 `<服务-主机地址>` 的数据。
+- 服务发现接口：获取当前所有能提供服务的信息。
+- 设置服务上线处理的回调接口。
+- 设置服务下线处理的回调接口。
+
+
+根据您提供的PDF文件，以下是从第5部分开始的一字不落的输出，忽略了“版权说明”和“代码&板书链接”部分：
+
+
+
+# 5. brpc安装及使用
+
+## 5.1 安装
+
+### 5.1.1 先安装依赖
+
+```bash
+C++ 
+dev@dev-host:~/workspace$ sudo apt-get install -y git g++ make 
+libssl-dev libprotobuf-dev libprotoc-dev protobuf-compiler 
+libleveldb-dev 
+```
+
+### 5.1.2 安装 brpc
+
+```bash
+C++ 
+dev@dev-host:~/workspace$ git clone 
+https://github.com/apache/brpc.git 
+dev@dev-host:~/workspace$ cd brpc/ 
+dev@dev-host:~/workspace/brpc$ mkdir build && cd build 
+dev@dev-host:~/workspace/brpc/build$ cmake -
+DCMAKE_INSTALL_PREFIX=/usr .. && cmake --build . -j6 
+dev@dev-host:~/workspace/brpc/build$ make && sudo make install  
+```
+
+## 5.2 类与接口介绍
+
+### 5.2.1 日志输出类与接口
+
+包含头文件： `#include <butil/logging.h>`
+
+日志输出这里，本质上我们其实用不着 brpc 的日志输出，因此在这里主要介绍如何关闭日志输出。
+
+```cpp
+C++ 
+namespace logging { 
+enum LoggingDestination { 
+    LOG_TO_NONE = 0 
+}; 
+struct BUTIL_EXPORT LoggingSettings { 
+    LoggingSettings(); 
+    LoggingDestination logging_dest; 
+}; 
+bool InitLogging(const LoggingSettings& settings); 
+}
+```
+
+### 5.2.2 protobuf类与接口
+
+```cpp
+C++ 
+namespace google { 
+namespace protobuf { 
+    class PROTOBUF_EXPORT Closure { 
+    public: 
+        Closure() {} 
+        virtual ~Closure(); 
+        virtual void Run() = 0; 
+    }; 
+    inline Closure* NewCallback(void (*function)()); 
+    class PROTOBUF_EXPORT RpcController { 
+        bool Failed(); 
+        std::string ErrorText() ; 
+    }; 
+} 
+} 
+```
+
+### 5.2.3 服务端类与接口
+
+这里只介绍主要用到的成员与接口。
+
+```cpp
+C++ 
+namespace brpc { 
+struct ServerOptions { 
+    //无数据传输，则指定时间后关闭连接 
+    int idle_timeout_sec; // Default: -1 (disabled) 
+    int num_threads; // Default: #cpu-cores 
+    //.... 
+} 
+
+enum ServiceOwnership { 
+    //添加服务失败时，服务器将负责删除服务对象 
+    SERVER_OWNS_SERVICE, 
+    //添加服务失败时，服务器也不会删除服务对象 
+    SERVER_DOESNT_OWN_SERVICE 
+}; 
+class Server { 
+    int AddService(google::protobuf::Service* service, 
+                   ServiceOwnership ownership); 
+    int Start(int port, const ServerOptions* opt); 
+    int Stop(int closewait_ms/*not used anymore*/); 
+    int Join(); 
+    //休眠直到 ctrl+c 按下，或者 stop 和 join 服务器 
+    void RunUntilAskedToQuit(); 
+} 
+class ClosureGuard { 
+    explicit ClosureGuard(google::protobuf::Closure* done); 
+    ~ClosureGuard() { if (_done) _done->Run(); } 
+} 
+class HttpHeader { 
+    void set_content_type(const std::string& type); 
+    const std::string* GetHeader(const std::string& key); 
+    void SetHeader(const std::string& key,  
+        const std::string& value); 
+    const URI& uri() const { return _uri; } 
+    HttpMethod method() const { return _method; } 
+    void set_method(const HttpMethod method); 
+    int status_code(); 
+    void set_status_code(int status_code); 
+} 
+class Controller : public google::protobuf::RpcController { 
+    void set_timeout_ms(int64_t timeout_ms); 
+    void set_max_retry(int max_retry); 
+    google::protobuf::Message* response(); 
+    HttpHeader& http_response(); 
+    HttpHeader& http_request(); 
+    bool Failed(); 
+    std::string ErrorText(); 
+
+    using AfterRpcRespFnType = std::function< 
+        void(Controller* cntl, 
+        const google::protobuf::Message* req, 
+        const google::protobuf::Message* res)>; 
+    void set_after_rpc_resp_fn(AfterRpcRespFnType&& fn); 
+} 
+```
+
+### 5.2.4 客户端类与接口
+
+```cpp
+C++ 
+namespace brpc { 
+struct ChannelOptions { 
+    //请求连接超时时间 
+    int32_t connect_timeout_ms;// Default: 200 (milliseconds) 
+    //rpc 请求超时时间 
+    int32_t timeout_ms;// Default: 500 (milliseconds) 
+    //最大重试次数 
+    int max_retry;// Default: 3 
+    //序列化协议类型  options.protocol = "baidu_std"; 
+    AdaptiveProtocolType protocol; 
+    //.... 
+} 
+class Channel : public ChannelBase { 
+    //初始化接口，成功返回 0； 
+    int Init(const char* server_addr_and_port,  
+        const ChannelOptions* options);
+}
+```
+
+
+
+## 5.3 使用
+
+### 5.3.1 同步调用
+
+同步调用是指客户端会阻塞收到 server 端的响应或发生错误。
+
+下面我们以 Echo（输出 hello world）方法为例, 来讲解基础的同步 RPC 请求是如何实现的。
+
+#### 创建 proto 文件 - main.proto
+
+```protobuf
+ProtoBuf 
+syntax="proto3"; 
+package example; 
+ 
+option cc_generic_services = true; 
+ 
+// 定义 Echo 方法请求参数结构 
+message EchoRequest { 
+    string message = 1; 
+}; 
+ 
+// 定义 Echo 方法响应参数结构 
+message EchoResponse { 
+    string message = 1; 
+}; 
+ 
+// 定义 RPC 远端方法 
+service EchoService { 
+    rpc Echo(EchoRequest) returns (EchoResponse); 
+}; 
+```
+
+#### 创建服务端源码 - brpc_server.cpp
+
+```cpp
+C++ 
+#include <gflags/gflags.h> 
+#include <butil/logging.h> 
+#include <brpc/server.h> 
+#include <json2pb/pb_to_json.h> 
+#include "main.pb.h" 
+ 
+// 使用 gflags 定义一些命令行参数 
+DEFINE_int32(listen_port, 8000, "服务器地址信息"); 
+DEFINE_int32(idle_timeout_s, -1, "空闲连接超时关闭时间：默认-1 表示不关闭"); 
+DEFINE_int32(thread_count, 3, "服务器启动线程数量"); 
+              
+namespace example { 
+class EchoServiceImpl : public EchoService { 
+public: 
+    EchoServiceImpl() {} 
+    virtual ~EchoServiceImpl() {} 
+    // cntl_base：包含除了 request 和 response 之外的参数集合 
+    // request: 请求，只读的，来自 client 端的数据包 
+    // response: 回复。需要用户填充，如果存在 required 字段没有被设置，该次调用会失败。 
+    // done: done 由框架创建，递给服务回调，包含了调用服务回调后的后续动作，包括检查 response 正确性，序列化，打包，发送等逻辑。不管成功失败，done->Run()必须在请求处理完成后被用户调用一次。 
+    virtual void Echo(google::protobuf::RpcController* cntl_base, 
+                      const EchoRequest* request, 
+                      EchoResponse* response, 
+                      google::protobuf::Closure* done) { 
+        // 类型于守卫锁，以 ARII 方式自动释放 done 对象 
+        brpc::ClosureGuard done_guard(done); 
+ 
+        brpc::Controller* cntl = 
+            static_cast<brpc::Controller*>(cntl_base); 
+ 
+        // 可选项： 本质是设置一个 hook 函数，在发送响应后及在cntl_base、request、response 释放之前调用 
+        cntl->set_after_rpc_resp_fn(std::bind(&EchoServiceImpl::CallAfterRpc, 
+            std::placeholders::_1, std::placeholders::_2, std::placeholders::_3)); 
+ 
+        // 打印一些相关的参数日志信息 
+        std::cout << "请求内容：" << request->message() << std::endl; 
+ 
+        // 填充响应，客户端发送什么数据，服务器就回复什么数据 
+        response->set_message(request->message() + " Hello"); 
+    } 
+ 
+    // 可选项： 回调函数， 此时响应已经发回给客户端,但是相关结构还没释放 
+    static void CallAfterRpc(brpc::Controller* cntl, 
+                        const google::protobuf::Message* req, 
+                        const google::protobuf::Message* res) { 
+        std::string req_str; 
+        std::string res_str; 
+        json2pb::ProtoMessageToJson(*req, &req_str, NULL); 
+        json2pb::ProtoMessageToJson(*res, &res_str, NULL); 
+        std::cout << "req:" << req_str << std::endl; 
+        std::cout << "res:" << res_str << std::endl; 
+    } 
+}; 
+}  // namespace example 
+ 
+int main(int argc, char* argv[]) { 
+    logging::LoggingSettings log_setting; 
+    log_setting.logging_dest = 
+        logging::LoggingDestination::LOG_TO_NONE; 
+    logging::InitLogging(log_setting); 
+    // 解析命令行参数 
+    google::ParseCommandLineFlags(&argc, &argv, true); 
+ 
+    // 定义服务器 
+    brpc::Server server; 
+ 
+    // 创建服务对象. 
+    example::EchoServiceImpl echo_service_impl; 
+ 
+    // 将服务添加到服务器中 
+    if (server.AddService(&echo_service_impl,  
+        brpc::SERVER_DOESNT_OWN_SERVICE) != 0) { 
+        std::cout << "add service failed!\n"; 
+        return -1; 
+    } 
+    // 开始运行服务器 
+    brpc::ServerOptions options; 
+    options.idle_timeout_sec = FLAGS_idle_timeout_s; 
+    options.num_threads = FLAGS_thread_count; 
+    if (server.Start(FLAGS_listen_port, &options) != 0) { 
+        std::cout << "Fail to start EchoServer"; 
+        return -1; 
+    } 
+ 
+    // 阻塞等待服务端运行  
+    server.RunUntilAskedToQuit(); 
+    return 0; 
+} 
+```
+
+#### 创建客户端源码 - client.cpp
+
+```cpp
+C++ 
+#include <gflags/gflags.h> 
+#include <butil/logging.h> 
+#include <butil/time.h> 
+#include <brpc/channel.h> 
+#include "main.pb.h" 
+ 
+DEFINE_string(protocol, "baidu_std", "通信协议类型，默认使用 brpc 自定制协议"); 
+DEFINE_string(server_host, "127.0.0.1:8000", "服务器地址信息"); 
+DEFINE_int32(timeout_ms, 500, "Rpc 请求超时时间-毫秒"); 
+DEFINE_int32(max_retry, 3, "请求重试次数");  
+ 
+int main(int argc, char* argv[]) { 
+    // 解析命令行参数 
+    google::ParseCommandLineFlags(&argc, &argv, true); 
+     
+    // 创建通道， 可以理解为客户端到服务器的一条通信线路 
+    brpc::Channel channel; 
+     
+    // 初始化通道，NULL 表示使用默认选项 
+    brpc::ChannelOptions options; 
+    options.protocol = FLAGS_protocol; 
+    options.timeout_ms = FLAGS_timeout_ms; 
+    options.max_retry = FLAGS_max_retry; 
+    if (channel.Init(FLAGS_server_host.c_str(), &options) != 0) { 
+        LOG(ERROR) << "Fail to initialize channel"; 
+        return -1; 
+    } 
+    // 通常，我们不应直接调用通道，而是包装它的 stub 服务,通过 stub 进行rpc 调用 
+    example::EchoService_Stub stub(&channel); 
+ 
+    // 创建请求、响应、控制对象 
+    example::EchoRequest request; 
+    example::EchoResponse response; 
+    brpc::Controller cntl; 
+    // 构造请求响应 
+    request.set_message("hello world"); 
+     
+    // 由于“done”（最后一个参数）为 NULL，表示阻塞等待响应 
+    stub.Echo(&cntl, &request, &response, NULL); 
+    if (cntl.Failed()) { 
+        std::cout << "请求失败: " << cntl.ErrorText() << std::endl; 
+        return -1; 
+    }  
+    std::cout << "响应：" << response.message() << std::endl; 
+    return 0; 
+}
+```
+
+#### 编写 Makefile
+
+参考 example 的例子，修改一下 BRPC_PATH 即可。
+
+```makefile
+Shell 
+all: brpc_server brpc_client 
+brpc_server: brpc_server.cc main.pb.cc 
+    g++ -std=c++17 $^ -o $@ -lbrpc -lleveldb -lgflags -lssl -lcrypto -lprotobuf 
+brpc_client: brpc_client.cc main.pb.cc 
+    g++ -std=c++17 $^ -o $@ -lbrpc -lleveldb -lgflags -lssl -lcrypto -lprotobuf 
+%.pb.cc : %.proto 
+    protoc --cpp_out ./ $<  
+```
+
+### 5.3.2 异步调用
+
+异步调用是指客户端注册一个响应处理回调函数， 当调用一个 RPC 接口时立即返回，不会阻塞等待响应，当 server 端返回响应时会调用传入的回调函数处理响应。
+
+具体的做法：给 CallMethod 传递一个额外的回调对象 done，CallMethod 在发出request 后就结束了，而不是在 RPC 结束后。当 server 端返回 response 或发生错误（包括超时）时，done->Run()会被调用。对 RPC 的后续处理应该写在 done->Run()里，而不是 CallMethod 后。由于 CallMethod 结束不意味着 RPC 结束，response/controller 仍可能被框架及 done->Run()使用，它们一般得创建在堆上，并在 done->Run()中删除。如果提前删除了它们，那当 done->Run()被调用时，将访问到无效内存。
+
+下面是异步调用的伪代码：
+
+```cpp
+C++ 
+static void OnRPCDone(MyResponse* response, brpc::Controller* cntl) {     
+    // unique_ptr 会帮助我们在 return 时自动删掉 response/cntl，
+
+防止忘记。gcc 3.4 下的 unique_ptr 是模拟版本。 
+    std::unique_ptr<MyResponse> response_guard(response);     
+    std::unique_ptr<brpc::Controller> cntl_guard(cntl);     
+    if (cntl->Failed()) {         
+        // RPC 失败了. response 里的值是未定义的，勿用。 
+    } else {         
+        // RPC 成功了，response 里有我们想要的数据。开始 RPC 的后续处理。     
+    }     
+    // NewCallback 产生的 Closure 会在 Run 结束后删除自己，不用我们做。 
+}  
+ 
+MyResponse* response = new MyResponse; 
+brpc::Controller* cntl = new brpc::Controller; 
+MyService_Stub stub(&channel);  
+MyRequest request;  // 不用 new request 
+request.set_foo(...);cntl->set_timeout_ms(...); 
+stub.some_method(cntl, &request, response, brpc::NewCallback(OnRPCDone, response, cntl)); 
+```
+
+
+## 5.4 sofa-brpc
+
+暂无详细内容，文档未进一步描述。
+
+## 5.5 srpc
+
+### 5.5.1 安装 SRPC
+
+```shell
+git clone --recursive https://github.com/sogou/srpc.git 
+cd srpc 
+make 
+make install 
+```
+
+### 5.5.2 编译示例
+
+```shell
+cd tutorial 
+make  
+```
+
+## 5.6 封装思想
+
+RPC 调用这里的封装，因为不同的服务调用使用的是不同的 Stub，这个封装起来的意义不大，因此我们只需要封装通信所需的 Channel 管理即可，这样当需要进行什么样的服务调用的时候，只需要通过服务名称获取对应的 channel，然后实例化 Stub 进行调用即可。
+
+### 5.6.1 封装 Channel 的管理
+
+每个不同的服务可能都会有多个主机提供服务，因此一个服务可能会对应多个 Channel，需要将其管理起来，并提供获取指定服务 channel 的接口。
+
+- 进行 RPC 调用时，获取 channel，目前以 RR 轮转的策略选择 channel。
+
+### 5.6.2 提供服务声明的接口
+
+因为在整个系统中，提供的服务有很多，但是当前可能并不一定会用到所有的服务，因此通过声明来告诉模块哪些服务是自己关心的，需要建立连接管理起来，没有添加声明的服务即使上线也不需要进行连接的建立。
+
+### 5.6.3 提供服务上线时的处理接口
+
+也就是新增一个指定服务的 channel。
+
+### 5.6.4 提供服务下线时的处理接口
+
+也就是删除指定服务下的指定 channel。
+
+
+
+# 6. ES安装及使用
+
+## 6.1 ES C++客户端安装及使用
+
+### 6.1.1 ES客户端的安装
+
+**步骤：**
+
+- 克隆代码
+  ```shell
+  git clone https://github.com/seznam/elasticlient
+  ```
+- 切换目录
+  ```shell
+  cd elasticlient
+  ```
+- 更新子模块
+  ```shell
+  git submodule update --init --recursive
+  ```
+- 编译代码
+  ```shell
+  mkdir build
+  cd build
+  cmake ..
+  make
+  ```
+- 安装
+  ```shell
+  make install
+  ```
+
+**可能遇到的问题及解决方案：**
+
+- 问题：cmake生成makefile的过程中可能遇到MicroHTTPD库缺失问题。
+  ```shell
+  sudo apt-get install libmicrohttpd-dev
+  ```
+- 问题：make的时候编译出错，提示googletest未编译安装。
+  
+  解决方案：手动安装子模块
+  ```shell
+  cd ../external/googletest/
+  mkdir cmake && cd cmake/
+  cmake -DCMAKE_INSTALL_PREFIX=/usr ..
+  make && sudo make install
+  ```
+
+### 6.1.2 运行测试用例
+
+- 安装好重新cmake后，运行测试用例
+  ```shell
+  make test
+  ```
+
+**至此，elasticlient安装成功。**
+
+## 6.2 ES客户端接口介绍
+
+### 6.2.1 接口定义及示例
+
+**接口：搜索**
+
+- 作用：在集群中进行搜索，返回匹配的文档。
+- 函数原型：
+  ```cpp
+  cpr::Response search(const std::string &indexName,
+                       const std::string &docType,
+                       const std::string &body,
+                       const std::string &routing = std::string());
+  ```
+
+**接口：获取文档**
+
+- 作用：从集群中获取指定ID的文档。
+- 函数原型：
+  ```cpp
+  cpr::Response get(const std::string &indexName,
+                    const std::string &docType,
+                    const std::string &id = std::string(),
+                    const std::string &routing = std::string());
+  ```
+
+**接口：索引文档**
+
+- 作用：将新的文档索引到集群中。
+- 函数原型：
+  ```cpp
+  cpr::Response index(const std::string &indexName,
+                      const std::string &docType,
+                      const std::string &id,
+                      const std::string &body,
+                      const std::string &routing = std::string());
+  ```
+
+**接口：删除文档**
+
+- 作用：从集群中删除指定ID的文档。
+- 函数原型：
+  ```cpp
+  cpr::Response remove(const std::string &indexName,
+                       const std::string &docType,
+                       const std::string &id,
+                       const std::string &routing = std::string());
+  ```
+
+## 6.3 入门案例
+
+### 6.3.1 通过客户端API进行数据获取
+
+- 代码示例：
+  ```cpp
+  #include <string>
+  #include <vector>
+  #include <iostream>
+  #include <cpr/response.h>
+  #include <elasticlient/client.h>
+
+  int main() {
+      try {
+          elasticlient::Client client({"http://192.168.65.138:9200/"});
+
+          // 检索文档
+          std::string search_body = R"({"query": { "match_all": {} } })";
+
+          cpr::Response retrievedDocument = client.search(
+              "user", "_doc", search_body);
+          std::cout << retrievedDocument.status_code << std::endl;
+          std::cout << retrievedDocument.text << std::endl;
+      } catch(std::exception &e) {
+          std::cout << e.what() << std::endl;
+      }
+
+      return 0;
+  }
+  ```
+
+- 编译链接：
+  ```shell
+  main : main.cc
+      g++ -std=c++17 $^ -o $@ -lelasticlient -lcpr -ljsoncpp
+  ```
+
+**说明：** `libelasticlient.so`默认安装到`/usr/local/lib`目录下，新增动态库路径：
+```shell
+export LD_LIBRARY_PATH=/usr/local/lib:$LD_LIBRARY_PATH
+```
+
+**运行结果如下所示：**
+
+## 6.4 ES客户端 API二次封装思想
+
+**封装内容：**
+
+- 索引构造过程的封装
+  - **字段类型：** `type : text / keyword`（目前只用到这两个类型）
+  - **是否索引：** `enable : true/false`
+  - **索引的分词器类型：** `analyzer : ik_max_word / standard`
+
+- 新增文档构造过程的封装
+  - **新增文档通常是单条新增，直接添加字段和值即可。**
+
+- 文档搜索构造过程的封装
+  - **关注点：**
+    - **应该遵循的条件：** `should`中的条件
+    - **条件的匹配方式：** `match`还是`term/terms`，还是`wildcard`
+    - **过滤的条件字段：** `must_not`中的条件
+    - **过滤的条件字段匹配方式：** `match`还是`wildcard`，还是`term/terms`
+
+
+
+# 7. cpp-httplib 安装与使用
+
+## 7.1 介绍
+
+C++ HTTP 库（cpp-httplib）是一个轻量级的 C++ HTTP 客户端/服务器库，提供了简单的 API 用于创建 HTTP 服务器和客户端。该库支持同步和异步操作，适合多种应用场景。
+
+### 7.1.1 cpp-httplib 的特点
+
+- **轻量级**：只需一个头文件即可使用，无需依赖外部库。
+- **跨平台**：支持 Windows、Linux、macOS 等多个操作系统。
+- **同步与异步**：支持同步和异步操作，灵活选择使用场景。
+- **HTTP/1.1 支持**：实现了 HTTP/1.1 协议，包括持久连接和管道化。
+- **Multipart form-data 支持**：支持文件上传等操作。
+- **SSL/TLS 支持**：通过 OpenSSL 或 mbedTLS，支持 HTTPS 和 WSS 协议。
+- **简单易用**：API 设计简洁，适合初学者和有经验的开发者。
+- **高性能**：轻量级但性能良好，适合多种应用场景。
+
+## 7.2 安装
+
+### 7.2.1 安装步骤
+
+使用 Git 克隆 cpp-httplib 库：
+
+```bash
+git clone https://github.com/yhirose/cpp-httplib.git
+```
+
+cpp-httplib 是一个头文件库，不需要进行复杂的安装操作，下载后可以直接包含头文件使用。
+
+## 7.3 类与接口
+
+cpp-httplib 提供了用于客户端和服务器端的丰富接口，以下是一些常用类和函数：
+
+```cpp
+namespace httplib {
+
+struct Request {
+  std::string method;   // 请求方法
+  std::string path;     // 请求路径
+  Headers headers;      // 请求头部信息
+  std::string body;     // 请求主体
+  Params params;        // 请求参数
+};
+
+struct Response {
+  std::string version;  // HTTP 版本
+  int status = -1;      // 响应状态码
+  std::string reason;   // 响应原因短语
+  Headers headers;      // 响应头部信息
+  std::string body;     // 响应主体
+
+  void set_content(const std::string &s, const std::string &content_type);  // 设置响应内容
+  void set_header(const std::string &key, const std::string &val);          // 设置响应头部信息
+};
+
+class Server {
+    using Handler = std::function<void(const Request &, Response &)>;
+    
+    Server &Get(const std::string &pattern, Handler handler);      // GET 请求处理
+    Server &Post(const std::string &pattern, Handler handler);     // POST 请求处理
+    Server &Put(const std::string &pattern, Handler handler);      // PUT 请求处理
+    Server &Delete(const std::string &pattern, Handler handler);   // DELETE 请求处理
+    
+    bool listen(const std::string &host, int port);                // 启动服务器
+};
+
+class Client {
+    explicit Client(const std::string &host, int port);  // 创建客户端，指定服务器地址和端口
+    
+    Result Get(const std::string &path, const Headers &headers);   // 发送 GET 请求
+    Result Post(const std::string &path, const std::string &body, const std::string &content_type);   // 发送 POST 请求
+    Result Put(const std::string &path, const std::string &body, const std::string &content_type);    // 发送 PUT 请求
+    Result Delete(const std::string &path, const std::string &body, const std::string &content_type); // 发送 DELETE 请求
+};
+}
+```
+
+## 7.4 使用示例
+
+以下是一个使用 cpp-httplib 创建简单 HTTP 服务器的示例代码：
+
+```cpp
+#include "cpp-httplib/httplib.h"
+
+class HelloServer {
+public:
+    HelloServer(int port) : _port(port) {
+        _server.Get("/hi", std::bind(&HelloServer::HelloWorld, this, std::placeholders::_1, std::placeholders::_2));
+    }
+
+    void run() {
+        _server.listen("0.0.0.0", _port);  // 启动服务器，监听指定端口
+    }
+
+public:
+    void HelloWorld(const httplib::Request &req, httplib::Response &rsp) {
+        std::string body = "<h1>HelloWorld</h1>";
+        rsp.set_content(body, "text/html");  // 设置响应内容和类型
+        rsp.status = 200;  // 设置 HTTP 响应状态码
+    }
+
+private:
+    int _port;
+    httplib::Server _server;  // 定义服务器对象
+};
+
+int main() {
+    HelloServer server(8080);  // 创建服务器，监听 8080 端口
+    server.run();  // 启动服务器
+    return 0;
+}
+```
+
+### 7.4.1 编译与运行
+
+编译该程序需要使用 `g++` 编译器，并启用 C++17 标准：
+
+```bash
+g++ -std=c++17 main.cc -o main -pthread
+```
+
+编译完成后，运行该程序，服务器将会在 8080 端口监听 HTTP 请求。可以通过浏览器访问 `http://localhost:8080/hi`，查看服务器返回的 HTML 内容。
+
+## 7.5 总结
+
+cpp-httplib 是一个轻量级、简单易用的 C++ HTTP 客户端/服务器库，适合构建轻量级的 HTTP 应用程序。它支持多种操作系统和 HTTP 协议的功能，使其成为开发 C++ 网络应用程序的强大工具。
+
+
+# 8. websocketpp使用
+
+## 8.1 安装
+
+**步骤：**
+
+- 安装依赖库
+  ```bash
+  sudo apt-get install libboost-dev libboost-system-dev libwebsocketpp-dev
+  ```
+- 验证安装成功
+  ```bash
+  ls /usr/include/websocketpp/
+  ```
+
+## 8.2 介绍与使用
+
+### 8.2.1 Websocket协议介绍
+
+- WebSocket 是从 HTML5 开始支持的一种网页端和服务端保持长连接的消息推送机制。
+- 传统的 web 程序都是属于 "一问一答" 的形式，服务器是被动的，无法主动给客户端响应。
+- WebSocket 更接近于 TCP 这种级别的通信方式，客户端或服务器都可以主动发送数据。
+
+**原理解析：**
+
+- WebSocket 协议本质上是一个基于 TCP 的协议。
+- 为了建立一个 WebSocket 连接，客户端浏览器首先要向服务器发起一个 HTTP 请求，通过附加头信息完成握手和协议升级的过程。
+
+**报文格式重点字段：**
+
+- **FIN:** 表示末尾帧。
+- **RSV1~3:** 保留字段，若未启用扩展则应置 1。
+- **opcode:** 标志当前数据帧的类型。
+- **mask:** 表示 Payload 数据是否被编码，仅客户端发送给服务端的消息需要设置。
+- **Payload length:** 数据载荷的长度，单位是字节，可能为 7 位、7+16 位、7+64 位。
+- **Mask-Key:** 当 mask 为 1 时存在，长度为 4 字节，用于解码 Payload 数据。
+- **Payload data:** 报文携带的载荷数据。
+
+### 8.2.2 Websocketpp介绍
+
+- WebSocketpp 是一个跨平台的开源（BSD 许可证）头部专用 C++库，实现了 RFC6455 和 RFC7692 协议。
+- 主要特性包括：
+  - 事件驱动的接口
+  - 支持 HTTP/HTTPS、WS/WSS、IPv6
+  - 灵活的依赖管理
+  - 可移植性：Posix/Windows、32/64bit、Intel/ARM
+  - 线程安全
+- 支持 HTTP 和 WebSocket 两种网络协议，适用于项目中搭建 HTTP 和 WebSocket 服务器。
+
+**常用资源：**
+
+- [Github](https://github.com/zaphoyd/websocketpp)
+- [用户手册](http://docs.websocketpp.org/)
+- [官网](http://www.zaphoyd.com/websocketpp)
+
+### 8.2.3 websocketpp常用接口介绍
+
+**部分接口定义：**
+
+- **设置日志打印等级：**
+  ```cpp
+  void set_access_channels(log::level channels);
+  void clear_access_channels(log::level channels);
+  ```
+- **设置回调函数：**
+  ```cpp
+  void set_open_handler(open_handler h);
+  void set_close_handler(close_handler h);
+  void set_message_handler(message_handler h);
+  void set_http_handler(http_handler h);
+  ```
+- **发送数据接口：**
+  ```cpp
+  void send(connection_hdl hdl, std::string& payload, frame::opcode::value op);
+  void send(connection_hdl hdl, void* payload, size_t len, frame::opcode::value op);
+  ```
+- **关闭连接接口：**
+  ```cpp
+  void close(connection_hdl hdl, close::status::value code, std::string& reason);
+  ```
+- **获取连接对应的 connection_ptr：**
+  ```cpp
+  connection_ptr get_con_from_hdl(connection_hdl hdl);
+  ```
+- **初始化 asio 框架：**
+  ```cpp
+  void init_asio();
+  ```
+- **设置是否启用地址重用：**
+  ```cpp
+  void set_reuse_addr(bool value);
+  ```
+- **设置绑定监听端口：**
+  ```cpp
+  void listen(uint16_t port);
+  ```
+- **启动服务器：**
+  ```cpp
+  std::size_t run();
+  ```
+- **定时器接口：**
+  ```cpp
+  timer_ptr set_timer(long duration, timer_handler callback);
+  ```
+
+## 8.3 Websocketpp使用
+
+### 8.3.1 Simple http/websocket服务器
+
+**代码示例：**
+
+```cpp
+#include <iostream>
+#include <websocketpp/config/asio_no_tls.hpp>
+#include <websocketpp/server.hpp>
+
+using namespace std;
+
+typedef websocketpp::server<websocketpp::config::asio> websocketsvr;
+typedef websocketsvr::message_ptr message_ptr;
+
+using websocketpp::lib::placeholders::_1;
+using websocketpp::lib::placeholders::_2;
+using websocketpp::lib::bind;
+
+// websocket 连接成功的回调函数
+void OnOpen(websocketsvr *server,websocketpp::connection_hdl hdl){
+    cout<<"连接成功"<<endl;
+}
+
+// websocket 连接关闭的回调函数
+void OnClose(websocketsvr *server,websocketpp::connection_hdl hdl){
+    cout<<"连接关闭"<<endl;
+}
+
+// websocket 收到消息的回调函数
+void OnMessage(websocketsvr *server,websocketpp::connection_hdl hdl,message_ptr msg){
+    cout << "收到消息" << msg->get_payload() << endl;
+    server->send(hdl, msg->get_payload(), websocketpp::frame::opcode::text);
+}
+
+// websocket 连接异常的回调函数
+void OnFail(websocketsvr *server,websocketpp::connection_hdl hdl){
+    cout<<"连接异常"<<endl;
+}
+
+// 处理 http 请求的回调函数
+void OnHttp(websocketsvr *server,websocketpp::connection_hdl hdl){
+    cout<<"处理 http 请求"<<endl;
+    websocketsvr::connection_ptr con = server->get_con_from_hdl(hdl);
+    std::stringstream ss;
+    ss << "<!doctype html><html><head>"
+       << "<title>hello websocket</title><body>"
+       << "<h1>hello websocketpp</h1>"
+       << "</body></head></html>";
+    con->set_body(ss.str());
+    con->set_status(websocketpp::http::status_code::ok);
+}
+
+int main(){
+    websocketsvr server;
+    server.set_access_channels(websocketpp::log::alevel::none);
+    server.init_asio();
+    server.set_http_handler(bind(&OnHttp, &server, ::_1));
+    server.set_open_handler(bind(&OnOpen, &server, ::_1));
+    server.set_close_handler(bind(&OnClose, &server, _1));
+    server.set_message_handler(bind(&OnMessage,&server,_1,_2));
+    server.listen(8888);
+    server.start_accept();
+    server.run();
+    return 0;
+}
+```
+
+### 8.3.2 Http 客户端
+
+- 使用浏览器作为 http 客户端，访问服务器的 8888 端口。
+
+### 8.3.3 WS客户端
+
+**代码示例：**
+
+```html
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Websocket</title>
+</head>
+<body>
+    <input type="text" id="message">
+    <button id="submit">提交</button>
+
+    <script>
+        let websocket = new WebSocket("ws://192.168.51.100:8888");
+
+        websocket.onopen = function() {
+            console.log("连接建立");
+        }
+
+        websocket.onmessage = function(e) {
+            console.log("收到消息: " + e.data);
+        }
+
+        websocket.onerror = function() {
+            console.log("连接异常");
+        }
+
+        websocket.onclose = function() {
+            console.log("连接关闭");
+        }
+
+        let input = document.querySelector('#message');
+        let button = document.querySelector('#submit');
+        button.onclick = function() {
+            console.log("发送消息: " + input.value);
+            websocket.send(input.value);
+        }
+    </script>
+</body>
+</html>
+```
+
+**说明：** 在控制台中可以看到连接建立、客户端和服务器通信以及断开连接的过程。
+
+
+
+
+# 9. redis安装与使用
+
+## 9.1 介绍
+
+**Redis（Remote Dictionary Server）** 是一个开源的高性能键值对（key-value）数据库。它通常用作数据结构服务器，因为除了基本的键值存储功能外，Redis 还支持多种类型的数据结构，如字符串（strings）、哈希（hashes）、列表（lists）、集合（sets）、有序集合（sorted sets）以及范围查询、位图、超日志和地理空间索引等。
+
+**主要特性：**
+
+- **内存中数据库：** Redis 将所有数据存储在内存中，使得读写速度非常快。
+- **持久化：** Redis 提供了持久化选项，可以将内存中的数据保存到磁盘上，以防系统故障导致数据丢失。
+- **支持多种数据结构：** Redis 不仅支持基本的键值对，还支持列表、集合、有序集合等复杂的数据结构。
+- **原子操作：** Redis 支持原子操作，多个操作可以作为一个单独的原子步骤执行。
+- **发布/订阅功能：** Redis 支持发布订阅模式，允许多个客户端订阅消息。
+- **高可用性：** 通过 Redis 哨兵（Sentinel）和 Redis 集群，Redis 提供高可用性和自动故障转移。
+- **复制：** Redis 支持主从复制，提高数据的可用性和读写性能。
+- **事务：** Redis 提供了事务功能，保证一系列操作的原子性执行。
+- **Lua 脚本：** Redis 支持使用 Lua 脚本进行复杂的数据处理。
+- **客户端库：** Redis 拥有丰富的客户端库，支持多种编程语言，如 Python、Ruby、Java、C# 等。
+- **性能监控：** Redis 提供了多种监控工具和命令，帮助开发者监控和优化性能。
+- **易于使用：** Redis 有一个简单的配置文件和命令行界面，使得设置和使用变得容易。
+
+Redis 广泛用于缓存、会话存储、消息队列、排行榜、实时分析等领域，因其高性能和灵活性，成为现代应用程序中非常流行的数据存储解决方案之一。
+
+## 9.2 安装
+
+### 9.2.1 使用 apt 安装
+
+**安装命令：**
+
+```shell
+apt install redis -y
+```
+
+### 9.2.2 支持远程连接
+
+**修改配置文件 `/etc/redis/redis.conf`：**
+
+- 修改 `bind 127.0.0.1` 为 `bind 0.0.0.0`
+- 修改 `protected-mode yes` 为 `protected-mode no`
+
+```plaintext
+# bind 127.0.0.1   # 注释掉这行
+bind 0.0.0.0       # 添加这行
+
+protected-mode no  # 把 yes 改成 no
+```
+
+### 9.2.3 控制 Redis 启动
+
+**启动 Redis 服务：**
+
+```plaintext
+service redis-server start
+```
+
+**停止 Redis 服务：**
+
+```plaintext
+service redis-server stop
+```
+
+**重启 Redis 服务：**
+
+```plaintext
+service redis-server restart
+```
+
+## 9.3 装 redis-plus-plus
+
+**redis-plus-plus** 是一个功能强大且使用简单的 C++ 库，基于 `hiredis` 实现。需要先安装 `hiredis`。
+
+### 9.3.1 安装 hiredis
+
+**安装命令：**
+
+```plaintext
+apt install libhiredis-dev
+```
+
+### 9.3.2 下载 redis-plus-plus 源码
+
+**下载命令：**
+
+```bash
+git clone https://github.com/sewenew/redis-plus-plus.git
+```
+
+### 9.3.3 编译/安装 redis-plus-plus
+
+**使用 cmake 构建：**
+
+```bash
+cd redis-plus-plus
+mkdir build
+cd build
+cmake ..
+make
+make install    # 这一步操作需要管理员权限。非 root 用户使用 sudo。
+```
+
+**安装成功后：**
+
+- `/usr/local/include/` 中会新增 `sw` 目录，包含 redis-plus-plus 的头文件。
+- `/usr/local/lib/` 中会新增 `libredis` 库文件。
+
+## 9.4 接口
+
+Redis 支持多种数据类型的键值对，但在聊天室项目中只涉及到字符串键值对的操作，因此这里主要介绍字符串键值对的基础操作。
+
+**接口定义：**
+
+```cpp
+namespace sw {
+namespace redis {
+    struct ConnectionOptions {
+        std::string host;
+        int port = 6379;
+        std::string path;
+        std::string user = "default";
+        std::string password;
+        int db = 0; // 默认 0 号库
+        bool keep_alive = false;
+    }
+    struct ConnectionPoolOptions {
+        std::size_t size = 1; //最大连接数量
+    }
+    class Redis {
+        // uri e.g 'tcp://127.0.0.1:6379'
+        explicit Redis(const std::string &uri)
+        explicit Redis(const ConnectionOptions &connection_opts,
+            const ConnectionPoolOptions &pool_opts = {})
+        //删除当前库中所有数据
+        void flushdb(bool async = false);
+        //删除指定键值对
+        long long del(const StringView &key);
+        //判断指定键值对是否存在
+        long long exists(const StringView &key);
+        //获取一个 string 键值对
+        OptionalString get(const StringView &key);
+        //存放一个 string 键值对，且设置过期时间-毫秒
+        bool set(const StringView &key,
+                const StringView &val,
+                const std::chrono::milliseconds &ttl =  
+                    std::chrono::milliseconds(0), // 0 表示不设置超时
+                UpdateType type = UpdateType::ALWAYS);
+        void setex(const StringView &key,
+                long long ttl,
+                const StringView &val);
+        //向一个列表中尾插/头插 string 键值对
+        long long rpush(const StringView &key, const StringView &val);
+        long long lpush(const StringView &key, const StringView &val);
+        long long rpush(const StringView &key,  
+                Input first, Input last);
+        void lrange(const StringView &key,
+            long long start, long long stop, Output output);
+    }
+}
+}
+```
+
+## 9.5 使用
+
+这里只进行字符串键值对的增删改查操作以及数据的生命周期设置。
+
+**代码示例：**
+
+```cpp
+#include <sw/redis++/redis.h>
+#include <iostream>
+#include <string>
+#include <thread>
+#include <gflags/gflags.h>
+
+DEFINE_bool(redis_keep_alive, true, "是否保持长连接");
+DEFINE_int32(redis_db, 0, "redis 库号");
+DEFINE_int32(redis_port, 6379, "redis 服务器端口");
+DEFINE_string(redis_host, "127.0.0.1", "redis 服务器 IP 地址");
+
+std::shared_ptr<sw::redis::Redis> predis;
+void add() {
+    predis->set("用户会话 1", "用户 ID1");
+    predis->set("用户会话 2", "用户 ID2",  
+        std::chrono::milliseconds(1000)); //设置 1000ms 过期时间
+    predis->set("用户会话 3", "用户 ID3");
+    predis->set("用户会话 4", "用户 ID4");
+    predis->set("用户会话 5", "用户 ID5");
+}
+void get() {
+    auto res1 =  predis->get("用户会话 1");
+    if (res1) std::cout << *res1 << std::endl;
+
+    auto res2 =  predis->get("用户会话 2");
+    if (res2) std::cout << *res2 << std::endl;
+
+    auto res3 =  predis->get("用户会话 3");
+    if (res3) std::cout << *res3 << std::endl;
+
+    auto res4 =  predis->get("用户会话 4");
+    if (res4) std::cout << *res4 << std::endl;
+
+    auto res5 =  predis->get("用户会话 5");
+    if (res5) std::cout << *res5 << std::endl;
+}
+void update() {
+    predis->set("用户会话 1", "用户 ID 变成 31");
+    predis->set("用户会话 4", "用户 ID 变成 41",  
+        std::chrono::milliseconds(1000));
+    predis->del("用户会话 5");
+}
+
+void push_test() {
+    predis->rpush("群聊会话 1", "成员 1");
+    predis->rpush("群聊会话 1", "成员 2");
+    predis->rpush("群聊会话 1", "成员 3");
+    predis->rpush("群聊会话 1", "成员 4");
+    predis->rpush("群聊会话 1", "成员 5");
+
+    predis->rpush("群聊会话 2", "成员 6");
+    predis->rpush("群聊会话 2", "成员
+
+ 7");
+    predis->rpush("群聊会话 2", "成员 8");
+    predis->rpush("群聊会话 2", "成员 9");
+    predis->rpush("群聊会话 2", "成员 0");
+
+    std::vector<std::string> res;
+    predis->lrange("群聊会话 1", 0, -1, std::back_inserter(res));
+    for (const auto &r : res) {
+        std::cout << r << std::endl;
+    }
+}
+int main()
+{
+    sw::redis::ConnectionOptions opts;
+    opts.host = FLAGS_redis_host;
+    opts.port = FLAGS_redis_port;
+    opts.db = FLAGS_redis_db;
+    opts.keep_alive  = FLAGS_redis_keep_alive;
+    predis = std::make_shared<sw::redis::Redis>(opts);
+    std::cout << "--------add-------\n";
+    add();
+    std::cout << "--------get-------\n";
+    get();
+    std::cout << "--------2s get-------\n";
+
+    std::this_thread::sleep_for(std::chrono::seconds(2));
+    get();
+    std::cout << "--------update-------\n";
+    update();
+    std::cout << "--------2s get-------\n";
+    std::this_thread::sleep_for(std::chrono::seconds(2));
+    get();
+
+    std::cout << "--------push-------\n";
+    push_test();
+    return 0;
+}
+```
+
+**编译命令：**
+
+```cpp
+main : main.cc
+    g++ -std=c++17 $^ -o $@ -lredis++ -lhiredis -lgflags -pthread
+```
+
+
+
+
+# 10. ODB安装与使用
+
+## 10.1 ODB2.5版本安装
+
+### 10.1.1 安装build2
+
+**步骤：**
+
+- 从build2官网下载并安装。
+- 参考安装步骤：https://build2.org/install.xhtml#unix
+
+**安装命令：**
+
+```powershell
+dev@dev-host:~/workspace$ curl -sSfO https://download.build2.org/0.17.0/build2-install-0.17.0.sh
+dev@dev-host:~/workspace$ sh build2-install-0.17.0.sh
+```
+
+**解决网络问题：**
+
+- 若因网络问题安装失败，增加超时时间。
+
+```shell
+dev@dev-host:~/workspace$ sh build2-install-0.17.0.sh --timeout 1800
+```
+
+### 10.1.2 安装odb-compiler
+
+**步骤：**
+
+- 安装 `gcc-11-plugin-dev` 包，创建并进入 `odb-build` 目录。
+
+**安装命令：**
+
+```powershell
+dev@dev-host:~/workspace$ sudo apt-get install gcc-11-plugin-dev
+dev@dev-host:~/workspace$ mkdir odb-build && cd odb-build
+dev@dev-host:~/workspace/odb-build$ bpkg create -d odb-gcc-N cc \
+  config.cxx=g++ \
+  config.cc.coptions=-O3 \
+  config.bin.rpath=/usr/lib \
+  config.install.root=/usr/ \
+  config.install.sudo=sudo
+```
+
+- 构建和安装 `odb`。
+
+```powershell
+dev@dev-host:~/workspace/odb-build$ cd odb-gcc-N
+dev@dev-host:~/workspace/odb-build/odb-gcc-N$ bpkg build odb@https://pkg.cppget.org/1/beta
+dev@dev-host:~/workspace/odb-build/odb-gcc-N$ bpkg test odb
+dev@dev-host:~/workspace/odb-build/odb-gcc-N$ bpkg install odb
+```
+
+- 若无法找到 `odb`，执行以下命令：
+
+```powershell
+dev@dev-host:~/workspace/odb-build/odb-gcc-N$ sudo echo 'export PATH=${PATH}:/usr/local/bin' >> ~/.bashrc
+dev@dev-host:~/workspace/odb-build/odb-gcc-N$ export PATH=${PATH}:/usr/local/bin
+```
+
+### 10.1.3 安装ODB运行时库
+
+**步骤：**
+
+- 创建并进入 `libodb-gcc-N` 目录。
+
+**安装命令：**
+
+```powershell
+dev@dev-host:~/workspace/odb-build$ bpkg create -d libodb-gcc-N cc \
+  config.cxx=g++ \
+  config.cc.coptions=-O3 \
+  config.install.root=/usr/ \
+  config.install.sudo=sudo
+dev@dev-host:~/workspace/odb-build$ cd libodb-gcc-N
+dev@dev-host:~/workspace/odb-build/libodb-gcc-N$ bpkg add https://pkg.cppget.org/1/beta
+dev@dev-host:~/workspace/odb-build/libodb-gcc-N$ bpkg fetch
+dev@dev-host:~/workspace/odb-build/libodb-gcc-N$ bpkg build libodb
+dev@dev-host:~/workspace/odb-build/libodb-gcc-N$ bpkg build libodb-mysql
+```
+
+### 10.1.4 安装mysql和客户端开发包
+
+**安装命令：**
+
+```cpp
+sudo apt install mysql-server
+sudo apt install -y libmysqlclient-dev
+```
+
+### 10.1.5 配置mysql
+
+**修改配置文件：**
+
+```cpp
+sudo vim /etc/my.cnf  或者  /etc/mysql/my.cnf
+```
+
+**添加以下内容：**
+
+```plaintext
+[client]
+default-character-set=utf8
+[mysql]
+default-character-set=utf8
+[mysqld]
+character-set-server=utf8
+bind-address = 0.0.0.0
+```
+
+### 10.1.6 修改root用户密码
+
+**步骤：**
+
+- 使用 `debian-sys-maint` 用户登录并修改 `root` 用户密码。
+
+```cpp
+dev@bite:~$ sudo mysql -u debian-sys-maint -p
+Enter password: # 输入密码
+mysql> ALTER USER 'root'@'localhost' IDENTIFIED WITH mysql_native_password BY 'xxxxxx';
+mysql> FLUSH PRIVILEGES;
+mysql> quit
+```
+
+### 10.1.7 重启mysql并设置开机启动
+
+**命令：**
+
+```cpp
+sudo systemctl restart mysql
+sudo systemctl enable mysql
+```
+
+### 10.1.8 安装boost profile库
+
+**步骤：**
+
+- 构建 `libodb-boost`。
+
+```powershell
+dev@dev-host:~/workspace/odb-build/libodb-gcc-N$ bpkg build libodb-boost
+```
+
+## 10.2 总体操作
+
+### 10.2.1 总体打包安装
+
+**命令：**
+
+```powershell
+dev@dev-host:~/workspace/odb-build/libodb-gcc-N$ bpkg install --all --recursive
+```
+
+### 10.2.2 总体卸载
+
+**命令：**
+
+```powershell
+dev@dev-host:~/workspace/odb-build/libodb-gcc-N$ bpkg uninstall --all --recursive
+```
+
+### 10.2.3 总体升级
+
+**步骤：**
+
+- 依次执行fetch、status、uninstall、build、install命令。
+
+```powershell
+dev@dev-host:~/workspace/odb-build/libodb-gcc-N$ bpkg fetch
+dev@dev-host:~/workspace/odb-build/libodb-gcc-N$ bpkg status
+dev@dev-host:~/workspace/odb-build/libodb-gcc-N$ bpkg uninstall --all --recursive
+dev@dev-host:~/workspace/odb-build/libodb-gcc-N$ bpkg build --upgrade --recursive
+dev@dev-host:~/workspace/odb-build/libodb-gcc-N$ bpkg install --all --recursive
+```
+
+## 10.3 测试样例
+
+### 10.3.1 编写数据结构文件：person.hxx
+
+**代码示例：**
+
+```cpp
+#pragma once
+#include <string>
+#include <cstddef> // std::size_t
+#include <boost/date_time/posix_time/posix_time.hpp>
+#include <odb/core.hxx>
+
+typedef boost::posix_time::ptime ptime;
+
+#pragma db object
+class Person {
+    public:
+        Person(const std::string &name, int age, const ptime &update):
+            _name(name), _age(age), _update(update){}
+        void age(int val) { _age = val; }
+        int age() { return _age; }
+        void name(const std::string& val) { _name = val; }
+        std::string name() { return _name; }
+        void update(const ptime &update) { _update = update; }
+        std::string update() { return boost::posix_time::to_simple_string(_update); }
+    private:
+        friend class odb::access;
+        Person () {}
+        #pragma db id auto
+        unsigned long _id;
+        unsigned short _age;
+        std::string _name;
+        #pragma db type("TIMESTAMP") not_null
+        boost::posix_time::ptime _update;
+};
+```
+
+### 10.3.2 生成数据库支持的代码文件
+
+**命令：**
+
+```cpp
+dev@dev-host:~/workspace/odb-test$ odb -d mysql  --std c++11 --generate-query --generate-schema --profile boost/date-time person.hxx
+```
+
+### 10.3.3 编写主函数代码：test.cc
+
+**代码示例：**
+
+```cpp
+#include <string>
+#include <memory>   // std::auto_ptr
+#include <cstdlib>  // std::exit
+#include <iostream>
+
+#include <odb/database.hxx>
+#include <odb/mysql/database.hxx>
+
+#include "person.hxx"
+#include "person-odb.hxx"
+
+int main() {
+    std::shared_ptr<odb::core::database> db(
+        new odb::mysql::database("root", "Zwc111...", "mytest", "127.0.0.1", 0, 0, "utf8"));
+    if (!db) { return -1; }
+    ptime p = boost::posix_time::second_clock::local_time();
+    Person zhang("小张", 18, p);
+    Person wang("小王", 19, p);
+
+    typedef odb::query<Person> query;
+    typedef odb::result<Person> result;
+    {
+        odb::core::transaction t(db->begin());
+        size_t zid = db->persist(zhang);
+        size_t wid = db->persist(wang);
+        t.commit();
+    }
+    {
+        ptime p = boost::posix_time::time_from_string("2024-05-22 09:09:39");
+        ptime e = boost::posix_time::time_from_string("2024-05-22 09:13:29");
+        odb::core::transaction t (db->begin());
+        result r (db->query<Person>(query::update < e && query::update > p));
+        for (result::iterator i(r.begin()); i != r.end(); ++i) {
+            std::cout << "Hello, " << i->name() << " ";
+            std::cout << i->age() << " " << i->update()
+
+ << std::endl;
+        }
+        t.commit();
+    }
+    return 0;
+}
+```
+
+### 10.3.4 代码编译
+
+**命令：**
+
+```cpp
+dev@dev-host:~/workspace/odb-test$ c++ -o test test.cpp person-odb.cxx -lodb-mysql -lodb -lodb-boost
+```
+
+### 10.3.5 运行时报错解决
+
+- 可能因库文件安装在 `/usr/local/lib` 下，需设置 `LD_LIBRARY_PATH`。
+
+```cpp
+export LD_LIBRARY_PATH=/usr/local/lib:$LD_LIBRARY_PATH
+```
+
+## 10.4 ODB常见操作介绍
+
+### 10.4.1 ODB类型映射
+
+**步骤：**
+
+- ODB 编程中使用预处理器指令（#pragma）来提供元数据，指示如何将 C++类型映射到数据库模式。
+
+**常用#pragma指令：**
+
+- **#pragma db object:** 声明一个类为数据库对象。
+- **#pragma db table("table_name"):** 指定类映射的数据库表名。
+- **#pragma db id:** 标记成员变量为数据库表的主键。
+- **#pragma db column("column_name"):** 指定成员变量映射的数据库表列名。
+- **#pragma db view:** 声明一个类为数据库视图。
+- **#pragma db session:** 声明一个全局或成员变量为数据库会话。
+- **#pragma db query("query"):** 定义自定义的查询函数。
+- **#pragma db index("index_name"):** 指定成员变量应被索引。
+- **#pragma db default("default_value"):** 指定成员变量的默认值。
+- **#pragma db unique:** 指定成员变量或一组变量的唯一性约束。
+- **#pragma db not_null:** 指定成员变量不允许为空。
+- **#pragma db auto:** 指定成员变量的值在插入时自动生成。
+- **#pragma db transient:** 指定成员变量不应被持久化到数据库中。
+- **#pragma db type("type_name"):** 指定成员变量的数据库类型。
+- **#pragma db convert("converter"):** 指定自定义类型转换器。
+- **#pragma db pool("pool_name"):** 指定用于数据库连接的连接池。
+- **#pragma db trigger("trigger_name"):** 指定在插入、更新或删除操作时触发的触发器。
+
+## 10.5 使用样例
+
+### 10.5.1 ODB的基础操作
+
+**代码示例：**
+
+```cpp
+#include <odb/database.hxx>
+#include <odb/mysql/database.hxx>
+#include <gflags/gflags.h>
+
+#include "person.hxx"
+#include "person-odb.hxx"
+
+DEFINE_int32(msyql_port, 0, "mysql 服务器端口");
+DEFINE_string(msyql_host, "127.0.0.1", "mysql 服务器地址");
+DEFINE_string(msyql_db, "bite_im", "mysql 默认连接库名称");
+DEFINE_string(msyql_user, "root", "mysql 默认连接用户名");
+DEFINE_string(msyql_passwd, "bite_666", "mysql 默认连接密码");
+DEFINE_int32(msyql_conn_pool, 3, "mysql 连接池中连接最大数量");
+
+class MysqlClient {
+public:
+    static std::shared_ptr<odb::database> create(
+        const std::string& user,
+        const std::string& passwd,
+        const std::string& db_name,
+        const std::string& host,
+        int port,
+        size_t conn_pool_count) {
+        std::unique_ptr<odb::mysql::connection_factory> pool(
+            new odb::mysql::connection_pool_factory(conn_pool_count));
+        std::shared_ptr<odb::database> db(new odb::mysql::database(
+            user.c_str(), passwd.c_str(), db_name.c_str(), host.c_str(), port, 0, "utf8", 0, std::move(pool)));
+        return db;
+    }
+    static std::shared_ptr<odb::transaction> transaction(const std::shared_ptr<odb::database> &db) {
+        return std::make_shared<odb::transaction>(db->begin());
+    }
+    static void commit(const std::shared_ptr<odb::transaction> &t) {
+        return t->commit();
+    }
+    static void rollback(const std::shared_ptr<odb::transaction> &t) {
+        return t->rollback();
+    }
+};
+
+class StudentDao {
+    public:
+        StudentDao(const std::string& user,
+        const std::string& passwd,
+        const std::string& db_name,
+        const std::string& host,
+        int port,
+        size_t conn_pool_count):_db(MysqlClient::create(
+            user, passwd, db_name, host, port, conn_pool_count)) 
+        {}
+        void append(Student& stu) {
+            try{
+                auto t = MysqlClient::transaction(_db);
+                _db->persist(stu);
+                MysqlClient::commit(t);
+            } catch(std::exception &e) {
+                std::cout << e.what() << std::endl;
+            }
+        }
+        void update(const Student& stu) {
+            try{
+                auto t = MysqlClient::transaction(_db);
+                _db->update(stu);
+                MysqlClient::commit(t);
+            } catch(std::exception &e) {
+                std::cout << e.what() << std::endl;
+            }
+        }
+        void remove(const std::string &name) {
+            try{
+                auto t = MysqlClient::transaction(_db);
+                typedef odb::query<Student> query;
+                _db->erase_query<Student>(query::name == name);
+                MysqlClient::commit(t);
+            } catch(std::exception &e) {
+                std::cout << e.what() << std::endl;
+            }
+        }
+        std::vector<std::string> select(int n) {
+            std::vector<std::string> res;
+            try{
+                auto t = MysqlClient::transaction(_db);
+                typedef odb::query<all_name> query;
+                typedef odb::result<all_name> result;
+                std::string cond = "order by age desc limit ";
+                cond += std::to_string(n);
+                result r(_db->query<all_name>(cond));
+                for (auto i(r.begin()); i != r.end(); ++i) {
+                    res.push_back(i->name);
+                }
+                MysqlClient::commit(t);
+            } catch(std::exception &e) {
+                std::cout << e.what() << std::endl;
+            }
+            return res;
+        }
+    private:
+        std::shared_ptr<odb::database> _db;
+};
+
+class ClassesDao {
+    public:
+        ClassesDao(const std::string& user,
+        const std::string& passwd,
+        const std::string& db_name,
+        const std::string& host,
+        int port,
+        size_t conn_pool_count):_db(MysqlClient::create(
+            user, passwd, db_name, host, port, conn_pool_count)) 
+        {}
+        void append(const std::string &id, const std::string &desc) {
+            Classes c(id, desc);
+            try{
+                auto t = MysqlClient::transaction(_db);
+                _db->persist(c);
+                MysqlClient::commit(t);
+            } catch(std::exception &e) {
+                std::cout << e.what() << std::endl;
+            }
+        }
+        std::vector<class_student> select(const std::string &id) {
+            std::vector<class_student> res;
+            try{
+                auto t = MysqlClient::transaction(_db);
+                typedef odb::query<class_student> query;
+                typedef odb::result<class_student> result;
+                std::string cond = "Classes.classes_id=" + id;
+                result r(_db->query<class_student>(cond));
+                for (auto i(r.begin()); i != r.end(); ++i) {
+                    res.push_back(*i);
+                }
+                MysqlClient::commit(t);
+            } catch(std::exception &e) {
+                std::cout << e.what() << std::endl;
+            }
+            return res;
+        }
+    private:
+        std::shared_ptr<odb::database> _db;
+};
+
+int main(int argc, char *argv[])
+{
+    ClassesDao classes_tb(FLAGS_msyql_user, FLAGS_msyql_passwd, 
+        FLAGS_msyql_db, FLAGS_msyql_host, 
+        FLAGS_msyql_port, FLAGS_msyql_conn_pool);
+    classes_tb.append("11111", "一年级一班");
+    classes_tb.append("22222", "一年级二班");
+
+    auto res = classes_tb.select("11111");
+    for (auto r : res) {
+        std::cout << r.stu << "\t" << r.classes << std::endl;
+    }
+    return 0;
+}
+```
+
+## 10.6 官网链接
+
+- [https://codesynthesis.com/products/odb/doc/manual.xhtml](https://codesynthesis.com/products/odb/doc/manual.xhtml)
+- [https://codesynthesis.com/products/odb/](https://codesynthesis.com/products/odb/)
+- [https://codesynthesis.com/products/odb/doc/install-build2.xhtml](https://codesynthesis.com/products/odb/doc/install-build2.xhtml)
+
+
+
+# 11. RabbitMq C++客户端的使用
+
+## 11.1 安装RabbitMQ
+
+### 11.1.1 安装教程
+
+**安装命令：**
+
+```shell
+sudo apt install rabbitmq-server
+```
+
+### 11.1.2 RabbitMQ的简单使用
+
+**启动服务：**
+
+```shell
+sudo systemctl start rabbitmq-server.service
+```
+
+**查看服务状态：**
+
+```shell
+sudo systemctl status rabbitmq-server.service
+```
+
+**创建管理员用户：**
+
+```shell
+# 添加用户
+sudo rabbitmqctl add_user root 123456
+# 设置用户标签
+sudo rabbitmqctl set_user_tags root administrator
+# 设置用户权限
+sudo rabbitmqctl set_permissions -p / root "." "." ".*"
+```
+
+**启用Web管理界面：**
+
+```shell
+sudo rabbitmq-plugins enable rabbitmq_management
+```
+
+**访问WebUI界面：**
+
+- 默认端口为 `15672`。
+
+## 11.2 安装RabbitMQ客户端库
+
+**安装命令：**
+
+```shell
+sudo apt-get install librabbitmq-dev
+```
+
+## 11.3 安装RabbitMQ的C++客户端库
+
+### 11.3.1 安装AMQP-CPP
+
+**步骤：**
+
+- 安装依赖库 `libev`。
+- 下载并安装 `AMQP-CPP`。
+
+**安装命令：**
+
+```shell
+sudo apt install libev-dev     # libev 网络库组件
+git clone https://github.com/CopernicaMarketingSoftware/AMQP-CPP.git
+cd AMQP-CPP/
+make
+make install
+```
+
+**解决安装报错：**
+
+- 若出现 `openssl` 相关错误，卸载并重新安装 `ssl` 库。
+
+```cpp
+sudo dpkg -P --force-all libevent-openssl-2.1-7
+sudo dpkg -P --force-all openssl
+sudo dpkg -P --force-all libssl-dev
+sudo apt --fix-broken install
+```
+
+## 11.4 AMQP-CPP库的简单使用
+
+### 11.4.1 介绍
+
+**AMQP-CPP** 是用于与 RabbitMq 消息中间件通信的 C++ 库。它能解析从 RabbitMq 服务发送来的数据，也可以生成发向 RabbitMq 的数据包。该库提供了可选的网络层接口，支持 TCP 模块以及异步通信组件（如 `libevent`、`libev`、`libuv`、`asio` 等）。
+
+- 需要 C++17 的支持。
+
+### 11.4.2 使用
+
+AMQP-CPP 的使用有两种模式：
+
+- 使用默认的 TCP 模块进行网络通信。
+- 使用扩展的 `libevent`、`libev`、`libuv`、`asio` 异步通信组件进行通信。
+
+#### 11.4.2.1 TCP模式
+
+**步骤：**
+
+- 实现一个类继承自 `AMQP::TcpHandler`，负责网络层的 TCP 连接。
+- 重写相关函数，其中必须重写 `monitor` 函数。
+
+**代码示例：**
+
+```cpp
+#include <amqpcpp.h>
+#include <amqpcpp/linux_tcp.h>
+
+class MyTcpHandler : public AMQP::TcpHandler
+{
+    virtual void onAttached(AMQP::TcpConnection *connection) override {}
+    virtual void onConnected(AMQP::TcpConnection *connection) override {}
+    virtual bool onSecured(AMQP::TcpConnection *connection, const SSL *ssl) override { return true; }
+    virtual void onReady(AMQP::TcpConnection *connection) override {}
+    virtual uint16_t onNegotiate(AMQP::TcpConnection *connection, uint16_t interval) { return interval < 60 ? 60 : interval; }
+    virtual void onError(AMQP::TcpConnection *connection, const char *message) override {}
+    virtual void onClosed(AMQP::TcpConnection *connection) override {}
+    virtual void onLost(AMQP::TcpConnection *connection) override {}
+    virtual void onDetached(AMQP::TcpConnection *connection) override {}
+    virtual void monitor(AMQP::TcpConnection *connection, int fd, int flags) override {}
+};
+```
+
+#### 11.4.2.2 扩展模式
+
+- 以 `libev` 为例，不必自己实现 `monitor` 函数，可直接使用 `AMQP::LibEvHandler`。
+
+### 11.4.3 常用类与接口介绍
+
+#### 11.4.3.1 Channel
+
+**Channel** 是一个虚拟连接，在连接上可以建立多个通道。所有的 RabbitMq 指令都是通过 `Channel` 传输。
+
+**常用接口：**
+
+```cpp
+namespace AMQP {
+    using SuccessCallback = std::function<void()>;
+    using ErrorCallback = std::function<void(const char *message)>;
+    using FinalizeCallback = std::function<void()>;
+
+    using QueueCallback = std::function<void(const std::string &name, uint32_t messagecount, uint32_t consumercount)>;
+    using DeleteCallback = std::function<void(uint32_t deletedmessages)>;
+    using MessageCallback = std::function<void(const Message &message, uint64_t deliveryTag, bool redelivered)>;
+
+    using AckCallback = std::function<void(uint64_t deliveryTag, bool multiple)>;
+    using PublishAckCallback = std::function<void()>;
+    using PublishNackCallback = std::function<void()>;
+    using PublishLostCallback = std::function<void()>;
+
+    class Channel {
+        Channel(Connection *connection);
+        bool connected();
+
+        Deferred &declareExchange(const std::string_view &name, ExchangeType type, int flags, const Table &arguments);
+        DeferredQueue &declareQueue(const std::string_view &name, int flags, const Table &arguments);
+        Deferred &bindQueue(const std::string_view &exchange, const std::string_view &queue, const std::string_view &routingkey, const Table &arguments);
+        bool publish(const std::string_view &exchange, const std::string_view &routingKey, const std::string &message, int flags = 0);
+        DeferredConsumer &consume(const std::string_view &queue, const std::string_view &tag, int flags, const Table &arguments);
+        bool ack(uint64_t deliveryTag, int flags=0);
+    };
+
+    class DeferredConsumer {
+        DeferredConsumer &onSuccess(const ConsumeCallback& callback);
+        DeferredConsumer &onReceived(const MessageCallback& callback);
+        DeferredConsumer &onMessage(const MessageCallback& callback);
+        DeferredConsumer &onCancelled(const CancelCallback& callback);
+    };
+
+    class Message : public Envelope {
+        const std::string &exchange();
+        const std::string &routingkey();
+    };
+
+    class Envelope : public MetaData {
+        const char *body();
+        uint64_t bodySize();
+    };
+}
+```
+
+#### 11.4.3.2 ev
+
+**`ev` 相关接口：**
+
+```cpp
+typedef struct ev_async {
+  EV_WATCHER (ev_async)
+  EV_ATOMIC_T sent; /* private */
+} ev_async;
+
+enum {
+  EVBREAK_CANCEL = 0, /* undo unloop */
+  EVBREAK_ONE    = 1, /* unloop once */
+  EVBREAK_ALL    = 2  /* unloop all loops */
+};
+
+struct ev_loop *ev_default_loop (unsigned int flags EV_CPP (= 0));
+# define EV_DEFAULT  ev_default_loop (0)
+
+int ev_run (struct ev_loop *loop);
+void ev_break (struct ev_loop *loop, int32_t break_type);
+void (*callback)(struct ev_loop *loop, ev_async *watcher, int32_t revents);
+
+void ev_async_init(ev_async *w, callback cb);
+void ev_async_start(struct ev_loop *loop, ev_async *w);
+void ev_async_send(struct ev_loop *loop, ev_async *w);
+```
+
+**第三方库链接：**
+
+```cpp
+g++ -o example example.cpp -lamqpcpp -lev
+```
+
+## 11.5 二次封装思想
+
+在项目中使用 RabbitMQ 时，我们可以对 RabbitMQ 的操作进行简单的封装，以便在项目中更方便地使用。
+
+**封装一个 MQClient：**
+
+- 提供声明指定交换机与队列，并进行绑定的功能。
+- 提供向指定交换机发布消息的功能。
+- 提供订阅指定队列消息，并设置回调函数进行消息消费处理的功能。
+
+
+
+
+# 12. 短信验证码 SDK
+
+## 12.1 环境搭建
+
+### 12.1.1 注册/登录阿里云网站
+
+**网址：**
+
+- https://account.aliyun.com/login/login.htm?oauth_callback=https%3A%2F%2Fdysms.console.aliyun.com%2F&lang=zh
+
+### 12.1.2 开通并购买短信服务
+
+**步骤：**
+
+- 在阿里云官网中搜索“短信服务”并进入购买页面，按照步骤进行购买。
+
+### 12.1.3 开始学习和测试
+
+**步骤：**
+
+1. 新增资质
+   - 审核时长一般为 2 小时内完成，涉及政企资质的审核时长约为 2 个工作日内完成。
+
+2. 申请签名
+   - 按照提示申请短信签名。
+
+3. 申请模板
+   - 根据需要申请短信模板。
+
+4. 系统设置
+   - 可略过，使用默认设置即可。
+
+5. 控制台发送短信测试
+   - 在控制台中测试发送短信。
+
+## 12.2 API使用测试
+
+### 12.2.1 创建 AccessKey
+
+**说明：**
+
+- `AccessKey ID` 和 `AccessKey Secret` 是访问阿里云 API 的密钥，具有完全的权限，需要妥善保管。
+
+**步骤：**
+
+- 创建并保存 `AccessKey ID` 和 `AccessKey Secret`，后续在编写代码时需要使用。
+
+### 12.2.2 调用 API 发送短信
+
+**步骤：**
+
+- 回到短信服务首页，调用 API 发送短信。
+- 可以在控制台中进行测试，也可以复制 SDK 示例代码，注意需要安装好对应的 SDK 组件。
+
+## 12.3 集成短信 SDK到项目
+
+### 12.3.1 安装阿里云 C++ SDK
+
+**安装依赖：**
+
+```shell
+sudo apt-get install libcurl4-openssl-dev libssl-dev uuid-dev libjsoncpp-dev
+```
+
+**克隆代码：**
+
+```shell
+git clone https://github.com/aliyun/aliyun-openapi-cpp-sdk.git
+```
+
+**编译安装：**
+
+```shell
+sudo sh easyinstall.sh core
+```
+
+### 12.3.2 拷贝 SDK 实例代码到 C++ 源文件中
+
+**代码示例：**
+
+```cpp
+#include <cstdlib>
+#include <iostream>
+#include <alibabacloud/core/AlibabaCloud.h>
+#include <alibabacloud/core/CommonRequest.h>
+#include <alibabacloud/core/CommonClient.h>
+#include <alibabacloud/core/CommonResponse.h>
+
+using namespace std;
+using namespace AlibabaCloud;
+
+int main( int argc, char** argv )
+{
+    AlibabaCloud::InitializeSdk();
+    AlibabaCloud::ClientConfiguration configuration("cn-hangzhou");
+    configuration.setConnectTimeout(1500);
+    configuration.setReadTimeout(4000);
+    AlibabaCloud::Credentials credential(getenv("ALIBABA_CLOUD_ACCESS_KEY_ID"), getenv("ALIBABA_CLOUD_ACCESS_KEY_SECRET"));
+    
+    AlibabaCloud::CommonClient client(credential, configuration);
+    AlibabaCloud::CommonRequest request(AlibabaCloud::CommonRequest::RequestPattern::RpcPattern);
+    
+    request.setHttpMethod(AlibabaCloud::HttpRequest::Method::Post);
+    request.setDomain("dysmsapi.aliyuncs.com");
+    request.setVersion("2017-05-25");
+    request.setQueryParameter("Action", "SendSms");
+    request.setQueryParameter("SignName", "bitejiuyeke");
+    request.setQueryParameter("TemplateCode", "SMS_465324787");
+    request.setQueryParameter("PhoneNumbers", "18392852312");
+    request.setQueryParameter("TemplateParam", "{\"code\":\"1234\"}");
+
+    auto response = client.commonResponse(request);
+    if (response.isSuccess()) {
+        printf("request success.\n");
+        printf("result: %s\n", response.result().payload().c_str());
+    } else {
+        printf("error: %s\n", response.error().errorMessage().c_str());
+        printf("request id: %s\n", response.error().requestId().c_str());
+    }
+
+    AlibabaCloud::ShutdownSdk();
+    return 0;
+}
+```
+
+### 12.3.3 编译代码，链接阿里云 SDK 库文件
+
+**编译命令：**
+
+```shell
+g++ -o main main.cc -std=c++11 -lalibabacloud-sdk-core
+```
+
+**运行代码：**
+
+- 运行后可以看到已经发送短信成功了。
+
+**阿里云 SDK 仓库链接：**
+
+- https://github.com/aliyun/aliyun-openapi-cpp-sdk/blob/master/README-CN.md
+
+## 12.4 封装思想
+
+在项目中，简化使用 SDK 的操作，将其封装为一个简单的接口。
+
+**封装一个简单的短信发送接口：**
+
+- 管理 SDK 中的 `client` 对象。
+- 提供向指定手机号发送指定短信的接口。
+
+
+
+# 13. 语音识别 SDK
+
+## 13.1 安装使用
+
+### 13.1.1 登录百度云
+
+**网址：**
+
+- https://login.bce.baidu.com/
+
+### 13.1.2 搜索语音技术
+
+**步骤：**
+
+- 在百度云平台中搜索“语音技术”进入相关页面。
+
+### 13.1.3 领取免费试用资源
+
+**步骤：**
+
+- 按照提示领取免费试用资源。
+
+### 13.1.4 创建应用
+
+**步骤：**
+
+- 创建应用以获取相应的应用凭证，包括 `AppID`、`API Key`、`Secret Key`。
+
+### 13.1.5 获取秘钥
+
+**说明：**
+
+- 在创建完应用后，平台将分配给应用的凭证（`AppID`、`API Key`、`Secret Key`），这些信息是应用实际开发的主要凭证，请妥善保管。
+
+### 13.1.6 使用 SDK 调用服务
+
+**下载语音识别 SDK：**
+
+- 下载地址：https://ai.baidu.com/sdk
+- 选择 C++ SDK 下载。
+
+**安装 SDK 所需依赖：**
+
+```shell
+# 安装 jsoncpp
+sudo apt install libjsoncpp-dev
+# 安装 libcurl
+sudo apt install curl
+# 安装 openssl（Ubuntu 22.04 默认安装了）
+```
+
+**创建工程集成 C++ SDK：**
+
+- `aip-cpp-sdk-4.16.6` 为百度 C++ SDK 源码。
+- `main.cc` 为项目代码，主要通过 SDK 接口调用语音识别服务。
+- `public` 目录下为一些测试音频数据。
+
+### 13.1.7 测试样例
+
+**代码示例：**
+
+```cpp
+#include "aip-cpp-sdk-4.16.7/speech.h"
+
+void ASR(aip::Speech* client) {
+    std::map<std::string, std::string> options;
+    //options["dev_pid"] = "1537"; // 普通话识别
+    std::string file_content;
+    aip::get_file_content("./16k.pcm", &file_content);
+    Json::Value result = client->recognize(file_content, "pcm", 16000, options);
+    std::cout << "语音识别本地文件结果:" << std::endl << result.toStyledString();
+
+    if (result["err_no"].asInt() != 0) {
+        std::cout << result["err_msg"].asString() << std::endl;
+        return;
+    }
+    std::string message = result["result"][0].asString();
+    std::cout << "message :" << message << std::endl;
+}
+
+int main() {
+    // 务必替换百度云控制台中新建百度语音应用的 Api Key 和 Secret Key
+    aip::Speech * client = new aip::Speech("app_id", "api_key", "secret_key");
+
+    // 语音识别调用
+    ASR(client);
+
+    return 0;
+}
+```
+
+**编译运行代码：**
+
+```shell
+g++ -o main main.cc -std=c++11 -lcurl -lcrypto -ljsoncpp
+./main
+```
+
+**运行结果：**
+
+- 输出语音识别结果，例如：“北京科技馆”。
+
+## 13.2 注意事项
+
+1. **关于参数：**
+   - 如果音频参数不符合要求，可以使用 `ffmpeg` 工具进行转码。
+   - 采样率：百度语音识别一般仅支持 `16000` 的采样率。
+   - 位深：使用 `16bits` 小端序，即 `2` 个字节记录 `1/16000 s` 的音频数据。
+   - 声道：仅支持单声道。
+
+2. **语音识别返回结果与音频内容不匹配：**
+   - 可能是音频采样率、声道、格式等参数不符合接口规范，可以用工具对音频进行转码。
+
+3. **官方文档：**
+   - 在使用之前，请先阅读官方文档：https://ai.baidu.com/ai-doc/SPEECH/dlbxfrs5o
+
+## 13.3 相关链接
+
+- 测试音频下载链接：https://platform.bj.bcebos.com/sdk/asr/asr_doc/doc_download_files/public.zip
+- C++ SDK 使用文档：https://ai.baidu.com/ai-doc/SPEECH/dlbxfrs5o
+- 常见问题：https://ai.baidu.com/ai-doc/SPEECH/wlciqajfo
+- 音频格式及转码：https://ai.baidu.com/ai-doc/SPEECH/7k38lxpwf
+- 调用示例：https://github.com/Baidu-AIP/sdk-demo
+
+
+
+# 14. SpeechRecognitionServer 设计与实现
+
+## 14.1 功能设计
+
+**语音转换子服务：**
+
+- 用于调用语音识别 SDK，进行语音识别，将语音转为文字后返回给网关。
+- 提供的功能性接口只有一个：语音消息的文字转换，供客户端进行语音消息的文字转换。
+
+## 14.2 模块划分
+
+1. **参数/配置文件解析模块：**
+   - 基于 `gflags` 框架直接使用进行参数/配置文件解析。
+
+2. **日志模块：**
+   - 基于 `spdlog` 框架封装的模块直接使用进行日志输出。
+
+3. **服务注册模块：**
+   - 基于 `etcd` 框架封装的注册模块直接使用进行语音识别子服务的服务注册。
+
+4. **RPC 服务模块：**
+   - 基于 `brpc` 框架搭建 RPC 服务器。
+
+5. **语音识别 SDK 模块：**
+   - 基于语音识别平台提供的 SDK 直接使用，完成语音的识别转文字。
+
+## 14.3 模块功能示意图
+
+（此处插入模块功能示意图）
+
+## 14.4 接口实现流程
+
+**语音识别：**
+
+1. 接收请求，从请求中取出语音数据。
+2. 基于语音识别 SDK 进行语音识别，获取识别后的文本内容。
+3. 组织响应进行返回。
+
+
+
+# 15. MessageStoreServer
+
+## 15.1 功能设计
+
+**消息管理子服务：**
+
+- 主要用于管理消息的存储：
+  - **文本消息：** 储存在 ElasticSearch 文档搜索服务中。
+  - **文件/语音/图片：** 需要转储到文件管理子服务中。
+  
+- 还需管理消息的搜索与获取，对外提供以下接口：
+  1. **获取历史消息：**
+     - 获取最近 N 条消息：用于登录成功后，点击对方头像打开聊天框时显示最近的消息。
+     - 获取指定时间段内的消息：用户可以按时间搜索聊天消息。
+  2. **关键字消息搜索：** 用户可以针对指定好友的聊天消息进行关键字搜索。
+
+## 15.2 模块划分
+
+1. **参数/配置文件解析模块：**
+   - 基于 `gflags` 框架直接使用进行参数/配置文件解析。
+
+2. **日志模块：**
+   - 基于 `spdlog` 框架封装的模块直接使用进行日志输出。
+
+3. **服务注册模块：**
+   - 基于 `etcd` 框架封装的注册模块直接使用，进行聊天消息存储子服务的注册。
+
+4. **数据库数据操作模块：**
+   - 基于 `odb-mysql` 数据管理封装的模块，进行数据库数据操作，用于从 MQ 中消费到消息后，向数据库中存储一份，以便通过时间进行范围性查找。
+   - 从数据库根据指定用户的所有好友信息。
+
+5. **RPC 服务模块：**
+   - 基于 `brpc` 框架搭建 RPC 服务器。
+
+6. **服务发现与调用模块：**
+   - 基于 `etcd` 和 `brpc` 框架封装的服务发现与调用模块。
+   - 连接文件管理子服务：将文件/语音/图片类型的消息以及用户头像之类的文件数据转储到文件管理子服务。
+   - 连接用户管理子服务：在消息搜索时，根据发送用户的 ID 获取发送者用户信息。
+
+7. **ES 客户端模块：**
+   - 基于 `elasticsearch` 框架实现访问客户端，向 ES 服务器进行文本聊天消息的存储，以便于文本消息的关键字搜索。
+
+8. **MQ 消费模块：**
+   - 基于 `rabbitmq-client` 封装的消费者模块从消息队列服务器消费获取聊天消息，将文本消息存储到 ElasticSearch 服务，将文件消息转储到文件管理子服务，所有消息的简息都需要向数据库存储一份。
+
+## 15.3 数据管理
+
+### 15.3.1 数据库消息管理
+
+**说明：**
+
+- 在消息的存储管理中，所有的消息简息都要在数据库中存储一份，进行消息的持久化，以便于进行时间范围性查询和离线消息的实现。
+- 消息类型有四种：文本，文件，语音，图片。数据库中只存储文本消息和其他类型消息的元信息。
+
+**数据库表结构：**
+
+- 消息 ID：唯一标识。
+- 消息产生时间：用于进行时间性搜索。
+- 消息发送者用户 ID：明确消息的发送者。
+- 消息产生会话 ID：明确消息属于哪个会话。
+- 消息类型：明确消息的类型。
+- 消息内容：只存储文本消息；文件/语音/图片数据不进行存储，或存储在文件子服务中。
+- 文件 ID：只有文件/语音/图片类消息会用到。
+- 文件大小：只有文件/语音/图片类消息会用到。
+- 文件名称：只有文件类消息会用到。
+
+**数据库操作：**
+
+- 新增消息。
+- 通过消息 ID 获取消息信息。
+- 通过会话 ID，时间范围，获取指定时间段之内的消息，并按时间进行排序。
+- 通过会话 ID，消息数量，获取最近的 N 条消息（逆序 + limit 即可）。
+
+**ODB 映射数据结构：**
+
+```cpp
+#include <string>
+#include <cstddef>
+#include <odb/core.hxx>
+#include <odb/nullable.hxx>
+#include <boost/date_time/posix_time/posix_time.hpp>
+
+#pragma db object
+class message
+{
+public:
+    message (){}
+private:
+    friend class odb::access;
+
+    #pragma db id auto
+    unsigned long _id;
+    #pragma db unique type("VARCHAR(127)")
+    std::string _message_id ;
+    #pragma db type("TIMESTAMP") not_null
+    boost::posix_time::ptime _created_time;
+    #pragma db type("VARCHAR(127)")
+    std::string _from_user_id ;
+    #pragma db type("VARCHAR(127)")
+    std::string _to_session_id ;
+    #pragma db not_null
+    signed char _message_type ;
+    odb::nullable<std::string> _content;
+    #pragma db type("VARCHAR(127)")
+    odb::nullable<std::string> _file_id ;
+    #pragma db type("VARCHAR(127)")
+    odb::nullable<std::string> _filename ;
+    odb::nullable<unsigned long> _filesize;
+};
+```
+
+### 15.3.2 ES 文本消息管理
+
+**说明：**
+
+- 为了实现聊天内容的关键字搜索功能，而不在数据库中进行模糊匹配，采用 ES 进行消息内容存储与搜索。在搜索时，需要进行会话的过滤，因此需要考虑 ES 索引的构造。
+
+**ES 文档 INDEX：**
+
+```json
+POST /message/_doc
+{
+    "settings" : {
+        "analysis" : {
+            "analyzer" : {
+                "ik" : {
+                    "tokenizer" : "ik_max_word"
+                }
+            }
+        }
+    },
+    "mappings" : {
+        "dynamic" : true,
+        "properties" : {
+            "chat_session_id" : {
+                "type" : "keyword",
+                "analyzer" : "standard"
+            },
+            "message_id" : {
+                "type" : "keyword",
+                "analyzer" : "standard"
+            },
+            "content" : {
+                "type" : "text",
+                "analyzer" : "ik_max_word"
+            }
+        }
+    }
+}
+```
+
+**ES 消息测试用例：**
+
+**新增数据：**
+
+```json
+POST /message/_doc/_bulk
+{"index":{"_id":"1"}}
+{"chat_session_id" : "会话 ID1","message_id" : "消息 ID1","content" : "吃饭了么？"}
+{"index":{"_id":"2"}}
+{"chat_session_id" : "会话 ID1","message_id" : "消息 ID2","content" : "吃的盖浇饭。"}
+{"index":{"_id":"3"}}
+{"chat_session_id" : "会话 ID2","message_id" : "消息 ID3","content" : "昨天吃饭了么？"}
+{"index":{"_id":"4"}}
+{"chat_session_id" : "会话 ID2","message_id" : "消息 ID4","content" : "昨天吃的盖浇饭。"}
+```
+
+**查看数据：**
+
+```json
+GET /message/_doc/_search?pretty
+{
+    "query": {
+        "match_all": {}
+    }
+}
+```
+
+**搜索数据：**
+
+```json
+GET /message/_doc/_search?pretty
+{
+    "query" : {
+        "bool" : {
+            "must" : [
+                {
+                    "term" : { "chat_session_id.keyword" : "会话 ID1" }
+                },
+                {
+                    "match" : { "content" : "盖浇饭" }
+                }
+            ]
+        }
+    }
+}
+```
+
+**删除索引：**
+
+```json
+DELETE /message
+```
+
+## 15.4 接口实现流程
+
+### 15.4.1 最近 N 条消息获取
+
+1. 从请求中，获取会话 ID，和要获取的消息数量。
+2. 访问数据库，从数据库中按时间排序，获取指定数量的消息简略信息（消息 ID，会话 ID，消息类型，产生时间，发送者用户 ID，文本消息内容，文件消息元信息）。
+3. 循环构造完整消息（从用户子服务获取消息的发送者用户信息，从文件子服务获取文件/语音/图片数据）。
+4. 组织响应返回给网关服务器。
+
+### 15.4.2 指定时间段消息搜索
+
+1. 从请求中，获取会话 ID，以及要获取的消息的起始时间与结束时间。
+2. 访问数据库，从数据库中按时间进行范围查询，获取消息简略信息（消息 ID，会话 ID，消息类型，产生时间，发送者用户 ID，文本消息内容，文件消息元信息）。
+3. 循环构造完整消息（从用户子服务获取消息的发送者用户信息，从文件子服务获取文件/语音/图片数据）。
+4. 组织响应返回给网关服务器。
+
+### 15.4.3 关键字消息搜索
+
+1. 从请求中，获取会话 ID，以及搜索关键字。
+2. 基于封装的 ES 客户端，访问 ES 服务器进行文本消息搜索（以消息内容进行搜索，并以会话 ID 进行过滤），从 ES 服务器获取到消息简略信息（消息 ID
+
+，会话 ID，文本消息内容）。
+3. 循环从数据库根据消息 ID 获取消息简略信息（消息 ID，消息类型，会话 ID，发送者 ID，产生时间，文本消息内容，文件消息元数据）。
+4. 循环从用户子服务获取所有消息的发送者用户信息，构造完整消息。
+5. 组织响应返回给网关服务器。
+
+
+
+
+# 16. FileServer 设计与实现
+
+## 16.1 功能设计
+
+1. **文件的上传：**
+   - **单个文件的上传：** 这个接口基本用于后台部分，收到文件消息后将文件数据转发给文件子服务进行存储。
+   - **多个文件的上传：** 这个接口基本用于后台部分，收到文件消息后将文件数据转发给文件子服务进行存储。
+
+2. **文件的下载：**
+   - **单个文件的下载：** 在后台用于获取用户头像文件数据，以及客户端用于获取文件/语音/图片消息的文件数据。
+   - **多个文件的下载：** 在后台用于大批量获取用户头像数据（比如获取用户列表的时候），以及前端的批量文件下载。
+
+## 16.2 模块划分
+
+1. **参数/配置文件解析模块：**
+   - 基于 `gflags` 框架直接使用进行参数/配置文件解析。
+
+2. **日志模块：**
+   - 基于 `spdlog` 框架封装的模块直接使用进行日志输出。
+
+3. **服务注册模块：**
+   - 基于 `etcd` 框架封装的注册模块直接使用进行文件存储管理子服务的服务注册。
+
+4. **RPC 服务模块：**
+   - 基于 `brpc` 框架搭建 RPC 服务器。
+
+5. **文件操作模块：**
+   - 基于标准库的文件流操作实现文件读写的封装。
+
+## 16.3 模块功能示意图
+
+（此处插入模块功能示意图）
+
+## 16.4 接口实现流程
+
+### 16.4.1 单个文件的上传
+
+1. 获取文件元数据（大小、文件名、文件内容）。
+2. 为文件分配文件 ID。
+3. 以文件 ID 为文件名打开文件，并写入数据。
+4. 组织响应进行返回。
+
+### 16.4.2 多个文件的上传
+
+- 多文件上传相较于单文件上传，就是将处理过程循环进行。
+
+1. 从请求中获取文件元数据。
+2. 为文件分配文件 ID。
+3. 以文件 ID 为文件名打开文件，并写入数据。
+4. 回到第一步进行下一个文件的处理。
+5. 当所有文件数据存储完毕，组织响应进行返回。
+
+### 16.4.3 单个文件的下载
+
+1. 从请求中获取文件 ID。
+2. 以文件 ID 作为文件名打开文件，获取文件大小，并从中读取文件数据。
+3. 组织响应进行返回。
+
+### 16.4.4 多个文件的下载
+
+- 多文件下载相较于单文件下载，就是将处理过程循环进行。
+
+1. 从请求中获取文件 ID。
+2. 以文件 ID 作为文件名打开文件，获取文件大小，并从中读取文件数据。
+3. 回到第一步进行下一个文件的处理。
+4. 当所有文件数据获取完毕，组织响应进行返回。
+
+
+
+# 17. MessageTransmitServer 设计与实现
+
+## 17.1 功能设计
+
+**转发子服务：**
+
+- 主要用于针对一条消息内容，组织消息的 ID 以及各项所需元素，然后告知网关服务器一条消息应该发给谁。
+- 通常消息都是以聊天会话为基础进行发送的，根据会话找到它的所有成员，这就是转发的目标。
+- 转发子服务将收到的消息放入消息队列中，由消息存储管理子服务进行消费存储。
+
+**核心功能：**
+
+1. 获取消息转发目标：针对消息内容，组织消息，并告知网关转发目标。
+
+## 17.2 模块划分
+
+1. **参数/配置文件解析模块：**
+   - 基于 `gflags` 框架直接使用进行参数/配置文件解析。
+
+2. **日志模块：**
+   - 基于 `spdlog` 框架封装的模块直接使用进行日志输出。
+
+3. **服务注册模块：**
+   - 基于 `etcd` 框架封装的注册模块直接使用进行消息转发服务的服务注册。
+
+4. **数据库数据操作模块：**
+   - 基于 `odb-mysql` 数据管理封装的模块，从数据库获取会话成员。
+
+5. **服务发现与调用模块：**
+   - 基于 `etcd` 框架与 `brpc` 框架封装的服务发现与调用模块，从用户子服务获取消息发送者的用户信息。
+
+6. **RPC 服务模块：**
+   - 基于 `brpc` 框架搭建 RPC 服务器。
+
+7. **MQ 发布模块：**
+   - 基于 `rabbitmq-client` 封装的模块将消息发布到消息队列，让消息存储子服务进行消费，对消息进行存储。
+
+## 17.3 功能模块示意图
+
+（此处插入功能模块示意图）
+
+## 17.4 接口实现流程
+
+**获取消息转发目标与消息处理：**
+
+1. 从请求中取出消息内容、会话 ID、用户 ID。
+2. 根据用户 ID 从用户子服务获取当前发送者用户信息。
+3. 根据消息内容构造完整的消息结构（分配消息 ID，填充发送者信息，填充消息产生时间）。
+4. 将消息序列化后发布到 MQ 消息队列中，让消息存储子服务对消息进行持久化存储。
+5. 从数据库获取目标会话所有成员 ID。
+6. 组织响应（完整消息 + 目标用户 ID），发送给网关，告知网关该将消息发送给谁。
+
+
+
+
+# 18. UserServer 设计与开发
+
+## 18.1 功能设计
+
+**用户管理子服务：**
+
+- 主要用于管理用户的数据，以及关于用户信息的各项操作。用户子服务需要提供以下接口：
+  1. 用户注册：用户输入用户名（昵称）以及密码进行用户名的注册。
+  2. 用户登录：用户通过用户名和密码进行登录。
+  3. 短信验证码获取：当用户通过手机号注册或登录时，需要获取短信验证码。
+  4. 手机号注册：用户输入手机号和短信验证码进行手机号的用户注册。
+  5. 手机号登录：用户输入手机号和短信验证码进行手机号的用户登录。
+  6. 用户信息获取：用户登录后，获取个人信息进行展示。
+  7. 头像修改：设置用户头像。
+  8. 昵称修改：设置用户昵称。
+  9. 签名修改：设置用户签名。
+  10. 手机号修改：修改用户的绑定手机号。
+
+## 18.2 模块划分
+
+1. **参数/配置文件解析模块：**
+   - 基于 `gflags` 框架直接使用进行参数/配置文件解析。
+
+2. **日志模块：**
+   - 基于 `spdlog` 框架封装的模块直接使用进行日志输出。
+
+3. **服务注册模块：**
+   - 基于 `etcd` 框架封装的注册模块直接使用，进行聊天消息存储子服务的注册。
+
+4. **数据库数据操作模块：**
+   - 基于 `odb-mysql` 数据管理封装的模块，实现关系型数据库中的数据操作。
+     - 用户进行用户名/手机号注册时在数据库中进行新增信息。
+     - 用户修改个人信息时修改数据库中的记录。
+     - 用户登录时，在数据库中进行用户名密码的验证。
+
+5. **Redis 客户端模块：**
+   - 基于 `redis++` 封装的客户端进行内存数据库数据操作。
+     - 用户登录时需要为用户创建登录会话，会话信息保存在 Redis 服务器中。
+     - 用户手机号进行获取/验证验证码时，验证码与对应信息保存在 Redis 服务器中。
+
+6. **RPC 服务模块：**
+   - 基于 `brpc` 框架搭建 RPC 服务器。
+
+7. **RPC 服务发现与调用模块：**
+   - 基于 `etcd` 框架与 `brpc` 框架封装的服务发现与调用模块。
+     - 连接文件管理子服务：获取用户信息时，用户头像通过文件形式存储在文件子服务中。
+     - 连接消息管理子服务：打开聊天会话时，需要获取最近的一条消息进行展示。
+
+8. **ES 客户端模块：**
+   - 基于 `elasticsearch` 框架实现访问客户端，向 ES 服务器中存储用户简息，以便于用户搜索。
+
+9. **短信平台客户端模块：**
+   - 基于短信平台 SDK 封装使用，用于向用户手机号发送指定验证码。
+
+## 18.3 功能模块示意图
+
+（此处插入功能模块示意图）
+
+## 18.4 数据管理
+
+### 18.4.1 关系数据库数据管理
+
+**用户数据表：**
+
+- 包含字段：
+  1. 主键 ID：自动生成。
+  2. 用户 ID：用户唯一标识。
+  3. 用户昵称：用户的昵称，也可用作登录用户名。
+  4. 用户签名：用户对自己的描述。
+  5. 登录密码：登录验证。
+  6. 绑定手机号：用户可以绑定手机号，绑定后可以通过手机号登录。
+  7. 用户头像文件 ID：头像文件存储的唯一标识，具体头像数据存储在文件子服务器中。
+
+- 提供的操作：
+  1. 通过昵称获取用户信息。
+  2. 通过手机号获取用户信息。
+  3. 通过用户 ID 获取用户信息。
+  4. 新增用户。
+  5. 更新用户信息。
+
+**ODB 映射数据结构：**
+
+```cpp
+#include <string>
+#include <cstddef>
+#include <odb/core.hxx>
+#include <odb/nullable.hxx>
+
+#pragma db object
+class user {
+    public:
+        user () {}
+    private:
+        friend class odb::access;
+        
+        #pragma db id auto
+        unsigned long _id;
+        #pragma db unique type("VARCHAR(127)")
+        std::string _user_id;
+        #pragma db unique type("VARCHAR(63)")
+        odb::nullable<std::string> _nickname;
+        #pragma db type("VARCHAR(255)")
+        odb::nullable<std::string> _passwd;
+        #pragma db type("VARCHAR(127)")
+        odb::nullable<std::string> _avatar_id;
+        #pragma db unique type("VARCHAR(15)")
+        odb::nullable<std::string> _phone_number;
+        #pragma db type("VARCHAR(255)")
+        odb::nullable<std::string> _description;
+};
+```
+
+### 18.4.2 内存数据库数据管理
+
+**会话信息映射键值对：**
+
+- 映射类型：字符串键值对映射。
+- 映射字段：
+  1. 会话 ID (key) - 用户 ID (val)：便于通过会话 ID 查找用户 ID，进行后续操作时的连接身份识别鉴权。
+     - 在用户登录时新增数据。
+     - 在用户登录后的操作时进行验证及查询。
+     - 该映射数据在用户退出登录时删除（目前未实现）。
+  2. 用户 ID (key) - 空 (val)：这是一个用户登录状态的标记，用于避免重复登录。
+     - 在用户登录时新增数据。
+     - 在用户连接断开时删除数据。
+
+**验证码信息映射键值对：**
+
+- 映射类型：字符串键值对映射。
+- 映射字段：
+  1. 验证码 ID (key) - 验证码 (val)：用于生成一个验证码 ID 和验证码。
+     - 用户获取短信验证码时新增数据。
+     - 验证码通过短信平台发送给用户手机。
+     - 验证码 ID 直接响应发送给用户，用户登录时通过这两个信息进行验证。
+     - 该映射字段需要设置一个 60s 过期自动删除的时间，并在验证完毕后删除。
+
+### 18.4.3 文档数据库数据管理
+
+**用户信息的用户 ID、手机号、昵称字段需要在 ES 服务器额外存储一份。**
+
+- 目的：用户搜索通常是一种字符串的模糊匹配方式，用传统的关系型数据库进行模糊匹配效率低，因此采用 ES 服务对索引字段进行分词后构建倒排索引，根据关键词进行搜索，提升效率。
+
+**创建用户索引：**
+
+```json
+POST /user/_doc
+{
+    "settings" : {
+        "analysis" : {
+            "analyzer" : {
+                "ik" : {
+                    "tokenizer" : "ik_max_word"
+                }
+            }
+        }
+    },
+    "mappings" : {
+        "dynamic" : true,
+        "properties" : {
+            "nickname" : {
+                "type" : "text",
+                "analyzer" : "ik_max_word"
+            },
+            "user_id" : {
+                "type" : "keyword",
+                "analyzer" : "standard"
+            },
+            "phone" : {
+                "type" : "keyword",
+                "analyzer" : "standard"
+            },
+            "description" : {
+                "type" : "text",
+                "index": "not_analyzed"
+            },
+            "avatar_id" : {
+                "type" : "text",
+                "index": "not_analyzed"
+            }
+        }
+    }
+}
+```
+
+**新增测试数据：**
+
+```json
+POST /user/_doc/_bulk
+{"index":{"_id":"1"}}
+{"user_id" : "USER4b862aaa-2df8654a-7eb4bb65-e3507f66","nickname" : "昵称 1","phone" : "手机号 1","description" : "签名 1","avatar_id" : "头像 1"}
+{"index":{"_id":"2"}}
+{"user_id" : "USER14eeeaa5-442771b9-0262e455-e4663d1d","nickname" : "昵称 2","phone" : "手机号 2","description" : "签名 2","avatar_id" : "头像 2"}
+{"index":{"_id":"3"}}
+{"user_id" : "USER484a6734-03a124f0-996c169d-d05c1869","nickname" : "昵称 3","phone" : "手机号 3","description" : "签名 3","avatar_id" : "头像 3"}
+{"index":{"_id":"4"}}
+{"user_id" : "USER186ade83-4460d4a6-8c08068f-83127b5d","nickname" : "昵称 4","phone" : "手机号 4","description" : "签名 4","avatar_id" : "头像 4"}
+{"index":{"_id":"5"}}
+{"user_id" : "USER6f19d074-c33891cf-23bf5a83-57189a19","nickname" : "
+
+昵称 5","phone" : "手机号 5","description" : "签名 5","avatar_id" : "头像 5"}
+{"index":{"_id":"6"}}
+{"user_id" : "USER97605c64-9833ebb7-d0455353-35a59195","nickname" : "昵称 6","phone" : "手机号 6","description" : "签名 6","avatar_id" : "头像 6"}
+```
+
+**进行搜索测试：**
+
+```json
+GET /user/_doc/_search?pretty
+{
+    "query": {
+        "match_all": {}
+    }
+}
+```
+
+```json
+GET /user/_doc/_search?pretty
+{
+    "query" : {
+        "bool" : {
+            "must_not" : [
+                {
+                    "terms" : {
+                        "user_id.keyword" : [
+                            "USER4b862aaa-2df8654a-7eb4bb65-e3507f66",
+                            "USER14eeeaa5-442771b9-0262e455-e4663d1d",
+                            "USER484a6734-03a124f0-996c169d-d05c1869"
+                        ]
+                    }
+                }
+            ],
+            "should" : [
+                {
+                    "match" : {
+                        "user_id" : "昵称"
+                    }
+                },
+                {
+                    "match" : {
+                        "nickname" : "昵称"
+                    }
+                },
+                {
+                    "match" : {
+                        "phone" : "昵称"
+                    }
+                }
+            ]
+        }
+    }
+}
+```
+
+**删除用户索引：**
+
+```json
+DELETE /user
+```
+
+## 18.5 接口实现流程
+
+### 18.5.1 用户注册
+
+1. 从请求中取出昵称和密码。
+2. 检查昵称是否合法（只能包含字母，数字，连字符-，下划线_，长度限制 3~15 之间）。
+3. 检查密码是否合法（只能包含字母，数字，长度限制 6~15 之间）。
+4. 根据昵称在数据库中判断是否昵称已存在。
+5. 向数据库新增数据。
+6. 向 ES 服务器中新增用户信息。
+7. 组织响应，返回成功与否。
+
+### 18.5.2 用户登录
+
+1. 从请求中取出昵称和密码。
+2. 通过昵称获取用户信息，进行密码是否一致的判断。
+3. 根据 Redis 中的登录标记信息判断用户是否已经登录。
+4. 构造会话 ID，生成会话键值对，向 Redis 中添加会话信息以及登录标记信息。
+5. 组织响应，返回生成的会话 ID。
+
+### 18.5.3 获取短信验证码
+
+1. 从请求中取出手机号码。
+2. 验证手机号码格式是否正确（必须以 1 开始，第二位 3~9 之间，后边 9 个数字字符）。
+3. 生成 4 位随机验证码。
+4. 基于短信平台 SDK 发送验证码。
+5. 构造验证码 ID，添加到 Redis 验证码映射键值索引中。
+6. 组织响应，返回生成的验证码 ID。
+
+### 18.5.4 手机号注册
+
+1. 从请求中取出手机号码和验证码。
+2. 检查注册手机号码是否合法。
+3. 从 Redis 数据库中进行验证码 ID-验证码一致性匹配。
+4. 通过数据库查询判断手机号是否已注册。
+5. 向数据库新增用户信息。
+6. 向 ES 服务器中新增用户信息。
+7. 组织响应，返回注册成功与否。
+
+### 18.5.5 手机号登录
+
+1. 从请求中取出手机号码和验证码 ID，以及验证码。
+2. 检查注册手机号码是否合法。
+3. 从 Redis 数据库中进行验证码 ID-验证码一致性匹配。
+4. 根据手机号从数据库查询用户信息，判断用户是否存在。
+5. 根据 Redis 中的登录标记信息判断用户是否已经登录。
+6. 构造会话 ID，生成会话键值对，向 Redis 中添加会话信息以及登录标记信息。
+7. 组织响应，返回生成的会话 ID。
+
+### 18.5.6 获取用户信息
+
+1. 从请求中取出用户 ID。
+2. 通过用户 ID 从数据库中查询用户信息。
+3. 根据用户信息中的头像 ID，从文件服务器获取头像文件数据，组织完整用户信息。
+4. 组织响应，返回用户信息。
+
+### 18.5.7 设置头像
+
+1. 从请求中取出用户 ID 与头像数据。
+2. 从数据库通过用户 ID 进行用户信息查询，判断用户是否存在。
+3. 上传头像文件到文件子服务。
+4. 将返回的头像文件 ID 更新到数据库中。
+5. 更新 ES 服务器中用户信息。
+6. 组织响应，返回更新成功与否。
+
+### 18.5.8 设置昵称
+
+1. 从请求中取出用户 ID 与新的昵称。
+2. 判断昵称格式是否正确。
+3. 从数据库通过用户 ID 进行用户信息查询，判断用户是否存在。
+4. 将新的昵称更新到数据库中。
+5. 更新 ES 服务器中用户信息。
+6. 组织响应，返回更新成功与否。
+
+### 18.5.9 设置签名
+
+1. 从请求中取出用户 ID 与新的签名。
+2. 从数据库通过用户 ID 进行用户信息查询，判断用户是否存在。
+3. 将新的签名更新到数据库中。
+4. 更新 ES 服务器中用户信息。
+5. 组织响应，返回更新成功与否。
+
+### 18.5.10 设置绑定手机号
+
+1. 从请求中取出手机号码和验证码 ID，以及验证码。
+2. 检查注册手机号码是否合法。
+3. 从 Redis 数据库中进行验证码 ID-验证码一致性匹配。
+4. 根据手机号从数据库查询用户信息，判断用户是否存在。
+5. 将新的手机号更新到数据库中。
+6. 更新 ES 服务器中用户信息。
+7. 组织响应，返回更新成功与否。
+
+
+
+
+# 19. FriendServer 设计
+
+## 19.1 功能设计
+
+好友管理子服务，主要用于管理好友相关的数据与操作，因此主要负责以下接口：
+
+1. **好友列表的获取：** 当用户登录成功之后，获取自己好友列表进行展示。
+2. **申请好友：** 搜索用户之后，点击申请好友，向对方发送好友申请。
+3. **待处理申请的获取：** 当用户登录成功之后，会获取离线的好友申请请求以待处理。
+4. **好友申请的处理：** 针对收到的好友申请进行同意/拒绝的处理。
+5. **删除好友：** 删除当前好友列表中的好友。
+6. **用户搜索：** 可以进行用户的搜索用于申请好友。
+7. **聊天会话列表的获取：** 每个单人/多人聊天都有一个聊天会话，在登录成功后可以获取聊天会话，查看历史的消息以及对方的各项信息。
+8. **多人聊天会话的创建：** 单人聊天会话在对方同意好友时创建，而多人会话需要调用该接口进行手动创建。
+9. **聊天成员列表的获取：** 多人聊天会话中，可以点击查看群成员按钮，查看群成员信息。
+
+## 19.2 模块划分
+
+1. **参数/配置文件解析模块：** 基于 `gflags` 框架直接使用进行参数/配置文件解析。
+2. **日志模块：** 基于 `spdlog` 框架封装的模块直接使用进行日志输出。
+3. **服务注册模块：** 基于 `etcd` 框架封装的注册模块直接使用，进行聊天消息存储子服务的注册。
+4. **数据库数据操作模块：** 基于 `odb-mysql` 数据管理封装的模块，实现数据库中数据的操作。
+   - 申请好友的时候，根据数据库中的数据判断两人是否已经是好友关系。
+   - 申请好友的时候，根据数据库中的数据判断是否已经申请过好友。
+   - 申请好友的时候，针对两位用户 ID 建立好友申请事件信息。
+   - 好友信息处理的时候，找到申请事件，进行删除。
+   - 获取待处理好友申请事件的时候，从数据库根据用户 ID 查询出所有的申请信息。
+   - 同意好友申请的时候，需要创建单聊会话，向数据库中插入会话信息。
+   - 从数据库根据指定用户 ID 获取所有好友 ID。
+   - 创建群聊的时候，需要创建群聊会话，向数据库中插入会话信息。
+   - 查看群聊成员的时候，从数据库根据会话 ID 获取所有会话成员 ID。
+   - 获取会话列表的时候，从数据库根据用户 ID 获取到所有会话信息。
+   - 删除好友的时候，从数据库中删除两人的好友关系，以及单聊会话，以及会话成员信息。
+5. **RPC 服务模块：** 基于 `brpc` 框架搭建 RPC 服务器。
+6. **RPC 服务发现与调用模块：** 基于 `etcd` 框架与 `brpc` 框架封装的服务发现与调用模块。
+   - 连接用户管理子服务：获取好友列表，会话成员，好友申请事件的时候获取用户信息。
+   - 连接消息管理子服务：在打开聊天会话的时候，需要获取最近的一条消息进行展示。
+7. **ES 客户端模块：** 基于 `elasticsearch` 框架实现访问客户端，从 ES 服务器进行用户的关键字搜索（用户信息由用户子服务在用户注册的时候添加进去）。
+
+## 19.3 功能模块示意图
+
+（此处插入功能模块示意图）
+
+## 19.4 数据管理
+
+### 19.4.1 数据库数据管理
+
+**用户信息表**
+
+- 该表由用户操作服务进行创建，并在用户注册时添加数据，好友这里只进行查询。
+- 通过用户 ID 获取详细用户信息。
+
+**用户关系表**
+
+- 因为本身用户服务器已经管理了用户个人信息，因此没必要再整一份用户信息出来。因为当前用户之间只有好友关系（目前未实现：黑名单，陌生人等），因此这里是一个好友关系表，表示谁和谁是好友。
+- 包含字段：
+  - ID：作为主键。
+  - 用户 ID。
+  - 好友 ID。
+- 需要注意的是两个用户结为好友时，需要添加 (1,2)、(2,1) 两条数据。
+
+**提供的操作：**
+
+- 新增用户关系：
+  - 新增好友，通常伴随着新增会话，新增会话伴随着新增会话成员。
+- 移除用户关系：
+  - 移除好友，通常伴随着移除会话，移除会话伴随着移除会话成员。
+- 判断两人是否是好友关系。
+- 以用户 ID 获取用户的所有好友 ID。
+- 与用户表连接，以用户 ID 获取所有好友详细信息。
+
+**ODB 映射结构：**
+
+```cpp
+#pragma once
+#include <odb/core.hxx>
+#include <odb/nullable.hxx>
+
+#pragma db object
+class friend_relation {
+    public:
+        friend_relation(){} 
+    private:
+        friend class odb::access;
+        #pragma db id auto 
+        long int _id; 
+        #pragma db index type("VARCHAR(127)") 
+        std::string _user_id; 
+        #pragma db type("VARCHAR(127)") 
+        std::string _friend_id; 
+};
+```
+
+**会话信息**
+
+- 在多人聊天中，舍弃了群的概念，添加了聊天会话的概念，因为会话既可以是两人单聊会话，也可以是多人聊天会话，这样就可以统一管理了。
+- 包含字段：
+  - ID：作为主键。
+  - 会话 ID：会话标识。
+  - 会话名称：单聊会话则设置为'单聊会话'或直接为空就行，因为单聊会话名称就是对方名称，头像就是对方头像。
+  - 会话类型：`SINGLE`-单聊 / `GROUP`-多人（单聊由服务器在同意好友时创建，多人由用户申请创建）。
+
+**提供的操作：**
+
+- 新增会话：
+  - 向会话成员表中新增会话成员信息。
+  - 向会话表中新增会话信息。
+- 删除会话：
+  - 删除会话成员表中的所有会话成员信息。
+  - 删除会话表中的会话信息。
+- 通过会话 ID，获取会话的详细信息。
+- 通过用户 ID 获取所有的好友单聊会话（连接会话成员表和用户表）。
+  - 所需字段：
+    - 会话 ID。
+    - 会话名称：好友的昵称。
+    - 会话类型：单聊类型。
+    - 会话头像 ID：好友的头像 ID。
+    - 好友 ID。
+- 通过用户 ID 获取所有自己的群聊会话（连接会话成员表和用户表）。
+  - 所需字段：
+    - 会话 ID。
+    - 会话名称。
+    - 会话类型：群聊类型。
+
+**ODB 映射结构：**
+
+```cpp
+#pragma once
+#include <odb/core.hxx>
+#include <odb/nullable.hxx>
+
+enum class session_type_t { 
+    SINGLE = 1, 
+    GROUP = 2 
+}; 
+
+#pragma db object 
+class chat_session { 
+    public: 
+        chat_session() {} 
+    private: 
+        friend class odb::access; 
+        #pragma db id auto 
+        long int _id; 
+        #pragma db unique type("VARCHAR(127)") 
+        std::string _session_id; 
+        #pragma db type("VARCHAR(127)") 
+        odb::nullable<std::string> _session_name; 
+        #pragma db type("TINYINT") 
+        session_type_t _session_type;
+};
+```
+
+**会话成员**
+
+- 每个会话中都会有两个及以上的成员，只有两个成员的会话是单聊会话，超过两个是多人聊天会话。为了明确哪个用户属于哪个会话，或者说会话中有哪些成员，因此需要有会话成员的数据管理。
+- 包含字段：
+  - ID：作为主键。
+  - 会话 ID：会话标识。
+  - 用户 ID：用户标识。
+
+**提供的操作：**
+
+- 向指定会话中添加单个成员。
+- 向指定会话中添加多个成员。
+- 从指定会话中删除单个成员。
+- 通过会话 ID，获取会话的所有成员 ID。
+- 删除会话所有成员：在删除会话的时候使用。
+
+**ODB 映射结构：**
+
+```cpp
+#pragma once
+#include <odb/core.hxx>
+#include <odb/nullable.hxx>
+
+#pragma db object 
+class chat_session_member {
+    public: 
+        chat_session_member (){} 
+    private: 
+        friend class odb::access; 
+        #pragma db id auto 
+        unsigned long _id; 
+        #pragma db index type("VARCHAR(127)") 
+        std::string _session_id; 
+        #pragma db type("VARCHAR(127)") 
+        std::string _user_id; 
+};
+```
+
+**好友申请事件**
+
+- 在好友的操作中有个操作需要额外的管理，那就是申请好友的事件。因为用户 A 申请用户 B 为好友，并非一次性完成，需要用户 B 对本次申请进行处理，同意后才算是
+
+一次完整的流程。而在两次操作之间我们就需要为两次操作建立起相匹配的关系映射。
+- 包含字段：
+  - ID：作为主键。
+  - 事件 ID。
+  - 请求者用户 ID。
+  - 响应者用户 ID。
+  - 状态：用于表示本次请求的处理阶段，其包含三种状态：待处理-todo，同意-accept，拒绝-reject。
+
+**提供的操作：**
+
+- 新增好友申请事件：申请的时候新增。
+- 删除好友申请事件：处理完毕（同意/拒绝）的时候删除。
+- 获取指定用户的所有待处理事件及关联申请者用户信息（连接用户表）。
+
+**ODB 映射结构：**
+
+```cpp
+enum class fevent_status{
+    PENDING = 1, 
+    ACCEPT = 2, 
+    REJECT = 3 
+}; 
+
+#pragma db object 
+class friend_event {
+    public: 
+        friend_event() {} 
+    private: 
+        friend class odb::access; 
+        #pragma db id auto 
+        long int _id; 
+        #pragma db unique type("VARCHAR(127)") 
+        std::string _event_id; 
+        #pragma db type("VARCHAR(127)") 
+        std::string _req_user_id; 
+        #pragma db type("VARCHAR(127)") 
+        std::string _rsp_user_id; 
+        #pragma db type("TINYINT") 
+        fevent_status _status; 
+};
+```
+
+### 19.4.2 ES用户信息管理
+
+**创建用户索引**
+
+```json
+POST /user/_doc 
+{ 
+    "settings" : { 
+        "analysis" : { 
+            "analyzer" : { 
+                "ik" : { 
+                    "tokenizer" : "ik_max_word" 
+                } 
+            } 
+        } 
+    }, 
+    "mappings" : { 
+        "dynamic" : true, 
+        "properties" : { 
+            "nickname" : { 
+                "type" : "text", 
+                "analyzer" : "ik_max_word" 
+            }, 
+            "user_id" : { 
+                "type" : "keyword", 
+                "analyzer" : "standard" 
+            }, 
+            "phone" : { 
+                "type" : "keyword", 
+                "analyzer" : "standard" 
+            }, 
+            "description" : { 
+                "type" : "text", 
+                "index": "not_analyzed" 
+            }, 
+            "avatar_id" : { 
+                "type" : "text", 
+                "index": "not_analyzed" 
+            } 
+        } 
+    } 
+}
+```
+
+**新增测试数据**
+
+```json
+POST /user/_doc/_bulk 
+{"index":{"_id":"1"}} 
+{"user_id" : "USER4b862aaa-2df8654a-7eb4bb65-e3507f66","nickname" : "昵称 1","phone" : "手机号 1","description" : "签名 1","avatar_id" : "头像 1"} 
+{"index":{"_id":"2"}} 
+{"user_id" : "USER14eeeaa5-442771b9-0262e455-e4663d1d","nickname" : "昵称 2","phone" : "手机号 2","description" : "签名 2","avatar_id" : "头像 2"} 
+{"index":{"_id":"3"}} 
+{"user_id" : "USER484a6734-03a124f0-996c169d-d05c1869","nickname" : "昵称 3","phone" : "手机号 3","description" : "签名 3","avatar_id" : "头像 3"} 
+{"index":{"_id":"4"}} 
+{"user_id" : "USER186ade83-4460d4a6-8c08068f-83127b5d","nickname" : "昵称 4","phone" : "手机号 4","description" : "签名 4","avatar_id" : "头像 4"} 
+{"index":{"_id":"5"}} 
+{"user_id" : "USER6f19d074-c33891cf-23bf5a83-57189a19","nickname" : "昵称 5","phone" : "手机号 5","description" : "签名 5","avatar_id" : "头像 5"} 
+{"index":{"_id":"6"}} 
+{"user_id" : "USER97605c64-9833ebb7-d0455353-35a59195","nickname" : "昵称 6","phone" : "手机号 6","description" : "签名 6","avatar_id" : "头像 6"} 
+```
+
+**进行搜索测试**
+
+```json
+GET /user/_doc/_search?pretty 
+{ 
+    "query": { 
+        "match_all": {} 
+    } 
+}
+```
+
+```json
+GET /user/_doc/_search?pretty 
+{ 
+    "query" : { 
+        "bool" : { 
+            "must_not" : [ 
+                { 
+                    "terms" : { 
+                        "user_id.keyword" : [ 
+                            "USER4b862aaa-2df8654a-7eb4bb65-e3507f66", 
+                            "USER14eeeaa5-442771b9-0262e455-e4663d1d", 
+                            "USER484a6734-03a124f0-996c169d-d05c1869" 
+                        ] 
+                    } 
+                } 
+            ], 
+            "should" : [ 
+                { 
+                    "match" : { 
+                        "user_id" : "昵称" 
+                    } 
+                }, 
+                { 
+                    "match" : { 
+                        "nickname" : "昵称" 
+                    } 
+                }, 
+                { 
+                    "match" : { 
+                        "phone" : "昵称" 
+                    } 
+                } 
+            ] 
+        } 
+    } 
+}
+```
+
+**删除用户索引**
+
+```json
+DELETE /user
+```
+
+## 19.5 接口实现流程
+
+### 19.5.1 获取好友列表
+
+1. 获取请求中的用户 ID。
+2. 根据用户 ID，从数据库的好友关系表和用户表中取出该用户所有的好友简息。
+3. 根据好友简息中的好友头像 ID，批量获取头像数据，组织完整用户信息结构。
+4. 组织响应，将好友列表返回给网关。
+
+### 19.5.2 申请添加好友
+
+1. 取出请求中的请求者 ID 和被请求者 ID。
+2. 判断两人是否已经是好友。
+3. 判断该用户是否已经申请过好友关系。
+4. 向好友申请事件表中，新增申请信息。
+5. 组织响应，将事件 ID 信息响应给网关。
+
+### 19.5.3 获取待处理好友申请事件
+
+1. 取出请求中的用户 ID。
+2. 根据用户 ID，从申请事件表和用户表中找到该用户所有状态为 `PENDING` 的待处理事件关联申请人用户简息。
+3. 根据申请人用户头像 ID，从文件存储子服务器获取所有用户头像信息，组织用户信息结构。
+4. 组织响应，将申请事件列表响应给网关。
+
+### 19.5.4 处理好友申请
+
+1. 取出请求中的申请人 ID 和被申请人 ID，以及处理结果。
+2. 根据两人 ID 在申请事件表中查询判断是否存在申请事件。
+3. 判断两人是否已经是好友（互相加好友的情况）。
+4. 不管拒绝还是同意，删除申请事件表中的事件信息（该事件处理完毕）。
+5. 若同意申请，则向用户关系表中添加好友关系数据，向会话表中新增会话信息，向会话成员表中新增成员信息。
+6. 组织响应，将新生成的会话 ID 响应给网关。
+
+### 19.5.5 删除好友
+
+1. 取出请求中的删除者 ID 和被删除者 ID。
+2. 从用户好友关系表中删除相关关系数据，从会话表中删除单聊会话，从会话成员表中删除会话成员信息。
+3. 组织响应，返回给网关。
+
+### 19.5.6 搜索好友
+
+1. 取出请求中的用户 ID 和搜索关键字。
+2. 从好友关系表中取出该用户所有好友 ID。
+3. 根据关键字从 ES 服务器中进行用户搜索，搜索的时候需要将关键字作为用户 ID、手机号、昵称的搜索关键字进行搜索，且需要根据自己的 ID 和好友 ID 过滤掉自己和自己的好友。
+4. 根据搜索到的用户简息中的头像 ID，从文件服务器批量获取用户头像数据。
+5. 组织响应，将搜索到的用户列表响应给网关。
+
+### 19.5.7 创建会话
+
+1. 从请求中取出用户 ID 与会话名称，以及会话的成员 ID 列表。
+2. 生成会话 ID，并向会话表中新增会话信息数据，会话为群聊会话（单聊会话是同意好友申请的时候创建的）。
+3. 向会话成员表中新增所有的成员信息。
+4. 组织响应，将组织好的会话信息响应给网关。
+
+### 19.5.
+
+8 获取会话列表
+
+1. 从请求中取出用户 ID。
+2. 根据用户 ID，从会话表、会话成员表和用户表中取出好友的单聊会话列表（会话 ID、好友用户 ID、好友昵称、好友头像 ID），并组织会话信息结构对象。
+   - 单聊会话中，对方的昵称就是会话名称，对方的头像就是会话头像，会话类型为单聊类型。
+3. 根据单聊会话 ID，从消息存储子服务获取会话的最后一条消息。
+4. 根据好友头像 ID，从文件存储子服务批量获取好友头像数据。
+5. 组织好单聊会话结构数据。
+6. 根据用户 ID，从会话表和会话成员表中取出群聊会话列表（会话 ID，会话名称）。
+7. 根据群聊会话 ID，从消息存储子服务获取会话的最后一条消息。
+8. 组织好群聊会话结构数据。
+9. 将单聊会话数据和群聊会话数据组织到一起，响应给网关。
+
+### 19.5.9 获取会话成员
+
+1. 取出请求中用户 ID 和会话 ID。
+2. 根据会话 ID，从会话成员表和用户表中取出所有的成员用户信息。
+3. 根据成员信息中的头像 ID，从文件存储子服务批量获取头像数据组织用户信息结构。
+4. 组织响应，将会话的成员用户信息列表响应给网关。
+
+
+
+
+# 20. GatewayServer 设计
+
+## 20.1 功能设计
+
+网关服务器在设计中，最重要的两个功能：
+
+- 作为入口服务器接收客户端的所有请求，进行请求的子服务分发，得到响应后进行响应。
+- 对客户端进行事件通知（好友申请和处理及删除，单聊/群聊会话创建，新消息）。
+
+基于以上的两个功能，网关服务器包含两项通信：
+
+- **HTTP 通信：** 进行业务处理。
+- **WebSocket 通信：** 进行事件通知。
+
+## 20.2 模块划分
+
+1. **参数/配置文件解析模块：** 基于 `gflags` 框架直接使用进行参数/配置文件解析。
+
+2. **日志模块：** 基于 `spdlog` 框架封装的模块直接使用进行日志输出。
+
+3. **RPC 服务发现与调用模块：** 基于 `etcd` 框架与 `brpc` 框架封装的服务发现与调用模块。
+   - 因为要分发处理所有请求，因此所有的子服务都需要进行服务发现。
+
+4. **Redis 客户端模块：** 基于 `redis++` 封装的客户端进行内存数据库数据操作。
+   - 根据用户子服务添加的会话信息进行用户连接身份识别与鉴权。
+
+5. **HTTP 通信服务器模块：** 基于 `cpp-httplib` 库搭建 HTTP 服务器，接收 HTTP 请求进行业务处理。
+
+6. **WebSocket 服务器模块：** 基于 `WebSocketpp` 库，搭建 WebSocket 服务器，进行事件通知。
+
+7. **客户端长连接管理模块：** 建立用户 ID 与长连接句柄映射关系，便于后续根据用户 ID 找到连接进行事件通知。
+
+## 20.3 模块功能示意图
+
+（此处插入模块功能示意图）
+
+## 20.4 接口实现流程
+
+### 20.4.1 用户名注册
+
+1. 取出 HTTP 请求正文，进行 ProtoBuf 反序列化。
+2. 查找用户子服务。
+3. 调用子服务对应接口进行业务处理。
+4. 将处理结果响应给客户端。
+
+### 20.4.2 用户名登录
+
+1. 取出 HTTP 请求正文，进行 ProtoBuf 反序列化。
+2. 查找用户子服务。
+3. 调用子服务对应接口进行业务处理。
+4. 将处理结果响应给客户端。
+
+### 20.4.3 短信验证码获取
+
+1. 取出 HTTP 请求正文，进行 ProtoBuf 反序列化。
+2. 查找用户子服务。
+3. 调用子服务对应接口进行业务处理。
+4. 将处理结果响应给客户端。
+
+### 20.4.4 手机号码注册
+
+1. 取出 HTTP 请求正文，进行 ProtoBuf 反序列化。
+2. 查找用户子服务。
+3. 调用子服务对应接口进行业务处理。
+4. 将处理结果响应给客户端。
+
+### 20.4.5 手机号码登录
+
+1. 取出 HTTP 请求正文，进行 ProtoBuf 反序列化。
+2. 查找用户子服务。
+3. 调用子服务对应接口进行业务处理。
+4. 将处理结果响应给客户端。
+
+### 20.4.6 用户信息获取
+
+1. 取出 HTTP 请求正文，进行 ProtoBuf 反序列化。
+2. 根据请求中的会话 ID 进行鉴权，并获取用户 ID，向请求中设置用户 ID。
+3. 查找用户子服务。
+4. 调用子服务对应接口进行业务处理。
+5. 将处理结果响应给客户端。
+
+### 20.4.7 修改用户头像
+
+1. 取出 HTTP 请求正文，进行 ProtoBuf 反序列化。
+2. 根据请求中的会话 ID 进行鉴权，并获取用户 ID，向请求中设置用户 ID。
+3. 查找用户子服务。
+4. 调用子服务对应接口进行业务处理。
+5. 将处理结果响应给客户端。
+
+### 20.4.8 修改用户签名
+
+1. 取出 HTTP 请求正文，进行 ProtoBuf 反序列化。
+2. 根据请求中的会话 ID 进行鉴权，并获取用户 ID，向请求中设置用户 ID。
+3. 查找用户子服务。
+4. 调用子服务对应接口进行业务处理。
+5. 将处理结果响应给客户端。
+
+### 20.4.9 修改用户昵称
+
+1. 取出 HTTP 请求正文，进行 ProtoBuf 反序列化。
+2. 根据请求中的会话 ID 进行鉴权，并获取用户 ID，向请求中设置用户 ID。
+3. 查找用户子服务。
+4. 调用子服务对应接口进行业务处理。
+5. 将处理结果响应给客户端。
+
+### 20.4.10 修改用户绑定手机号
+
+1. 取出 HTTP 请求正文，进行 ProtoBuf 反序列化。
+2. 根据请求中的会话 ID 进行鉴权，并获取用户 ID，向请求中设置用户 ID。
+3. 查找用户子服务。
+4. 调用子服务对应接口进行业务处理。
+5. 将处理结果响应给客户端。
+
+### 20.4.11 获取好友列表
+
+1. 取出 HTTP 请求正文，进行 ProtoBuf 反序列化。
+2. 根据请求中的会话 ID 进行鉴权，并获取用户 ID，向请求中设置用户 ID。
+3. 查找好友子服务。
+4. 调用子服务对应接口进行业务处理。
+5. 将处理结果响应给客户端。
+
+### 20.4.12 发送好友申请
+
+1. 取出 HTTP 请求正文，进行 ProtoBuf 反序列化。
+2. 根据请求中的会话 ID 进行鉴权，并获取用户 ID，向请求中设置用户 ID。
+3. 查找用户子服务。
+4. 根据请求中的用户 ID，调用用户子服务，获取用户的详细信息。
+5. 查找好友子服务。
+6. 调用子服务对应接口进行业务处理。
+7. 若处理成功，则通过被申请人 ID，查找对方长连接。
+   - 若长连接存在（对方在线），则组织好友申请通知进行事件通知。
+8. 将处理结果响应给客户端。
+
+### 20.4.13 获取待处理好友申请
+
+1. 取出 HTTP 请求正文，进行 ProtoBuf 反序列化。
+2. 根据请求中的会话 ID 进行鉴权，并获取用户 ID，向请求中设置用户 ID。
+3. 查找好友子服务。
+4. 调用子服务对应接口进行业务处理。
+5. 将处理结果响应给客户端。
+
+### 20.4.14 好友申请处理
+
+1. 取出 HTTP 请求正文，进行 ProtoBuf 反序列化。
+2. 根据请求中的会话 ID 进行鉴权，并获取用户 ID，向请求中设置用户 ID。
+3. 查找用户子服务。
+4. 根据请求中的用户 ID，调用用户子服务，获取申请人与被申请人的详细信息。
+5. 查找好友子服务。
+6. 调用子服务对应接口进行业务处理。
+7. 若处理成功，则通过申请人 ID，查找申请人长连接，进行申请处理结果的通知。
+   - 若处理结果是同意，则意味着新聊天会话的创建，对申请人进行聊天会话创建通知。
+     1. 从处理结果中取出会话 ID，使用对方的昵称作为会话名称，对方的头像作为会话头像组织会话信息。
+   - 若处理结果是同意，则对当前处理者用户 ID 查找长连接，进行聊天会话创建的通知。
+     1. 从处理结果中取出会话 ID，使用对方的昵称作为会话名称，对方的头像作为会话头像组织会话信息。
+   - 清理响应中的会话 ID 信息。
+8. 将处理结果响应给客户端。
+
+### 20.4.15 删除好友
+
+1. 取出 HTTP 请求正文，进行 ProtoBuf 反序列化。
+2. 根据请求中的会话 ID 进行鉴权，并获取用户 ID，向请求中设置用户 ID。
+3. 查找好友子服务。
+4. 调用子服务对应接口进行业务处理。
+5. 若处理成功，则通过被删除者用户 ID，查找对方长连接。
+   - 若长连接存在（对方在线），则组织好友删除通知进行事件通知。
+6. 将处理结果响应给客户端。
+
+### 20.4.16 搜索用户
+
+1. 取出 HTTP 请求正文，进行 ProtoBuf 反序列化。
+2. 根据请求中的会话 ID 进行鉴权，并获取用户 ID，向请求中设置用户 ID。
+3. 查找好友子服务。
+4. 调用子服务对应接口进行业务处理。
+5. 将处理结果响应给客户端。
+
+### 20.4.17 获取用户聊天会话列表
+
+1. 取出 HTTP 请求正文，进行 ProtoBuf 反序列化。
+2. 根据请求中的会话 ID 进行鉴权，并获取用户 ID，向请求中设置用户 ID。
+3. 查找好友子服务。
+4. 调用子服务对应接口进行业务处理。
+5. 将处理结果响应给客户端。
+
+### 20.4.18 创建多人聊天会话
+
+1. 取出 HTTP 请求正文，进行 ProtoBuf 反序列化。
+
+
+2. 根据请求中的会话 ID 进行鉴权，并获取用户 ID，向请求中设置用户 ID。
+3. 查找好友子服务。
+4. 调用子服务对应接口进行业务处理。
+5. 若处理成功，循环根据会话成员的 ID 找到他们的长连接。
+   - 根据响应中的会话信息，逐个进行会话创建的通知。
+   - 清理响应中的会话信息。
+6. 将处理结果响应给客户端。
+
+### 20.4.19 获取消息会话成员列表
+
+1. 取出 HTTP 请求正文，进行 ProtoBuf 反序列化。
+2. 根据请求中的会话 ID 进行鉴权，并获取用户 ID，向请求中设置用户 ID。
+3. 查找好友子服务。
+4. 调用子服务对应接口进行业务处理。
+5. 将处理结果响应给客户端。
+
+### 20.4.20 发送新消息
+
+1. 取出 HTTP 请求正文，进行 ProtoBuf 反序列化。
+2. 根据请求中的会话 ID 进行鉴权，并获取用户 ID，向请求中设置用户 ID。
+3. 查找消息转发子服务。
+4. 调用子服务对应接口进行业务处理。
+5. 若处理成功，则根据处理结果中的用户 ID 列表，循环找到目标长连接，根据处理结果中的消息字段组织新消息通知，逐个对目标进行新消息通知。
+6. 若处理失败，则根据处理结果中的错误提示信息，设置响应内容。
+7. 将处理结果响应给客户端。
+
+### 20.4.21 获取指定时间段消息列表
+
+1. 取出 HTTP 请求正文，进行 ProtoBuf 反序列化。
+2. 根据请求中的会话 ID 进行鉴权，并获取用户 ID，向请求中设置用户 ID。
+3. 查找消息存储子服务。
+4. 调用子服务对应接口进行业务处理。
+5. 将处理结果响应给客户端。
+
+### 20.4.22 获取最近 N 条消息列表
+
+1. 取出 HTTP 请求正文，进行 ProtoBuf 反序列化。
+2. 根据请求中的会话 ID 进行鉴权，并获取用户 ID，向请求中设置用户 ID。
+3. 查找消息存储子服务。
+4. 调用子服务对应接口进行业务处理。
+5. 将处理结果响应给客户端。
+
+### 20.4.23 搜索关键字历史消息
+
+1. 取出 HTTP 请求正文，进行 ProtoBuf 反序列化。
+2. 根据请求中的会话 ID 进行鉴权，并获取用户 ID，向请求中设置用户 ID。
+3. 查找消息存储子服务。
+4. 调用子服务对应接口进行业务处理。
+5. 将处理结果响应给客户端。
+
+### 20.4.24 单个文件数据获取
+
+1. 取出 HTTP 请求正文，进行 ProtoBuf 反序列化。
+2. 根据请求中的会话 ID 进行鉴权，并获取用户 ID，向请求中设置用户 ID。
+3. 查找文件子服务。
+4. 调用子服务对应接口进行业务处理。
+5. 将处理结果响应给客户端。
+
+### 20.4.25 多个文件数据获取
+
+1. 取出 HTTP 请求正文，进行 ProtoBuf 反序列化。
+2. 根据请求中的会话 ID 进行鉴权，并获取用户 ID，向请求中设置用户 ID。
+3. 查找文件子服务。
+4. 调用子服务对应接口进行业务处理。
+5. 将处理结果响应给客户端。
+
+### 20.4.26 单个文件数据上传
+
+1. 取出 HTTP 请求正文，进行 ProtoBuf 反序列化。
+2. 根据请求中的会话 ID 进行鉴权，并获取用户 ID，向请求中设置用户 ID。
+3. 查找文件子服务。
+4. 调用子服务对应接口进行业务处理。
+5. 将处理结果响应给客户端。
+
+### 20.4.27 多个文件数据上传
+
+1. 取出 HTTP 请求正文，进行 ProtoBuf 反序列化。
+2. 根据请求中的会话 ID 进行鉴权，并获取用户 ID，向请求中设置用户 ID。
+3. 查找文件子服务。
+4. 调用子服务对应接口进行业务处理。
+5. 将处理结果响应给客户端。
+
+### 20.4.28 语音转文字
+
+1. 取出 HTTP 请求正文，进行 ProtoBuf 反序列化。
+2. 根据请求中的会话 ID 进行鉴权，并获取用户 ID，向请求中设置用户 ID。
+3. 查找语音子服务。
+4. 调用子服务对应接口进行业务处理。
+5. 将处理结果响应给客户端。
+
+
+
+# 21. CMake简述
+
+## 设置CMake所需版本号
+
+```cmake
+cmake_minimum_required(VERSION 3.1.3)
+```
+
+## 设置项目工程名称
+
+```cmake
+project(name)
+```
+
+## 普通变量定义及内容设置
+
+```cmake
+set(variable content1 content2 ...)
+```
+
+设置C++特性标准：
+
+```cmake
+set(CMAKE_CXX_STANDARD 17)
+```
+
+## 列表定义添加数据
+
+```cmake
+set(variable_name "")
+list(APPEND variable_name content)
+```
+
+## 预定义变量
+
+- **CMAKE_CXX_STANDARD**: C++特性标准
+- **CMAKE_CURRENT_BINARY_DIR**: CMake执行命令时所在的工作路径
+- **CMAKE_CURRENT_SOURCE_DIR**: CMakeLists.txt所在目录
+- **CMAKE_INSTALL_PREFIX**: 默认安装路径
+
+## 字符串内容替换
+
+```cmake
+string(REPLACE ".old" ".new" dest src)
+```
+
+## 添加头文件路径
+
+```cmake
+include_directories(path)
+```
+
+## 添加链接库
+
+```cmake
+target_link_libraries(target lib1 lib2 ...)
+```
+
+## 添加生成目标
+
+```cmake
+add_executable(target srcfiles1 srcfile2 ...)
+```
+
+## 错误或提示打印
+
+```cmake
+message(FATAL_ERROR/STATUS content)
+```
+
+## 查找源码文件
+
+```cmake
+aux_source_directory(<dir> <variable>)
+```
+
+## 判断文件是否存在
+
+```cmake
+if (NOT EXISTS file)
+endif()
+```
+
+## 循环遍历
+
+```cmake
+foreach(val vals)
+endforeach()
+```
+
+## 执行外部指令
+
+```cmake
+add_custom_command(
+    PRE_BUILD          # 表示在所有其他步骤之前执行自定义命令
+    COMMAND            # 要执行的指令名称
+    ARGS               # 要执行的指令运行参数选项
+    DEPENDS            # 指定命令的依赖项
+    OUTPUT             # 指定要生成的目标名称
+    COMMENT            # 执行命令时要打印的内容
+)
+```
+
+## 添加嵌套子CMake目录
+
+```cmake
+add_subdirectory(dir)
+```
+
+## 设置安装路径
+
+```cmake
+INSTALL(TARGETS ${target_name} RUNTIME DESTINATION bin)
+```
+
+# 22. Cmake正式介绍
+## 1. CMake介绍
+
+CMake 是一个开源、跨平台的构建系统，主要用于软件的构建、测试和打包。
+
+CMake 使用平台无关的配置文件 CMakeLists.txt 来控制软件的编译过程，并生成适用于不同编译器环境的项目文件。例如，它可以生成 Unix 系统的 Makefile、Windows 下的 Visual Studio 项目文件或 Mac 的 Xcode 工程文件，从而简化了跨平台和交叉编译的工作流程。CMake 并不直接构建软件，而是产生标准的构建文件，然后使用这些文件在各自的构建环境中构建软件。
+
+CMake 有以下几个特点：
+
+- **开放源代码：** 使用类 BSD 许可发布
+- **跨平台：** 并可生成编译配置文件，在 Linux/Unix 平台，生成 Makefile；在苹果平台，可以生成 Xcode；在 Windows 平台，可以生成 MSVC 的工程文件
+- **能够管理大型项目：** KDE4 就是最好的证明
+- **简化编译构建过程和编译过程：** Cmake 的工具链非常简单：cmake+make
+- **高效率：** 按照 KDE 官方说法，CMake 构建 KDE4 的 kdelibs 要比使用autotools 来构建 KDE3.5.6 的 kdelibs 快 40%，主要是因为 Cmake 在工具链中没有 libtool
+- **可扩展：** 可以为 cmake 编写特定功能的模块，扩充 cmake 功能
+
+## 2. CMake安装
+
+### 2.1 Ubuntu 22.04 安装 cmake
+
+```shell
+sudo apt update
+sudo apt install cmake
+```
+
+### 2.2 确定 cmake 是否安装成功
+
+```shell
+cmake --version
+```
+
+查看 cmake 版本，至此，cmake 安装成功。
+
+## 3. 入门样例 - Hello-world工程
+
+创建 hello-world 目录，并在其目录下创建 main.cpp 源文件和 CMakeLists.txt 文件
+
+```shell
+root@hcss-ecs-2618:/home/zsc/cmake# tree hello-world/
+hello-world/
+├── CMakeLists.txt
+└── main.cpp
+0 directories, 2 files
+```
+
+main.cpp 源文件只是做一个简单的 hello world 打印
+
+```cpp
+#include <iostream>
+
+using namespace std;
+
+int main()
+{
+    std::cout << "hello world" << std::endl;
+    return 0;
+}
+```
+
+CMakeLists.txt 文件如下：
+
+```cmake
+cmake_minimum_required(VERSION 3.0)
+project(HELLO)
+add_executable(hello main.cpp)
+```
+
+此时我们可以使用 cmake 来构建这个工程，生成 makefile，从而编译代码。
+
+```shell
+# cmake 生成 makefile
+root@hcss-ecs-2618:/home/zsc/cmake/hello-world# cmake .
+
+-- The C compiler identification is GNU 11.3.0
+-- The CXX compiler identification is GNU 11.3.0
+-- Detecting C compiler ABI info
+-- Detecting C compiler ABI info - done
+-- Check for working C compiler: /usr/bin/cc - skipped
+-- Detecting C compile features
+-- Detecting C compile features - done
+-- Detecting CXX compiler ABI info
+-- Detecting CXX compiler ABI info - done
+-- Check for working CXX compiler: /usr/bin/c++ - skipped
+-- Detecting CXX compile features
+-- Detecting CXX compile features - done
+-- Configuring done
+-- Generating done
+-- Build files have been written to: /home/zsc/cmake/hello-world
+```
+
+使用 makefile 编译代码：
+
+```shell
+root@hcss-ecs-2618:/home/zsc/cmake/hello-world# make
+[ 50%] Building CXX object CMakeFiles/hello.dir/main.cpp.o
+[100%] Linking CXX executable hello
+[100%] Built target hello
+```
+
+运行可执行文件：
+
+```shell
+root@hcss-ecs-2618:/home/zsc/cmake/hello-world# ./hello
+hello world
+```
+
+我们来看一下 CMakeLists.txt 文件，这个文件是 cmake 的构建定义文件，其文件名是大小写相关的。下面依次介绍一下在该文件中添加的三个指令：
+
+- **cmake_minimum_required：** 指定使用的 cmake 的最低版本。可选，如果不加会有警告
+- **project：** 定义工程名称，并可指定工程的版本、工程描述、web 主页地址、支持的语言（默认情况支持所有语言），如果不需要这些都是可以忽略的，只需要指定出工程名字即可。
+
+```cmake
+project(<PROJECT-NAME> [<language-name>...])
+project(<PROJECT-NAME>
+       [VERSION <major>[.<minor>[.<patch>[.<tweak>]]]]
+       [DESCRIPTION <project-description-string>]
+       [HOMEPAGE_URL <url-string>]
+       [LANGUAGES <language-name>...])
+```
+
+- **add_executable：** 定义工程会生成一个可执行程序
+
+```cmake
+add_executable(可执行程序名 源文件名)
+```
+
+注意：这里的可执行程序名和 project 中的项目名没有任何关系。源文件名可以是一个也可以是多个，如有多个可用空格或;间隔。
+
+```cmake
+# 样式 1
+add_executable(app test1.c test2.c test3.c)
+# 样式 2
+add_executable(app test1.c;test2.c;test3.c)
+```
+
+- **cmake 命令：** 将 CMakeLists.txt 文件编辑好之后，就可以执行 cmake 命令了
+
+```shell
+# cmake 命令原型
+cmake CMakeLists.txt 文件所在路径
+```
+
+当执行 cmake 命令之后，CMakeLists.txt 中的命令就会被执行，所以一定要注意给 cmake 命令指定路径的时候一定不能出错。
+
+## 4. CMake的使用
+
+### 4.1 注释
+
+CMake 使用 `#` 进行行注释，它可以放在任何位置。
+
+```cmake
+# 这是一个 CMakeLists.txt 文件
+cmake_minimum_required(VERSION 3.0.0)
+```
+
+CMake 支持大写、小写、混合大小写的命令。如果在编写 CMakeLists.txt 文件时使用的工具有对应的命令提示，那么大小写随缘即可，不要太过在意。
+
+### 4.2 内部构建和外部构建
+
+对于上面的 hello-world 例子，我们观察一下当我们执行 `cmake .` 指令之后源文件所在的目录是否多了一些文件？
+
+```shell
+root@hcss-ecs-2618:/home/zsc/cmake/hello-world# tree -L 1
+.
+├── CMakeCache.txt                # new add
+├── CMakeFiles                    # new add
+├── cmake_install.cmake           # new add
+├── CMakeLists.txt
+├── main.cpp
+└── Makefile                      # new add
+1 directory, 5 files
+```
+
+我们可以看到如果在 CMakeLists.txt 文件所在目录执行了 cmake 命令之后就会生成一些目录和文件，如果再基于 makefile 文件执行 make 命令，程序在编译过程中还会生成一些中间文件和一个可执行文件，这样会导致整个项目目录看起来很混乱，不太容易管理和维护。这其实被称为内部构建，但 CMake 强烈推荐的做法是外部构建。
+
+此时我们可以把生成的这些与项目源码无关的文件统一放到一个对应的目录里边，比如将这个目录命名为 build，这就叫做外部构建。
+
+```shell
+root@hcss-ecs-2618:/home/zsc/cmake/hello-world# mkdir build
+root@hcss-ecs-2618:/home/zsc/cmake/hello-world# cd build/
+root@hcss-ecs-2618:/home/zsc/cmake/hello-world/build# cmake ..
+-- The C compiler identification is GNU 11.3.0
+-- The CXX compiler identification is GNU 11.3.0
+-- Detecting C compiler ABI info
+-- Detecting C compiler ABI info - done
+-- Check for working C compiler: /usr/bin/cc - skipped
+-- Detecting C compile features
+-- Detecting C compile features - done
+-- Detecting CXX compiler ABI info
+-- Detecting CXX compiler ABI info - done
+-- Check for working CXX compiler: /usr/bin/c++ - skipped
+-- Detecting CXX compile features
+-- Detecting CXX compile features - done
+-- Configuring done
+-- Generating done
+-- Build files have been written to: /home/zsc/cmake/hello-world/build
+```
+
+现在 cmake 命令是在 build 目录中执行的，但是 CMakeLists.txt 文件是 build 目录的上一级目录中，所以 cmake 命令后指定的路径为..，即当前目录的上一级目录。当命令执行完毕之后，在 build 目录中会生成一个 makefile 文件。
+
+```shell
+root@hcss-ecs-2618:/home/zsc/cmake/hello-world/build#
+
+ tree -L 1
+.
+├── CMakeCache.txt
+├── CMakeFiles
+├── cmake_install.cmake
+└── Makefile
+1 directory, 3 files
+```
+
+### 4.3 定义变量
+
+假如我们的项目中存在多个源文件，并且这些源文件需要被反复使用，每次都直接将它们的名字写出来确实是很麻烦，此时我们就可以定义一个变量，将文件名对应的字符串存储起来，在 cmake 里定义变量需要使用 `set` 指令。
+
+```cmake
+# SET 指令的语法是：
+# [] 中的参数为可选项, 如不需要可以不写
+SET(VAR [VALUE] [CACHE TYPE DOCSTRING [FORCE]])
+```
+
+VAR 表示变量名， VALUE 表示变量值。
+
+```cmake
+set(SRC_LIST test1.c test2.c test3.c)
+add_executable(app  ${SRC_LIST})
+```
+
+注意：变量使用 `${}` 方式取值，但是在 `if` 控制语句中是直接使用变量名。
+
+### 4.4 指定使用的 C++标准
+
+在编写 C++程序的时候，可能会用到 C++11、C++14、C++17、C++20 等新特性，那么就需要在编译的时候在编译命令中制定出要使用哪个标准。
+
+```shell
+$ g++ *.cpp -std=c++11 -o exec
+```
+
+上面的例子中通过参数 `-std=c++11` 指定出要使用 c++11 标准编译程序，C++标准对应有一宏叫做 `CMAKE_CXX_STANDARD`。在 CMake 中想要指定 C++标准有两种方式：
+
+- 在 CMakeLists.txt 中通过 set 命令指定
+
+```cmake
+#增加-std=c++11
+set(CMAKE_CXX_STANDARD 11)
+#增加-std=c++14
+set(CMAKE_CXX_STANDARD 14)
+```
+
+- 在执行 cmake 命令的时候指定出这个宏的值
+
+```shell
+#增加-std=c++11
+cmake CMakeLists.txt 文件路径 -DCMAKE_CXX_STANDARD=11
+#增加-std=c++14
+cmake CMakeLists.txt 文件路径 -DCMAKE_CXX_STANDARD=14
+```
+
+### 4.5 指定可执行文件输出的路径
+
+在 CMake 中指定可执行程序输出的路径，也对应一个宏，叫做 `EXECUTABLE_OUTPUT_PATH`，它的值也是可以通过 set 命令进行设置。
+
+```cmake
+# 定义 HOME 变量，存储一个绝对路径
+set(HOME /home/xxx)
+# 将拼接好的路径值设置给 EXECUTABLE_OUTPUT_PATH 宏
+set(EXECUTABLE_OUTPUT_PATH ${HOME}/bin)
+```
+
+如果此处指定可执行程序生成路径的时候使用的是相对路径 `./xxx/xxx`，那么这个路径中的 `./` 对应的就是 makefile 文件所在的那个目录。
+
+### 4.6 搜索文件
+
+如果一个项目里边的源文件很多，在编写 CMakeLists.txt 文件的时候不可能将项目目录的各个文件一一罗列出来，这样太麻烦了。所以在 CMake 中为我们提供了搜索文件的命令：
+
+- **aux_source_directory**
+
+```cmake
+aux_source_directory(< dir > < variable >)
+```
+
+`dir` 表示要搜索的目录，`variable` 表示将从 `dir` 目录下搜索到的源文件列表存储到该变量中。
+
+- **file**
+
+```cmake
+file(GLOB/GLOB_RECURSE 变量名 要搜索的文件路径和文件类型)
+```
+
+`GLOB`：将指定目录下搜索到的满足条件的所有文件名生成一个列表，并将其存储到变量中。
+
+`GLOB_RECURSE`：递归搜索指定目录，将搜索到的满足条件的文件名生成一个列表，并将其存储到变量中。
+
+```cmake
+file(GLOB SRC_LISTS ${CMAKE_CURRENT_SOURCE_DIR}/src/*.cpp)
+file(GLOB HEAD_LISTS ${CMAKE_CURRENT_SOURCE_DIR}/include/*.h)
+```
+
+`CMAKE_CURRENT_SOURCE_DIR` 宏表示当前访问的 CMakeLists.txt 文件所在的路径。
+
+### 4.7 包含头文件
+
+在编译项目源文件的时候，很多时候都需要将源文件对应的头文件路径指定出来，这样才能保证在编译过程中编译器能够找到这些头文件，并顺利通过编译。在 CMake 中设置头文件路径也很简单，通过命令 `include_directories` 就可以搞定了。
+
+```cmake
+include_directories(headpath)
+```
+
+### 4.8 生成动态库/静态库
+
+#### 4.8.1 生成静态库
+
+在 cmake 中，如果要制作静态库，需要使用的命令如下：
+
+```cmake
+add_library(库名称 STATIC 源文件 1 [源文件 2] ...)
+```
+
+在 Linux 系统中，静态库名字分为三部分：lib+库名字+.a，所以库名称只需要指定出库的名字就可以了，另外两部分在生成该文件的时候会自动填充。
+
+#### 4.8.2 生成动态库
+
+在 cmake 中，如果要制作动态库，需要使用的命令如下：
+
+```cmake
+add_library(库名称 SHARED 源文件 1 [源文件 2] ...)
+```
+
+在 Linux 系统中，动态库名字分为三部分：lib+库名字+.so，所以库名称也只需要指定出库的名字就可以了，另外两部分在生成该文件的时候会自动填充。
+
+#### 4.8.3 指定库输出的路径
+
+我们可以使用 `LIBRARY_OUTPUT_PATH` 宏来指定 动态库/静态库输出的路径。
+
+```cmake
+set(LIBRARY_OUTPUT_PATH ${PROJECT_SOURCE_DIR}/lib)
+```
+
+### 4.9 链接动态库/静态库
+
+在编写程序的过程中，可能会用到一些系统提供的动态库或者自己制作出的动态库或者静态库文件，cmake 中也为我们提供了相关的加载静态库/动态库的命令。
+
+#### 4.9.1 链接静态库
+
+在 cmake 中，链接静态库的命令如下：
+
+```cmake
+link_libraries(<static lib> [<static lib>...])
+```
+
+参数为指定要链接的静态库的名字，可以是全名，也可以是去掉 `lib` 和 `.a` 之后的名字。
+
+如果该静态库是自己制作或者使用第三方提供的静态库，可能出现静态库找不到的情况，此时需要将静态库的路径也指定出来：
+
+```cmake
+link_directories(<lib path>)
+```
+
+#### 4.9.2 链接动态库
+
+在 cmake 中链接动态库的命令如下:
+
+```cmake
+target_link_libraries(
+    <target>
+    <PRIVATE|PUBLIC|INTERFACE> <item>...
+    [<PRIVATE|PUBLIC|INTERFACE> <item>...]...)
+```
+
+- `target`：指定要加载动态库文件的名字
+    - 该文件可能是一个源文件
+    - 该文件可能是一个动态库文件
+    - 该文件可能是一个可执行文件
+
+- `PRIVATE|PUBLIC|INTERFACE`：动态库的访问权限，默认为 `PUBLIC`
+    - 如果各个动态库之间没有依赖关系，无需做任何设置，三者没有没有区别，一般无需指定，使用默认的 `PUBLIC` 即可
+    - 动态库的链接具有传递性，如果动态库 A 链接了动态库 B、C；动态库 D 链接了动态库 A；此时动态库 D 相当于也链接了动态库 B、C，并可以使用动态库 B、C 中定义的方法。
+
+- `PRIVATE|PUBLIC|INTERFACE` 的区别：
+    - `PUBLIC`：在 public 后面的库会被 Link 到前面的 `target` 中，并且里面的符号也会被导出，提供给第三方使用
+    - `PRIVATE`：在 private 后面的库仅被 link 到前面的 `target` 中，并且终结掉，第三方不能感知你调了啥库
+    - `INTERFACE`：在 interface 后面引入的库不会被链接到前面的 `target` 中，只会导出符号
+
+动态库的链接和静态库是完全不同的：
+
+- 静态库会在生成可执行程序的链接阶段被打包到可执行程序中，所以可执行程序启动，静态库就被加载到内存中了。
+- 动态库在生成可执行程序的链接阶段不会被打包到可执行程序中，当可执行程序被启动并且调用了动态库中的函数的时候，动态库才会被加载到内存。
+
+因此，在 cmake 中指定要链接的动态库的时候，应该将命令写到生成了可执行文件之后：
+
+```cmake
+cmake_minimum_required(VERSION 3.0)
+project(TEST)
+file(GLOB SRC_LIST ${CMAKE_CURRENT_SOURCE_DIR}/*.cpp)
+# 添加并指定最终生成的可执行程序名
+add_executable(app ${SRC_LIST})
+# 指定可执行程序要链接的动态库名字
+target_link_libraries(app
+
+ pthread)
+```
+
+在 `target_link_libraries(app pthread)` 中：app 表示最终生成的可执行程序的名字；pthread 表示可执行程序要加载的动态库，全名为 libpthread.so, 在指定的时候一般会掐头（lib）去尾（.so）。
+
+有些时候，当我们去链接第三方的动态库的时候，如果不指定链接路径，会报错找不到动态库。此时，我们在生成可执行程序之前，通过命令指定出要链接的动态库的位置：
+
+```cmake
+link_directories(path)
+```
+
+通过 `link_directories` 指定了动态库的路径之后，在执行生成的可执行程序的时候，就不会出现找不到动态库的问题了。
+
+### 4.10 install指令
+
+`install` 指令用于定义安装规则，安装的内容可以包括目标二进制、动态库、静态库以及文件、目录、脚本等。
+
+#### 4.10.1 安装可执行文件和库
+
+```cmake
+INSTALL(TARGETS targets... [[ARCHIVE|LIBRARY|RUNTIME]
+[DESTINATION <path>] [PERMISSIONS permissions...] [CONFIGURATIONS
+[Debug|Release|...]] [COMPONENT <component>] [OPTIONAL] ] [...])
+```
+
+- 参数中的 `TARGETS` 后面跟的就是我们通过 `ADD_EXECUTABLE` 或者 `ADD_LIBRARY` 定义的目标文件，可能是可执行二进制、动态库、静态库。
+- 目标类型也就相对应的有三种，`ARCHIVE` 特指静态库，`LIBRARY` 特指动态库，`RUNTIME` 特指可执行目标二进制。
+- `DESTINATION` 定义了安装的路径，如果路径以 `/` 开头，那么指的是绝对路径，这时候 `CMAKE_INSTALL_PREFIX` 其实就无效了。如果你希望使用 `CMAKE_INSTALL_PREFIX` 来定义安装路径，就要写成相对路径，即不要以 `/` 开头，那么安装后的路径就是 `${CMAKE_INSTALL_PREFIX}/...`
+
+例子：
+
+```cmake
+INSTALL(TARGETS myrun mylib mystaticlib RUNTIME DESTINATION bin
+LIBRARY DESTINATION lib ARCHIVE DESTINATION libstatic)
+```
+
+上面的例子会将：
+
+- 可执行二进制 `myrun` 安装到 `${CMAKE_INSTALL_PREFIX}/bin` 目录
+- 动态库 `libmylib` 安装到 `${CMAKE_INSTALL_PREFIX}/lib` 目录
+- 静态库 `libmystaticlib` 安装到 `${CMAKE_INSTALL_PREFIX}/libstatic` 目录
+
+1. 可以使用 `-D` 选项指定 `CMAKE_INSTALL_PREFIX` 参数，如 `cmake .. -DCMAKE_INSTALL_PREFIX =/usr`
+2. 如果没有定义 `CMAKE_INSTALL_PREFIX` 会安装到什么地方？ 可以尝试一下，`cmake ..;make;make install`，你会发现 `CMAKE_INSTALL_PREFIX` 的默认定义是 `/usr/local`
+
+#### 4.10.2 安装普通文件
+
+```cmake
+INSTALL(FILES files... DESTINATION <path> [PERMISSIONS permissions...]
+[CONFIGURATIONS [Debug|Release|...]] [COMPONENT <component>] [RENAME <name>]
+[OPTIONAL])
+```
+
+可用于安装一般文件，并可以指定访问权限，文件名是此指令所在路径下的相对路径。如果默认不定义权限 `PERMISSIONS`，安装后的权限为： `OWNER_WRITE`, `OWNER_READ`, `GROUP_READ`, 和 `WORLD_READ`，即 644 权限。
+
+#### 4.10.3 安装非目标文件的可执行程序
+
+```cmake
+INSTALL(PROGRAMS files... DESTINATION <path> [PERMISSIONS
+permissions...] [CONFIGURATIONS [Debug|Release|...]] [COMPONENT <component>]
+[RENAME <name>] [OPTIONAL])
+```
+
+跟上面的 `FILES` 指令使用方法一样，唯一的不同是安装后权限为: `OWNER_EXECUTE`, `GROUP_EXECUTE`, 和 `WORLD_EXECUTE`，即 755 权限。
+
+### 4.11 message指令
+
+在 CMake 中可以使用命令打印消息，该命令的名字为 `message`。
+
+```cmake
+message([STATUS|WARNING|AUTHOR_WARNING|FATAL_ERROR|SEND_ERROR]
+"message to display" ...)
+```
+
+第一个参数通常不设置，表示重要消息。
+
+- `STATUS` ：非重要消息
+- `WARNING`：CMake 警告, 会继续执行
+- `AUTHOR_WARNING`：CMake 警告 (dev), 会继续执行
+- `SEND_ERROR`：CMake 错误, 继续执行，但是会跳过生成的步骤
+- `FATAL_ERROR`：CMake 错误, 终止所有处理过程
+
+```cmake
+# 输出一般日志信息
+message(STATUS "source path: ${PROJECT_SOURCE_DIR}")
+# 输出警告信息
+message(WARNING "source path: ${PROJECT_SOURCE_DIR}")
+# 输出错误信息
+message(FATAL_ERROR "source path: ${PROJECT_SOURCE_DIR}")
+```
+
+### 4.12 宏定义
+
+在某些程序运行的时候，我们可能会在代码中添加一些宏定义，通过这些宏来控制这些代码是否生效。
+
+```cpp
+#include <iostream>
+
+using namespace std;
+
+int main()
+{
+#ifdef DEBUG
+    std::cout << "debug info..." << std::endl;
+#endif
+    std::cout << "hello world" << std::endl;
+    return 0;
+}
+```
+
+在 CMake 中我们也可以使用 `add_definitions` 来定义宏：
+
+```cmake
+cmake_minimum_required(VERSION 3.0)
+project(TEST)
+
+# 自定义 DEBUG 宏
+add_definitions(-DDEBUG)
+add_executable(app ./example.cpp)
+```
+
+下面的列表中为大家整理了一些 CMake 中已经给我们定义好的宏：
+
+- **PROJECT_SOURCE_DIR**：使用 cmake 命令后紧跟的目录，一般是工程的根目录
+- **PROJECT_BINARY_DIR**：执行 cmake 命令的目录
+- **CMAKE_CURRENT_SOURCE_DIR**：当前处理的 CMakeLists.txt 所在的路径
+- **CMAKE_CURRENT_BINARY_DIR**：target 编译目录
+- **EXECUTABLE_OUTPUT_PATH**：重新定义目标二进制可执行文件的存放位置
+- **LIBRARY_OUTPUT_PATH**：重新定义目标链接库文件的存放位置
+- **PROJECT_NAME**：返回通过 `PROJECT` 指令定义的项目名称
+- **CMAKE_BINARY_DIR**：项目实际构建路径，假设在 build 目录进行的构建，那么得到的就是这个目录的路径
+
+### 4.13 嵌套的 CMake
+
+如果项目很大，或者项目中有很多的源码目录，在通过 CMake 管理项目的时候如果只使用一个 CMakeLists.txt，那么这个文件相对会比较复杂，有一种化繁为简的方式就是给每个源码目录都添加一个 CMakeLists.txt 文件（头文件目录不需要），这样每个文件都不会太复杂，而且更灵活，更容易维护。
+
+嵌套的 CMake 是一个树状结构，最顶层的 CMakeLists.txt 是根节点，其次都是子节点。因此，我们需要了解一些关于 CMakeLists.txt 文件变量作用域的一些信息：
+
+- 根节点 CMakeLists.txt 中的变量全局有效
+- 父节点 CMakeLists.txt 中的变量可以在子节点中使用
+- 子节点 CMakeLists.txt 中的变量只能在当前节点中使用
+
+我们还需要知道在 CMake 中父子节点之间的关系是如何建立的，这里需要用到一个 CMake 命令：
+
+```cmake
+add_subdirectory(source_dir [binary_dir] [EXCLUDE_FROM_ALL])
+```
+
+- **source_dir：** 指定了 CMakeLists.txt 源文件和代码文件的位置，其实就是指定子目录
+- **binary_dir：** 指定了输出文件的路径，一般不需要指定，忽略即可。
+- **EXCLUDE_FROM_ALL：** 在子路径下的目标默认不会被包含到父路径的 ALL 目标里，并且也会被排除在 IDE 工程文件之外。用户必须显式构建在子路径下的目标。
+
+通过这种方式 CMakeLists.txt 文件之间的父子关系就被构建出来了。
+
+下面我们实现一个加减乘除的案例：
+
+```shell
+root@hcss-ecs-2618:/home/zsc/cmake/project# tree
+.
+├── build
+├── CMakeLists.txt
+├── include
+│   └── calc.h
+└── src
+    ├── add.cpp
+    ├── CMakeLists.txt
+    ├── main.cpp
+    ├── mul.cpp
+    └── sub.cpp
+3 directories, 7 files
+```
+
+- **include 目录：** 头文件目录
+- **src：** 源文件目录
+- **build：** 是外部构建目录
+
+可以看到目前存在两个 CMakeLists.txt， 根目录存在一个， src 源文件目录存在一个，我们依次分析一下各个文件中需要添加的内容：
+
+根目录中的 CMakeLists.txt 文件内容如下：
+
+```cmake
+cmake_minimum_required(VERSION 3.0)
+project(PROJECT)
+# 设置头文件目录变量
+set(HEAD_PATH ${CMAKE_CURRENT_SOURCE_DIR}/include)
+# 添加子目录，并且指定输出文件的路径为 bin 目录
+add_sub
+
+directory(src bin)
+```
+
+src 目录中的 CMakeLists.txt 文件内容如下：
+
+```cmake
+cmake_minimum_required(VERSION 3.0)
+project(CALC)
+# 获取当前目录下源文件列表放到 SRC 变量中
+aux_source_directory(./ SRC)
+# 包含头文件路径
+include_directories(${HEAD_PATH})
+# 新增可执行文件
+add_executable(calc ${SRC})
+```
+
+开始构建项目：
+
+```shell
+root@hcss-ecs-2618:/home/zsc/cmake/project/build# cmake ..
+-- The C compiler identification is GNU 11.3.0
+-- The CXX compiler identification is GNU 11.3.0
+-- Detecting C compiler ABI info
+-- Detecting C compiler ABI info - done
+-- Check for working C compiler: /usr/bin/cc - skipped
+-- Detecting C compile features
+-- Detecting C compile features - done
+-- Detecting CXX compiler ABI info
+-- Detecting CXX compiler ABI info - done
+-- Check for working CXX compiler: /usr/bin/c++ - skipped
+-- Detecting CXX compile features
+-- Detecting CXX compile features - done
+-- Configuring done
+-- Generating done
+-- Build files have been written to: /home/zsc/cmake/project/build
+```
+
+可以看到在 build 目录中生成了一些文件和目录，如下所示：
+
+```shell
+root@hcss-ecs-2618:/home/zsc/cmake/project/build# tree -L 1
+.
+├── bin
+├── CMakeCache.txt
+├── CMakeFiles
+├── cmake_install.cmake
+└── Makefile
+2 directories, 3 files
+```
+
+然后使用 make 编译源码：
+
+```shell
+root@hcss-ecs-2618:/home/zsc/cmake/project/build# make
+[ 20%] Building CXX object bin/CMakeFiles/calc.dir/add.cpp.o
+[ 40%] Building CXX object bin/CMakeFiles/calc.dir/main.cpp.o
+[ 60%] Building CXX object bin/CMakeFiles/calc.dir/mul.cpp.o
+[ 80%] Building CXX object bin/CMakeFiles/calc.dir/sub.cpp.o
+[100%] Linking CXX executable calc
+[100%] Built target calc
+```
+
+可以看到 build/bin 目录下已经产生可执行文件了，此时运行可执行文件就可以了。
+
+```shell
+root@hcss-ecs-2618:/home/zsc/cmake/project/build/bin# tree -L 1
+.
+├── calc
+├── CMakeFiles
+├── cmake_install.cmake
+└── Makefile
+1 directory, 3 files
+```
+
+运行可执行文件 calc:
+
+```shell
+root@hcss-ecs-2618:/home/zsc/cmake/project/build/bin# ./calc
+a = 20, b = 10
+a + b = 30
+a - b = 10
+a * b = 200
+```
+
+## 5. 综合案例
+
+本章节我们来实现一个综合案例，该案例涉及到：
+
+1. 动态库和静态库的构建及链接
+2. CMake 的嵌套
+3. 包含头文件
+4. 搜索文件
+5. 动态库、静态库、可执行文件的安装
+
+### 5.1 工程目录结构
+
+先看一下我们综合案例工程的目录：
+
+```shell
+root@hcss-ecs-2618:/home/zsc/cmake/example# tree
+.
+├── build
+├── calc
+│   ├── add.cpp
+│   ├── CMakeLists.txt
+│   ├── mul.cpp
+│   └── sub.cpp
+├── CMakeLists.txt
+├── include
+│   ├── calc.h
+│   └── sort.h
+├── sort
+│   ├── bubble.cpp
+│   ├── CMakeLists.txt
+│   └── insert.cpp
+└── test
+    ├── calc.cpp
+    ├── CMakeLists.txt
+    └── sort.cpp
+5 directories, 13 files
+```
+
+- **include 目录：** 头文件目录，两个模块的头文件都放在这里
+- **calc 目录：** 关于计算模块的源码都放在这里
+- **sort 目录：** 关于排序模块的源码都放在这里
+- **test 目录：** 两个源文件，分别对两个模块进行测试
+
+下面我们分别解析一下每个目录的 CMakeLists.txt 文件。
+
+### 5.2 根目录
+
+```cmake
+cmake_minimum_required(VERSION 3.0)
+project(EXAMPLE)
+# 库生成的路径
+set(LIB_PATH ${CMAKE_CURRENT_BINARY_DIR}/lib)
+# 可执行文件生成的路径
+set(EXEC_PATH ${CMAKE_CURRENT_BINARY_DIR}/bin)
+# 头文件目录
+set(HEAD_PATH ${CMAKE_CURRENT_SOURCE_DIR}/include)
+
+# 库的名字
+set(CALC_LIB calc)
+set(SORT_LIB sort)
+set(EXECUTABLE_OUTPUT_PATH ${EXEC_PATH})
+# 可执行文件的名字
+set(APP_NAME_1 test1)
+set(APP_NAME_2 test2)
+
+# 添加子目录
+add_subdirectory(calc)
+add_subdirectory(sort)
+add_subdirectory(test)
+```
+
+在根节点对应的文件中主要做了两件事情：定义全局变量和添加子目录。
+
+### 5.3 calc目录
+
+```cmake
+cmake_minimum_required(VERSION 3.0)
+project(CALC)
+# 获取当前目录的源文件列表放入到 SRC 变量中
+aux_source_directory(./ SRC)
+# 引入头文件路径
+include_directories(${HEAD_PATH})
+# 设置库的输出路径
+set(LIBRARY_OUTPUT_PATH ${LIB_PATH})
+# 封装静态库
+add_library(${CALC_LIB} STATIC ${SRC})
+# 安装静态库
+install(TARGETS ${CALC_LIB} ARCHIVE DESTINATION libstatic)
+```
+
+### 5.4 sort目录
+
+```cmake
+cmake_minimum_required(VERSION 3.0)
+project(SORT)
+# 搜索当前目录下所有的源文件
+aux_source_directory(./ SRC)
+# 包含头文件路径
+include_directories(${HEAD_PATH})
+# 设置库的输出路径
+set(LIBRARY_OUTPUT_PATH ${LIB_PATH})
+# 封装动态库
+add_library(${SORT_LIB} SHARED ${SRC})
+# 安装动态库
+install(TARGETS ${SORT_LIB} LIBRARY DESTINATION lib)
+```
+
+### 5.5 test目录
+
+```cmake
+cmake_minimum_required(VERSION 3.0)
+project(TEST)
+# 包含头文件路径
+include_directories(${HEAD_PATH})
+# 指定链接库的路径
+link_directories(${LIB_PATH})
+# 链接静态库
+link_libraries(${CALC_LIB})
+# 设置可执行文件输出路径
+set(EXECUTABLE_OUTPUT_PATH ${EXEC_PATH})
+# 生成可执行文件
+add_executable(${APP_NAME_1} calc.cpp)
+add_executable(${APP_NAME_2} sort.cpp)
+# 链接动态库
+target_link_libraries(${APP_NAME_2} ${SORT_LIB})
+# 安装可执行程序
+install(TARGETS ${APP_NAME_1} ${APP_NAME_2} RUNTIME DESTINATION
+bin)
+```
+
+### 5.6 构建项目
+
+一切准备就绪之后，开始构建项目，进入到根节点目录的 build 目录中，执行 `cmake ..` 命令
+
+```shell
+root@hcss-ecs-2618:/home/zsc/cmake/example/build# cmake ..
+-- The C compiler identification is GNU 11.3.0
+-- The CXX compiler identification is GNU 11.3.0
+-- Detecting C compiler ABI info
+-- Detecting C compiler ABI info - done
+-- Check for working C compiler: /usr/bin/cc - skipped
+-- Detecting C compile features
+-- Detecting C compile features - done
+-- Detecting CXX compiler ABI info
+-- Detecting CXX compiler ABI info - done
+-- Check for working CXX compiler: /usr/bin/c++ - skipped
+-- Detecting CXX compile features
+-- Detecting CXX compile features - done
+-- Configuring done
+-- Generating done
+-- Build files have been written to: /home/zsc/cmake/example/build
+```
+
+### 5.7 编译项目
+
+```shell
+root@hcss-ecs-2618:/home/zsc/cmake/example/build# make
+[  9%] Building CXX object calc/CMakeFiles/calc.dir/add.cpp.o
+[ 18%] Building CXX object calc/CMakeFiles/calc.dir/mul.cpp.o
+[ 27%] Building CXX object calc/CMakeFiles/calc.dir/sub.cpp.o
+[ 36%] Linking CXX static library ../lib/libcalc.a
+[ 36%] Built target calc
+[ 45%] Building CXX object sort/CMakeFiles/sort.dir/bubble.cpp.o
+[ 54%] Building CXX object sort/CMakeFiles/sort.dir/insert.cpp.o
+[ 63%] Linking CXX shared library ../lib/libsort.so
+[ 63%] Built target sort
+[ 72%] Building CXX object test/CMakeFiles/test1.dir/calc.cpp.o
+[ 81%] Linking CXX executable ../bin/test1
+[ 81%
+
+] Built target test1
+[ 90%] Building CXX object test/CMakeFiles/test2.dir/sort.cpp.o
+[100%] Linking CXX executable ../bin/test2
+[100%] Built target test2
+```
+
+### 5.8 安装库和可执行程序
+
+可以使用 `make install` 直接安装，默认安装路径为 `/usr/local/...` 目录下，当然也可以在执行 cmake 指令的时候，加上 `-DCMAKE_INSTALL_PREFIX=/usr/` 指定头文件和库的安装路径。
+
+```shell
+root@hcss-ecs-2618:/home/zsc/cmake/example/build# make install
+Consolidate compiler generated dependencies of target calc
+[ 36%] Built target calc
+Consolidate compiler generated dependencies of target sort
+[ 63%] Built target sort
+Consolidate compiler generated dependencies of target test1
+[ 81%] Built target test1
+Consolidate compiler generated dependencies of target test2
+[100%] Built target test2
+Install the project...
+-- Install configuration: ""
+-- Installing: /usr/local/libstatic/libcalc.a
+-- Installing: /usr/local/lib/libsort.so
+-- Installing: /usr/local/bin/test1
+-- Set runtime path of "/usr/local/bin/test1" to ""
+-- Installing: /usr/local/bin/test2
+-- Set runtime path of "/usr/local/bin/test2" to ""
+```
