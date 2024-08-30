@@ -1454,7 +1454,7 @@ brpc是一个远程过程调用框架，是用c++语言编写的工业级RPC框�
 - 获得更好的延时和吞吐.
 - 把你组织中使用的协议快速地加入brpc，或定制各类组件, 包括命名服务(dns, zk, etcd), 负载均衡(rr, random, consistent hashing)
 
-# 对比其他rpc框架
+## 对比其他rpc框架
 | 框架   | 开发者         | 语言支持                       | 序列化方案          | HTTP协议支持 | 文档是否完善 | 服务端支持 |
 |--------|----------------|--------------------------------|---------------------|--------------|--------------|------------|
 | brpc   | 百度           | C++, Java, Python              | Protobuf, JSON      | 是           | 是           | 是         |
@@ -1472,22 +1472,16 @@ brpc是一个远程过程调用框架，是用c++语言编写的工业级RPC框�
 ### 5.1.1 先安装依赖
 
 ```bash
-C++ 
-dev@dev-host:~/workspace$ sudo apt-get install -y git g++ make 
-libssl-dev libprotobuf-dev libprotoc-dev protobuf-compiler 
-libleveldb-dev 
+dev@dev-host:~/workspace$ sudo apt-get install -y git g++ make libssl-dev libprotobuf-dev libprotoc-dev protobuf-compiler libleveldb-dev 
 ```
 
 ### 5.1.2 安装 brpc
 
 ```bash
-C++ 
-dev@dev-host:~/workspace$ git clone 
-https://github.com/apache/brpc.git 
+dev@dev-host:~/workspace$ git clone https://github.com/apache/brpc.git 
 dev@dev-host:~/workspace$ cd brpc/ 
 dev@dev-host:~/workspace/brpc$ mkdir build && cd build 
-dev@dev-host:~/workspace/brpc/build$ cmake -
-DCMAKE_INSTALL_PREFIX=/usr .. && cmake --build . -j6 
+dev@dev-host:~/workspace/brpc/build$ cmake - DCMAKE_INSTALL_PREFIX=/usr .. && cmake --build . -j6 
 dev@dev-host:~/workspace/brpc/build$ make && sudo make install  
 ```
 
@@ -1507,7 +1501,7 @@ enum LoggingDestination {
 }; 
 struct BUTIL_EXPORT LoggingSettings { 
     LoggingSettings(); 
-    LoggingDestination logging_dest; 
+    LoggingDestination logging_dest; // 设置为LOG_TO_NONE就不会打印日志了
 }; 
 bool InitLogging(const LoggingSettings& settings); 
 }
@@ -1622,6 +1616,19 @@ class Channel : public ChannelBase {
 
 ## 5.3 使用
 
+Rpc调用实现样例：
+服务端：
+1. 创建rpc服务子类继承pb中的EchoService服务类，并实现内部的业务接口逻辑
+2. 创建rpc服务器类，搭建服务器
+3. 向服务器类中添加rpc子服务对象--告诉服务器收到什么请求用哪个接口处理
+4. 启动服务器
+
+客户端：
+1. 创建网络通信信道
+2. 实例化pb中的EchoService_Stub类对象
+3. 发起rpc请求，获取响应进行处理
+
+
 ### 5.3.1 同步调用
 
 同步调用是指客户端会阻塞收到 server 端的响应或发生错误。
@@ -1631,7 +1638,6 @@ class Channel : public ChannelBase {
 #### 创建 proto 文件 - main.proto
 
 ```protobuf
-ProtoBuf 
 syntax="proto3"; 
 package example; 
  
@@ -1750,7 +1756,6 @@ int main(int argc, char* argv[]) {
 #### 创建客户端源码 - client.cpp
 
 ```cpp
-C++ 
 #include <gflags/gflags.h> 
 #include <butil/logging.h> 
 #include <butil/time.h> 
@@ -1813,6 +1818,9 @@ brpc_client: brpc_client.cc main.pb.cc
 %.pb.cc : %.proto 
     protoc --cpp_out ./ $<  
 ```
+
+![](../Pics/brpc效果.png)
+
 
 ### 5.3.2 异步调用
 
