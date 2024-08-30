@@ -1147,75 +1147,120 @@ namespace etcd {
 
 ## 4.7 使用样例
 
-### 4.7.1 服务注册示例
+### 4.7.1 服务注册示例（put.cc）
 
 ```cpp
 #include <etcd/Client.hpp>
-#include <etcd/Response.hpp>
-#include <etcd/KeepAlive.hpp>
+// #include <etcd/SyncClient.hpp  
+#include <etcd/KeepAlive.hpp>  
+#include <etcd/Value.hpp>  
+#include <etcd/Watcher.hpp>
+
 #include <thread>
 
-int main() {
-    std::string registry_host = "http://127.0.0.1:2379";
-    std::string service_key = "/service/user/instance";
-    std::string service_host = "112.23.23.120:9090";
-    etcd::Client etcd(registry_host);
+#include <gtest/gtest.h>
 
-    std::shared_ptr<etcd::KeepAlive> keepalive = etcd.leasekeepalive(3).get();
-    auto lease_id = keepalive->Lease();
-    auto resp_task = etcd.put(service_key, service_host, lease_id);
-    auto resp = resp_task.get();
-    if (!resp.is_ok()) {
-        std::cout << resp.error_message() << std::endl;
+
+int main(int argc, char* argv[])
+{
+    // 这个url是etcd服务器接收client请求的url
+    std::string etcd_host_url = "http://127.0.0.1:2379";
+    // 实例化一个etcd客户端
+    etcd::Client client(etcd_host_url);
+    // 获取一个租约保活对象，伴随着创建一个指定时长的租约
+    auto keep_alive = client.leasekeepalive(3).get();
+    // 获取租约ID
+    auto lease_id = keep_alive->Lease();
+    // 向etcd新增数据，有租约
+    auto resp = client.put("/service/user", "127.0.0.1:8080", lease_id).get();
+    if(resp.is_ok() == false)
+    {
+        std::cout << "新增数据失败：" << resp.error_message() << std::endl;
         return -1;
     }
-    std::cout << "添加数据成功！" << std::endl;
-    getchar();
-    etcd.leaserevoke(lease_id);
 
+    // 向etcd新增数据，没有租约
+    resp = client.put("/service/friend", "127.0.0.1:9090", lease_id).get();
+    if(resp.is_ok() == false)
+    {
+        std::cout << "新增数据失败：" << resp.error_message() << std::endl;
+        return -1;
+    }
+
+    // 等待10秒钟
+    std::this_thread::sleep_for(std::chrono::seconds(10));
+    // 手动停止租约的心跳机制
+    keep_alive.reset(); // 销毁KeepAlive对象，停止心跳
+    std::cout << "已经停止续租..." << std::endl;
+
+    std::this_thread::sleep_for(std::chrono::seconds(10));
+    std::cout << "退出..." << std::endl;
     return 0;
 }
 ```
 
-### 4.7.2 服务发现示例
+### 4.7.2 服务发现示例（get.cc）
 
 ```cpp
 #include <etcd/Client.hpp>
+// #include <etcd/SyncClient.hpp  
+#include <etcd/KeepAlive.hpp>  
+#include <etcd/Value.hpp>  
 #include <etcd/Watcher.hpp>
 
-void watcherCallback(etcd::Response const& resp) {
-    if (resp.error_code()) {
-        std::cout << "Watcher Error:" << resp.error_code() << "-" << resp.error_message() << std::endl;
-    } else {
-        for (auto const& ev : resp.events()) {
-            if (ev.event_type() == etcd::Event::EventType::PUT) {
-                std::cout << "服务 " << ev
+#include <thread>
+#include <functional>
 
-.kv().key() << " 新增主机：" << ev.kv().as_string() << std::endl;
-            } else if (ev.event_type() == etcd::Event::EventType::DELETE_) {
-                std::cout << "服务 " << ev.kv().key() << " 下线主机：" << ev.prev_kv().as_string() << std::endl;
-            }
+#include <gtest/gtest.h>
+
+
+// std::function<void(etcd::Response)> callback
+
+void callback(const etcd::Response &resp)
+{
+    if(resp.is_ok() == false)
+    {
+        std::cout << "收到一个错误的事件通知：" << resp.error_message() << std::endl;
+        return;
+    }
+    for(const auto& ev : resp.events())
+    {
+        if(ev.event_type() == etcd::Event::EventType::PUT) {
+            std::cout << "数据发生了改变：" << std::endl;
+            std::cout << "当前的值：" << ev.kv().key() << " : " << ev.kv().as_string() << std::endl;
+            std::cout << "原来的值：" << ev.prev_kv().key() << " : " << ev.prev_kv().as_string() << std::endl;
+        } else if(ev.event_type() == etcd::Event::EventType::DELETE_) {
+            std::cout << "数据被删除：" << std::endl;
+            std::cout << "当前的值：" << ev.kv().key() << " : " << ev.kv().as_string() << std::endl;
+            std::cout << "原来的值：" << ev.prev_kv().key() << " : " << ev.prev_kv().as_string() << std::endl;
         }
     }
 }
 
-int main() {
-    std::string registry_host = "http://127.0.0.1:2379";
-    std::string service_key = "/service/user/instance";
-    etcd::Client etcd(registry_host);
-    etcd::Response resp = etcd.ls(service_key).get();
-    if (resp.is_ok()) {
-        for (int i = 0; i < resp.keys().size(); i++) {
-            std::cout << resp.key(i) << "=" << resp.value(i).as_string() << std::endl;
-        }
-    } else {
-        std::cout << "Get Service Error:" << resp.error_code() << "-" << resp.error_message() << std::endl;
+
+int main(int argc, char* argv[])
+{
+    std::string etcd_host_url = "http://127.0.0.1:2379";
+
+    etcd::Client client(etcd_host_url);
+
+    // 获取一个键值对
+    auto resp = client.ls("/service").get();
+    if(resp.is_ok() == false)
+    {
+        std::cout << "获取键值对数据失败" << resp.error_message() << std::endl;
+        return -1;
     }
 
-    etcd::Watcher watcher(registry_host, service_key, watcherCallback, true);
-    getchar();
-    watcher.Cancel();
+    size_t sz = resp.keys().size();
+    for(int i = 0; i < sz; i++)
+    {
+        std::cout << resp.value(i).as_string() << "->可以提供：" << resp.key(i) << " 服务\n";
+    }
 
+    // 实例化一个键值对监控对象
+    auto watcher = etcd::Watcher(client, "/service", callback, true); // true表示监控service下的所有key
+    watcher.Wait();
     return 0;
 }
 ```
@@ -1223,16 +1268,15 @@ int main() {
 ### 4.7.3 Makefile
 
 ```makefile
-all: registry discoverer
+all: put get
+put: put.cc
+	g++ -std=c++17 $^ -o $@ -lpthread -letcd-cpp-api -lcpprest
+get: get.cc
+	g++ -std=c++17 $^ -o $@ -lpthread -letcd-cpp-api -lcpprest
 
-registry: registry.cc
-    g++ -std=c++17 $^ -o $@ -letcd-cpp-api -lcpprest
-
-discoverer: discoverer.cc
-    g++ -std=c++17 $^ -o $@ -letcd-cpp-api -lcpprest
-
+.PHONY:clean
 clean:
-    rm -rf registry discoverer
+	rm -f put get
 ```
 
 ## 4.8 封装服务发现与注册功能
@@ -1243,7 +1287,55 @@ clean:
 
 服务注册的主要逻辑是在 etcd 服务器上存储一个租期为 ns 的保活键值对，表示所能提供指定服务的节点主机，例如：
 
-`<key, val> -- < /service/user/instance-1, 127.0.0.1:9000>`
+`<key, val> -- </service/user/instance-1, 127.0.0.1:9000>`
+
+服务注册封装：
+```cpp
+#pragma once
+#include <etcd/Client.hpp>
+#include <etcd/Response.hpp>
+#include <etcd/KeepAlive.hpp>  
+#include <etcd/Value.hpp>  
+#include <etcd/Watcher.hpp>
+
+#include <thread>
+#include <functional>
+
+#include "./logger.hpp"
+
+// 服务注册客户端类，本质上是在放数据
+class Registry
+{
+private:
+    std::shared_ptr<etcd::Client> _client; // etcd的客户端对象
+    std::shared_ptr<etcd::KeepAlive> _keep_alive; // 一个租约的保活对象
+    int64_t _lease_id; // 保活对象的租约ID
+public:
+    Registry(const string &host_url)
+        :_client(make_shared<etcd::Client>(host_url))
+        ,_keep_alive(_client->leasekeepalive(3).get()) // 它的创建伴随着创建一个指定时长的租约（3s）
+        ,_lease_id(_keep_alive->Lease())
+    {}
+
+    // 注册kv，返回bool值表示是否成功
+    bool registry(const std::string &key, const std::string &val)
+    {
+        auto resp = _client->put(key, val, _lease_id).get();
+        if(resp.is_ok() == false)
+        {
+            LOG_ERROR("注册数据失败：{}", resp.error_message());
+            return false;
+        }
+        return true;
+    }
+
+    ~Registry()
+    {
+        _keep_alive->Cancel(); // 取消租约
+    }
+};
+```
+
 
 ### 4.8.2 服务发现
 
@@ -1252,6 +1344,76 @@ clean:
 - **初次发现**：通过 `ls` 命令获取所有提供指定服务的实例信息。
 - **动态监控**：通过 `watcher` 对关心的服务进行监控，当有新的服务上线或服务下线时，收到通知进行节点管理。
 
+服务发现封装：
+```cpp
+
+// 服务发现客户端类，本质上是在获取数据
+class Discovery
+{
+    using NotifyCallback = std::function<void(std::string_view, std::string_view)>;
+private:
+    std::shared_ptr<etcd::Client> _client;
+    std::shared_ptr<etcd::Watcher> _watcher;
+    NotifyCallback _put_cb;
+    NotifyCallback _del_cb;
+
+private:
+    // std::function<void(etcd::Response)> callback
+    void callback(const etcd::Response &resp)
+    {
+        if(resp.is_ok() == false)
+        {
+            LOG_ERROR("收到一个错误的事件通知：{}", resp.error_message());
+            return;
+        }
+        for(const auto& ev : resp.events())
+        {
+            if(ev.event_type() == etcd::Event::EventType::PUT) {
+                if(_put_cb) _put_cb(ev.kv().key(), ev.kv().as_string());
+                // LOG_DEBUG("新增业务节点：{} -> {}", ev.kv().key(), ev.kv().as_string());
+            } else if(ev.event_type() == etcd::Event::EventType::DELETE_) {
+                if(_del_cb) _del_cb(ev.prev_kv().key(), ev.prev_kv().as_string()); // 看的是被删除的kv，因此用prev_kv
+                // LOG_DEBUG("业务节点下线：{} -> {}", ev.kv().key(), ev.kv().as_string());
+            }
+        }
+    }
+
+public:
+    Discovery(const std::string &host_url, 
+    const std::string &base_dir, 
+    const NotifyCallback &put_cb, 
+    const NotifyCallback &del_cb)
+        :_client(std::make_shared<etcd::Client>(host_url))
+        ,_watcher(std::make_shared<etcd::Watcher>(*_client, base_dir, 
+                  std::bind(&Discovery::callback, this, std::placeholders::_1), true))
+        ,_put_cb(put_cb)
+        ,_del_cb(del_cb)
+    {
+        // 1. 先拉取服务（服务发现）
+        auto resp = _client->ls("/service").get();
+        if(resp.is_ok() == false)
+        {
+            LOG_ERROR("获取服务信息数据失败：{}", resp.error_message());
+            abort();
+        }
+
+        // 2. 打印服务列表
+        LOG_DEBUG("拉取服务列表：");
+        size_t sz = resp.keys().size();
+        for(int i = 0; i < sz; i++)
+        {
+            LOG_DEBUG(" {} 可以提供 {} 服务", resp.value(i).as_string(), resp.key(i));
+            if(_put_cb) _put_cb(resp.key(i), resp.value(i).as_string());
+        }
+        LOG_DEBUG("服务列表打印完毕");
+        
+        // 3. 然后进行事件监控
+        // _watcher->Wait();
+    }
+
+    ~Discovery() { }
+};
+```
 ### 4.8.3 封装思想
 
 通过封装 etcd 的操作，可以简化服务注册和发现的逻辑，向外提供以下接口：
@@ -1261,12 +1423,49 @@ clean:
 - 设置服务上线处理的回调接口。
 - 设置服务下线处理的回调接口。
 
+测试：
 
-根据您提供的PDF文件，以下是从第5部分开始的一字不落的输出，忽略了“版权说明”和“代码&板书链接”部分：
+![](../Pics/registry_and_discovery.gif)
 
 
 
 # 5. brpc安装及使用
+
+brpc是一个远程过程调用框架，是用c++语言编写的工业级RPC框架，常用于搜索、存储、机器学习、广告、推荐等高性能系统。
+
+什么是RPC？以加法为例：
+
+![](../Pics/brcpadd.png)
+
+
+
+
+你可以使用它：
+- 搭建能在一个端口支持多协议的服务, 或访问各种服务：
+  - restful http/https, h2/gRPC。使用brpc的http实现比libcurl方便多了。从其他语言通过HTTP/h2+json访问基于protobuf的协议.
+  - redis和memcached, 线程安全，比官方client更方便。
+  - rtmp/flv/hls, 可用于搭建流媒体服务.
+  - 支持thrift , 线程安全，比官方client更方便
+  - 各种百度内使用的协议: baidu_std, streaming_rpc, hulu_pbrpc, sofa_pbrpc, nova_pbrpc,public_pbrpc, ubrpc和使用nshead的各种协议.
+  - 基于工业级的RAFT算法实现搭建高可用分布式系统，已在braft开源。
+- Server能同步或异步处理请求。
+- Client支持同步、异步、半同步，或使用组合channels简化复杂的分库或并发访问。
+- 通过http界面调试服务, 使用cpu, heap, contention profilers.
+- 获得更好的延时和吞吐.
+- 把你组织中使用的协议快速地加入brpc，或定制各类组件, 包括命名服务(dns, zk, etcd), 负载均衡(rr, random, consistent hashing)
+
+# 对比其他rpc框架
+| 框架   | 开发者         | 语言支持                       | 序列化方案          | HTTP协议支持 | 文档是否完善 | 服务端支持 |
+|--------|----------------|--------------------------------|---------------------|--------------|--------------|------------|
+| brpc   | 百度           | C++, Java, Python              | Protobuf, JSON      | 是           | 是           | 是         |
+| gRPC   | Google         | C++, Java, Python, Go, etc.    | Protobuf            | 是           | 是           | 是         |
+| Thrift | Apache         | C++, Java, Python, Go, etc.    | Thrift Binary       | 否           | 是           | 是         |
+| Dubbo  | Apache         | Java, C++, Python, etc.        | Hessian, JSON, etc. | 是           | 是           | 是         |
+| Tars   | 腾讯           | C++, Java, Node.js, PHP, etc.  | Tars                | 否           | 是           | 是         |
+| ZeroC ICE | ZeroC Inc.  | C++, Java, Python, etc.        | ICE, Protobuf       | 否           | 是           | 是         |
+| Armeria| Line Corporation| Java                           | Protobuf, Thrift, JSON| 是         | 是           | 是         |
+
+
 
 ## 5.1 安装
 
