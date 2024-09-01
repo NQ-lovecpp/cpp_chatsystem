@@ -1662,146 +1662,229 @@ service EchoService {
 #### 创建服务端源码 - brpc_server.cpp
 
 ```cpp
-C++ 
-#include <gflags/gflags.h> 
-#include <butil/logging.h> 
-#include <brpc/server.h> 
-#include <json2pb/pb_to_json.h> 
-#include "main.pb.h" 
- 
-// 使用 gflags 定义一些命令行参数 
-DEFINE_int32(listen_port, 8000, "服务器地址信息"); 
-DEFINE_int32(idle_timeout_s, -1, "空闲连接超时关闭时间：默认-1 表示不关闭"); 
-DEFINE_int32(thread_count, 3, "服务器启动线程数量"); 
-              
-namespace example { 
-class EchoServiceImpl : public EchoService { 
-public: 
-    EchoServiceImpl() {} 
-    virtual ~EchoServiceImpl() {} 
-    // cntl_base：包含除了 request 和 response 之外的参数集合 
-    // request: 请求，只读的，来自 client 端的数据包 
-    // response: 回复。需要用户填充，如果存在 required 字段没有被设置，该次调用会失败。 
-    // done: done 由框架创建，递给服务回调，包含了调用服务回调后的后续动作，包括检查 response 正确性，序列化，打包，发送等逻辑。不管成功失败，done->Run()必须在请求处理完成后被用户调用一次。 
-    virtual void Echo(google::protobuf::RpcController* cntl_base, 
-                      const EchoRequest* request, 
-                      EchoResponse* response, 
-                      google::protobuf::Closure* done) { 
-        // 类型于守卫锁，以 ARII 方式自动释放 done 对象 
-        brpc::ClosureGuard done_guard(done); 
- 
-        brpc::Controller* cntl = 
-            static_cast<brpc::Controller*>(cntl_base); 
- 
-        // 可选项： 本质是设置一个 hook 函数，在发送响应后及在cntl_base、request、response 释放之前调用 
-        cntl->set_after_rpc_resp_fn(std::bind(&EchoServiceImpl::CallAfterRpc, 
-            std::placeholders::_1, std::placeholders::_2, std::placeholders::_3)); 
- 
-        // 打印一些相关的参数日志信息 
-        std::cout << "请求内容：" << request->message() << std::endl; 
- 
-        // 填充响应，客户端发送什么数据，服务器就回复什么数据 
-        response->set_message(request->message() + " Hello"); 
-    } 
- 
-    // 可选项： 回调函数， 此时响应已经发回给客户端,但是相关结构还没释放 
-    static void CallAfterRpc(brpc::Controller* cntl, 
-                        const google::protobuf::Message* req, 
-                        const google::protobuf::Message* res) { 
-        std::string req_str; 
-        std::string res_str; 
-        json2pb::ProtoMessageToJson(*req, &req_str, NULL); 
-        json2pb::ProtoMessageToJson(*res, &res_str, NULL); 
-        std::cout << "req:" << req_str << std::endl; 
-        std::cout << "res:" << res_str << std::endl; 
-    } 
-}; 
-}  // namespace example 
- 
-int main(int argc, char* argv[]) { 
-    logging::LoggingSettings log_setting; 
-    log_setting.logging_dest = 
-        logging::LoggingDestination::LOG_TO_NONE; 
-    logging::InitLogging(log_setting); 
-    // 解析命令行参数 
-    google::ParseCommandLineFlags(&argc, &argv, true); 
- 
-    // 定义服务器 
-    brpc::Server server; 
- 
-    // 创建服务对象. 
-    example::EchoServiceImpl echo_service_impl; 
- 
-    // 将服务添加到服务器中 
-    if (server.AddService(&echo_service_impl,  
-        brpc::SERVER_DOESNT_OWN_SERVICE) != 0) { 
-        std::cout << "add service failed!\n"; 
-        return -1; 
-    } 
-    // 开始运行服务器 
-    brpc::ServerOptions options; 
-    options.idle_timeout_sec = FLAGS_idle_timeout_s; 
-    options.num_threads = FLAGS_thread_count; 
-    if (server.Start(FLAGS_listen_port, &options) != 0) { 
-        std::cout << "Fail to start EchoServer"; 
-        return -1; 
-    } 
- 
-    // 阻塞等待服务端运行  
-    server.RunUntilAskedToQuit(); 
-    return 0; 
-} 
+#include <brpc/server.h>
+#include <butil/logging.h>
+#include "./main.pb.h"
+
+// 1. 创建子类，继承于EchoService创建一个子类，并实现rpc调用
+class EchoServiceImpl : public example::EchoService 
+{
+private:
+    /* data */
+public:
+    virtual void Echo(::google::protobuf::RpcController* controller,
+                       const ::example::EchoRequest* request,
+                       ::example::EchoResponse* response,
+                       ::google::protobuf::Closure* done)
+    {
+        // 把Closure指针管理起来
+        brpc::ClosureGuard closure_guard(done);
+
+        // 处理业务
+        std::cout << "处理业务中..." << std::endl;
+        std::cout << "收到消息：" << request->message() << std::endl;
+        std::string ret = request->message() + "，这是响应!";
+        response->set_message(ret);
+
+        // done->Run(); 不需要显式run了，因为closureguard析构的时候自动run了
+        // ~ClosureGuard() {
+        // if (_done) {
+        //     _done->Run();
+        // }
+    }
+    EchoServiceImpl() {}
+    ~EchoServiceImpl() {}
+};
+
+
+
+int main(int argc, char *argv[])
+{
+    // 关闭brpc的日志输出
+    logging::LoggingSettings settings;
+    settings.logging_dest = logging::LoggingDestination::LOG_TO_NONE;
+    logging::InitLogging(settings);
+
+    // 2. 构造服务器对象
+    brpc::Server server;
+    // 3. 向服务器对象中，新增EchoService服务
+    EchoServiceImpl echo_service;
+    int ret = server.AddService(&echo_service, brpc::ServiceOwnership::SERVER_DOESNT_OWN_SERVICE); // service是局部变量，不需要被server占有
+    if(ret == -1) {
+        std::cerr << "添加服务失败" << std::endl;
+        return -1;
+    }
+    brpc::ServerOptions options;
+    options.idle_timeout_sec = -1; // 连接空闲超时事件，超时后连接被关闭
+    options.num_threads = 1; // io线程数量
+
+    // 4. 启动服务 
+    ret = server.Start(8787, &options);
+    if(ret == -1) {
+        std::cerr << "服务启动失败" << std::endl;
+        return -1;
+    }
+
+    // 5.等待运行结束
+    server.RunUntilAskedToQuit();
+    return 0;
+}
 ```
 
 #### 创建客户端源码 - client.cpp
 
 ```cpp
-#include <gflags/gflags.h> 
-#include <butil/logging.h> 
-#include <butil/time.h> 
-#include <brpc/channel.h> 
-#include "main.pb.h" 
- 
-DEFINE_string(protocol, "baidu_std", "通信协议类型，默认使用 brpc 自定制协议"); 
-DEFINE_string(server_host, "127.0.0.1:8000", "服务器地址信息"); 
-DEFINE_int32(timeout_ms, 500, "Rpc 请求超时时间-毫秒"); 
-DEFINE_int32(max_retry, 3, "请求重试次数");  
- 
-int main(int argc, char* argv[]) { 
-    // 解析命令行参数 
-    google::ParseCommandLineFlags(&argc, &argv, true); 
-     
-    // 创建通道， 可以理解为客户端到服务器的一条通信线路 
-    brpc::Channel channel; 
-     
-    // 初始化通道，NULL 表示使用默认选项 
-    brpc::ChannelOptions options; 
-    options.protocol = FLAGS_protocol; 
-    options.timeout_ms = FLAGS_timeout_ms; 
-    options.max_retry = FLAGS_max_retry; 
-    if (channel.Init(FLAGS_server_host.c_str(), &options) != 0) { 
-        LOG(ERROR) << "Fail to initialize channel"; 
-        return -1; 
-    } 
-    // 通常，我们不应直接调用通道，而是包装它的 stub 服务,通过 stub 进行rpc 调用 
-    example::EchoService_Stub stub(&channel); 
- 
-    // 创建请求、响应、控制对象 
-    example::EchoRequest request; 
-    example::EchoResponse response; 
-    brpc::Controller cntl; 
-    // 构造请求响应 
-    request.set_message("hello world"); 
-     
-    // 由于“done”（最后一个参数）为 NULL，表示阻塞等待响应 
-    stub.Echo(&cntl, &request, &response, NULL); 
-    if (cntl.Failed()) { 
-        std::cout << "请求失败: " << cntl.ErrorText() << std::endl; 
-        return -1; 
-    }  
-    std::cout << "响应：" << response.message() << std::endl; 
-    return 0; 
+// #include <brpc/channel.h>
+// #include <brpc/server.h>
+// #include <thread>
+// #include "./main.pb.h"
+
+// void callback(brpc::Controller *ctrl, 
+//             ::example::EchoResponse *response)
+// {
+//     std::cout << "收到响应：" << response->message() << std::endl;
+//     delete ctrl;
+//     delete response;
+// }
+
+// int main(int argc, char *argv[])
+// {
+//     // 1. 构造一个channel，用于连接服务器
+//     brpc::Channel channel;
+//     brpc::ChannelOptions options;
+//     options.connect_timeout_ms = -1; // -1 means wait indefinitely.
+//     options.max_retry = 3; // 请求重试次数
+//     options.protocol = "baidu_std";
+
+//     int ret = channel.Init("127.0.0.1:8787", &options);
+//     if (ret == -1) {
+//         std::cout << "初始化信道失败" << std::endl;
+//     }
+//     // 2. 构造一个echoservice，用于进行rpc调用
+//     example::EchoService_Stub stub(&channel);
+
+//     // // 3. 进行rpc调用(同步调用)
+//     // example::EchoRequest req;
+//     // req.set_message("hello server, I'm clinet.");
+
+//     // brpc::Controller *ctrl = new brpc::Controller();
+//     // example::EchoResponse *resp = new example::EchoResponse();
+
+//     // stub.Echo(ctrl, &req, resp, nullptr); // 这是真正的调用
+//     // if (ctrl->Failed() == true) {
+//     //     std::cout << "rpc调用失败：" << ctrl->ErrorText() << std::endl;
+//     //     return -1;
+//     // }
+//     // std::cout << "收到响应：" << resp->message() << std::endl;
+
+//     // delete ctrl;
+//     // delete resp;
+
+//     // 4. 进行rpc调用(异步调用)
+//     example::EchoRequest req;
+//     req.set_message("hello server, I'm clinet.");
+
+//     brpc::Controller *ctrl = new brpc::Controller();
+//     example::EchoResponse *resp = new example::EchoResponse();
+//     google::protobuf::Closure *closure = google::protobuf::NewCallback(callback, ctrl, resp);
+//     stub.Echo(ctrl, &req, resp, closure); // 这是真正的调用
+//     if (ctrl->Failed() == true) {
+//         std::cout << "rpc调用失败：" << ctrl->ErrorText() << std::endl;
+//         return -1;
+//     }
+//     std::cout << "异步调用完成" << std::endl;
+//     std::this_thread::sleep_for(std::chrono::seconds(10));
+//     return 0;
+// }
+
+
+
+
+#include <gtest/gtest.h>
+#include <brpc/channel.h>
+#include <brpc/server.h>
+#include <thread>
+#include "./main.pb.h"
+
+// 模拟的回调函数
+void test_callback(brpc::Controller *ctrl, ::example::EchoResponse *response) {
+    if (ctrl->Failed()) {
+        std::cout << "异步rpc调用失败：" << ctrl->ErrorText() << std::endl;
+    } else {
+        std::cout << "收到异步响应：" << response->message() << std::endl;
+    }
+
+    delete ctrl;
+    delete response;
 }
+
+// 同步调用的测试
+TEST(EchoServiceTest, SyncCall) {
+    // 1. 构造一个channel，用于连接服务器
+    brpc::Channel channel;
+    brpc::ChannelOptions options;
+    options.connect_timeout_ms = -1;
+    options.max_retry = 3;
+    options.protocol = "baidu_std";
+
+    int ret = channel.Init("127.0.0.1:8787", &options);
+    ASSERT_EQ(ret, 0) << "初始化信道失败";
+
+    // 2. 构造一个echoservice，用于进行rpc调用
+    example::EchoService_Stub stub(&channel);
+
+    // 3. 进行rpc调用(同步调用)
+    example::EchoRequest req;
+    req.set_message("hello server, I'm client.");
+
+    brpc::Controller ctrl;
+    example::EchoResponse resp;
+
+    stub.Echo(&ctrl, &req, &resp, nullptr); // 这是真正的调用
+
+    if (ctrl.Failed()) {
+        std::cout << "rpc调用失败：" << ctrl.ErrorText() << std::endl;
+    }
+    ASSERT_FALSE(ctrl.Failed()) << "同步rpc调用失败";
+
+    std::cout << "收到同步响应：" << resp.message() << std::endl;
+}
+
+// 异步调用的测试
+TEST(EchoServiceTest, AsyncCall) {
+    // 1. 构造一个channel，用于连接服务器
+    brpc::Channel channel;
+    brpc::ChannelOptions options;
+    options.connect_timeout_ms = -1;
+    options.max_retry = 3;
+    options.protocol = "baidu_std";
+
+    int ret = channel.Init("127.0.0.1:8787", &options);
+    ASSERT_EQ(ret, 0) << "初始化信道失败";
+
+    // 2. 构造一个echoservice，用于进行rpc调用
+    example::EchoService_Stub stub(&channel);
+
+    // 4. 进行rpc调用(异步调用)
+    example::EchoRequest req;
+    req.set_message("hello server, I'm client.");
+
+    brpc::Controller *ctrl = new brpc::Controller();
+    example::EchoResponse *resp = new example::EchoResponse();
+    bool callback_triggered = false;
+
+    google::protobuf::Closure *closure = google::protobuf::NewCallback(test_callback, ctrl, resp);
+    stub.Echo(ctrl, &req, resp, closure); // 这是真正的调用
+
+    std::this_thread::sleep_for(std::chrono::seconds(1)); // 等待回调执行
+
+}
+
+int main(int argc, char **argv) {
+    ::testing::InitGoogleTest(&argc, argv);
+    return RUN_ALL_TESTS();
+}
+
 ```
 
 #### 编写 Makefile
@@ -1809,7 +1892,6 @@ int main(int argc, char* argv[]) {
 参考 example 的例子，修改一下 BRPC_PATH 即可。
 
 ```makefile
-Shell 
 all: brpc_server brpc_client 
 brpc_server: brpc_server.cc main.pb.cc 
     g++ -std=c++17 $^ -o $@ -lbrpc -lleveldb -lgflags -lssl -lcrypto -lprotobuf 
@@ -1879,7 +1961,21 @@ make
 
 ## 5.6 封装思想
 
+brpc的二次封装：
+- brpc本质上来说是进行rpc调用的，但是向谁调用什么服务得管理起来
+- 搭配etcd实现的注册中心管理原因：通过注册中心，能够获知谁能提供什么服务，进而能够连接它发起这个服务调用。
+- 封装brpc和etcd的思想：
+  1. 主要是将网络通信的信道管理起来，将不同服务节点主机的通信信道管理起来
+  2. 封装的是服务节点信道，而不是rpc调用。
+- 如何封装：
+  1. 封装特定服务的信道管理类：因为一种服务可能会由多个节点提供，每个节点都应该有自己的channel；建立起服务与信道的映射关系，这种关系是一对多的，采用RR轮转策略实现负载均衡式的服务获取
+  2. 总体的服务信道管理类：将多个服务的信道管理对象一并管理起来
+
+
+
 RPC 调用这里的封装，因为不同的服务调用使用的是不同的 Stub，这个封装起来的意义不大，因此我们只需要封装通信所需的 Channel 管理即可，这样当需要进行什么样的服务调用的时候，只需要通过服务名称获取对应的 channel，然后实例化 Stub 进行调用即可。
+
+
 
 ### 5.6.1 封装 Channel 的管理
 
@@ -1887,17 +1983,367 @@ RPC 调用这里的封装，因为不同的服务调用使用的是不同的 Stu
 
 - 进行 RPC 调用时，获取 channel，目前以 RR 轮转的策略选择 channel。
 
-### 5.6.2 提供服务声明的接口
+- 提供服务声明的接口：因为在整个系统中，提供的服务有很多，但是当前可能并不一定会用到所有的服务，因此通过声明来告诉模块哪些服务是自己关心的，需要建立连接管理起来，没有添加声明的服务即使上线也不需要进行连接的建立。
 
-因为在整个系统中，提供的服务有很多，但是当前可能并不一定会用到所有的服务，因此通过声明来告诉模块哪些服务是自己关心的，需要建立连接管理起来，没有添加声明的服务即使上线也不需要进行连接的建立。
+- 提供服务上线时的处理接口，也就是新增一个指定服务的 channel。
 
-### 5.6.3 提供服务上线时的处理接口
+- 提供服务下线时的处理接口，也就是删除指定服务下的指定 channel。
 
-也就是新增一个指定服务的 channel。
+封装channel.hpp
+```cpp
+#pragma once
+#include <brpc/channel.h>
+#include <string>
+#include <vector>
 
-### 5.6.4 提供服务下线时的处理接口
+#include "./logger.hpp"
 
-也就是删除指定服务下的指定 channel。
+// 信道管理对象
+// 1. 把一种服务的所有提供该服务的信道管理起来，因为提供同一种服务的主机可能有很多(目前只设计一对多)
+// 一个ChannelManager对象管理一种服务，但是管理多个信道，而信道和一个套接字是对应的
+class ChannelManager
+{
+public:
+    using ChannelPtr = std::shared_ptr<brpc::Channel>;
+private:
+    std::mutex _mutex;                 // 保证增删查改的线程安全
+    int32_t _index;                    // 当前轮转的下标计数器
+    std::string _service_name;         // 服务名称
+    std::vector<ChannelPtr> _channels; // 所有的信道的集合
+    std::unordered_map<std::string, ChannelPtr> _host_to_channle; // 存放主机名称到channel智能指针的映射
+public:
+    ChannelManager(const std::string &name) 
+        :_service_name(name), _index(0)
+    {}
+    ~ChannelManager() {}
+
+    /// @brief  上线一个服务节点后，调用append新增对应信道
+    /// @param host 主机+端口号，例如："127.0.0.1:8787"
+    void append_host(const std::string &host)
+    {
+        // 1. 构造一个channel，用于连接服务器
+        ChannelPtr channel = std::make_shared<brpc::Channel>();
+        brpc::ChannelOptions options;
+        options.connect_timeout_ms = -1;
+        options.max_retry = 3;
+        options.protocol = "baidu_std";
+
+        int ret = channel->Init(host.c_str(), &options);
+        if (ret == -1) {
+            LOG_ERROR("初始化{}-{}的信道失败！", _service_name, host);
+        }
+
+        // 插入操作，加锁
+        std::unique_lock<std::mutex> _lock(_mutex);
+        _host_to_channle.insert(std::make_pair(host, channel));
+        _channels.push_back(channel);
+    }
+    // 下线一个服务节点后，调用remove删除对应信道
+    void remove_host(const std::string &host)
+    {
+        // 删除操作，加锁
+        std::unique_lock<std::mutex> _lock(_mutex);
+        auto hash_iter = _host_to_channle.find(host);
+        if (hash_iter == _host_to_channle.end()) {
+            LOG_WARN("没有找到信道{}-{}，无法删除信道", _service_name, host);
+        }
+
+        for (auto vector_iter = _channels.begin(); vector_iter != _channels.end(); vector_iter++)
+        {
+            if (*vector_iter == hash_iter->second) {
+                _channels.erase(vector_iter);
+                _host_to_channle.erase(hash_iter);
+                break;
+            }
+        }
+    }
+
+    // 获取信道的智能指针，以便调用服务
+    ChannelPtr get()
+    {
+        std::unique_lock<std::mutex> lock(_mutex);
+        if (_channels.size() == 0) {
+            return nullptr;
+        }
+        std::size_t i = _index++ %_channels.size();
+        return _channels[i];
+    }
+};
+
+
+// 2. 把各种服务管理起来
+class ServiceManager
+{
+public:
+    using Ptr = std::shared_ptr<ServiceManager>;
+private:
+    std::mutex _mutex;
+    std::unordered_set<std::string> _concern; // 关心的服务
+    std::unordered_map<std::string, std::shared_ptr<ChannelManager>> _services; // <服务名称, 该服务的信道管理对象>
+
+    std::string get_service_name(const std::string &service_instance)
+    {
+        auto pos = service_instance.find_last_of('/');
+        if(pos == std::string::npos) {
+            return service_instance;
+        }
+        return service_instance.substr(0, pos);
+    }
+public:
+    ServiceManager() {}
+    ~ServiceManager() {}
+
+    // 声明需要关心上下线的服务，不关心的服务不会被管理起来
+    void concern(const std::string &service_name)
+    {
+        std::unique_lock<std::mutex> _lock(_mutex);
+        _concern.insert(service_name);
+    }
+
+    // 某个服务的某个节点上线的时候被etcd回调的接口，如果这个服务被设置为“关心”，则会被管理起来
+    void when_service_online(const std::string &service_instance_name, const std::string &host)
+    {
+        std::string service_name = get_service_name(service_instance_name);
+        std::shared_ptr<ChannelManager> s;
+        {        
+            std::unique_lock<std::mutex> _lock(_mutex);
+
+            auto cit = _concern.find(service_name);
+            if (cit == _concern.end()) {
+                LOG_DEBUG("节点 {}-{} 上线了，但是服务管理对象并不关心它！", service_name, host);
+                return;
+            }
+
+            // 先获取管理对象，没有则创建新的管理对象
+            auto sit = _services.find(service_name);
+            if (sit == _services.end()) {// 没有则创建新的管理对象
+                s = std::make_shared<ChannelManager>(service_name);
+                _services.insert({service_name, s});
+            } else {
+                s = sit->second;    
+            } 
+        }
+
+        if(!s) {
+            LOG_ERROR("新增 {} 信道管理对象失败！", service_name);
+        }
+
+        // 往管理对象中添加该节点
+        s->append_host(host); // 添加主机操作的线程安全已经由servicechannel类保证了
+    }
+
+
+
+    // 某个服务的某个节点下线的时候被etcd回调的接口，如果这个服务被设置为“关心”，则会被管理起来
+    void when_service_offline(const std::string &service_instance_name, const std::string &host)
+    {
+        std::string service_name = get_service_name(service_instance_name);
+        std::shared_ptr<ChannelManager> s;
+        {        
+            std::unique_lock<std::mutex> _lock(_mutex);
+            auto sit = _services.find(service_name);
+            if (sit == _services.end()) {
+                LOG_WARN("删除 {}-{} 信道时，没有找到它的信道管理对象", service_name, host);
+            }
+            s = sit->second;
+        }
+        s->remove_host(host);
+    }
+
+    // 获取指定服务的原生brpc的channel的智能指针
+    ChannelManager::ChannelPtr get(const std::string &service_name)
+    {
+        std::unique_lock<std::mutex> _lock(_mutex);
+        auto sit = _services.find(service_name);
+        if (sit == _services.end()) {
+            LOG_ERROR("当前没有能够提供 {} 服务的节点！", service_name);
+            return nullptr;
+        }
+        return sit->second->get();
+    }
+};
+```
+
+
+
+重写discovery
+```cpp
+// 关心想关心的服务，调用rpc服务，是rpc的客户端
+#include "../Common/etcd.hpp"
+#include "../Common/logger.hpp"
+#include "../Common/channel.hpp"
+#include "main.pb.h"
+#include <gflags/gflags.h>
+#include <functional>
+
+// log
+DEFINE_bool(run_mode, false, "程序的运行模式，false：调试，true：发布");
+DEFINE_string(log_file, "", "发布模式下，用于指定日志的输出文件名");
+DEFINE_int32(log_level, spdlog::level::level_enum::trace, "发布模式下，日志等级和刷新时机");
+
+// etcd
+DEFINE_string(etcd_host, "http://127.0.0.1:2379", "服务注册中心地址");
+DEFINE_string(base_service, "/service", "服务监控根目录");
+DEFINE_string(service_to_call, "/service/echo", "服务监控根目录");
+
+
+int main(int argc, char *argv[])
+{
+    google::ParseCommandLineFlags(&argc, &argv, true);
+    init_logger(FLAGS_run_mode, FLAGS_log_file, FLAGS_log_level);
+
+    // 1. 先构造Rpc信道管理对象，并关心echo服务
+    auto service_manager = std::make_shared<ServiceManager>();
+    service_manager->concern(FLAGS_service_to_call);
+
+    // 2. 构造服务发现对象, 先定义新增和删除时的回调
+    auto put_cb = std::bind(&ServiceManager::when_service_online, service_manager.get(), std::placeholders::_1, std::placeholders::_2);
+    auto del_cb = std::bind(&ServiceManager::when_service_offline, service_manager.get(), std::placeholders::_1, std::placeholders::_2);
+    std::shared_ptr<Discovery> dclient = std::make_shared<Discovery>(FLAGS_etcd_host, FLAGS_base_service, put_cb, del_cb);
+    
+    while(true) {
+        std::this_thread::sleep_for(std::chrono::seconds(1));
+        // 3. 通过Rpc信道管理对象，获取提供Echo服务的信道
+        auto channel = service_manager->get(FLAGS_service_to_call);
+        if (!channel) {
+            LOG_ERROR("获取信道失败，retry...");
+            continue;
+        }
+
+        // 4. 发起Echo方法的rpc调用(同步调用)
+        example::EchoService_Stub stub(channel.get());
+
+        example::EchoRequest req;
+        req.set_message("hello server, I'm client.");
+
+        brpc::Controller ctrl;
+        example::EchoResponse resp;
+        stub.Echo(&ctrl, &req, &resp, nullptr); // 这是真正的调用
+
+        if (ctrl.Failed()) 
+        {
+            LOG_DEBUG("调用rpc服务 {} 失败，原因：{}", FLAGS_service_to_call, ctrl.ErrorText());
+        } 
+        else 
+        {
+            LOG_DEBUG("收到同步响应：{}", resp.message());
+        }
+    }
+    
+    std::this_thread::sleep_for(std::chrono::seconds(600));
+    return 0;
+}
+```
+
+重写registry
+
+```cpp
+
+// 启动一个brpc服务器并注册rpc调用逻辑
+// 不仅注册了服务，还提供了服务
+#include "../Common/etcd.hpp"
+#include "../Common/logger.hpp"
+#include "main.pb.h"
+#include <gflags/gflags.h>
+#include <brpc/server.h>
+#include <butil/logging.h>
+#include <thread>
+
+// log
+DEFINE_bool(run_mode, false, "程序的运行模式，false：调试，true：发布");
+DEFINE_string(log_file, "", "发布模式下，用于指定日志的输出文件名");
+DEFINE_int32(log_level, spdlog::level::level_enum::trace, "发布模式下，日志等级和刷新时机");
+
+// etcd
+DEFINE_string(etcd_host, "http://127.0.0.1:2379", "服务注册中心地址");
+DEFINE_string(base_service, "/service", "服务监控根目录");
+DEFINE_string(instance_name, "/echo/instance_1", "当前实例名称");
+
+// 开放的端口理应一致
+DEFINE_string(access_host, "127.0.0.1:7777", "当前实例的外部访问地址(对外宣告的)");
+DEFINE_uint32(listen_port, 7777, "Rpc服务器监听端口(实际开放的)");
+
+
+// 创建子类，继承于EchoService创建一个子类，并实现rpc调用
+class EchoServiceImpl : public example::EchoService 
+{
+private:
+    /* data */
+public:
+    virtual void Echo(::google::protobuf::RpcController* controller,
+                       const ::example::EchoRequest* request,
+                       ::example::EchoResponse* response,
+                       ::google::protobuf::Closure* done)
+    {
+        // 把Closure指针管理起来
+        brpc::ClosureGuard closure_guard(done);
+
+        // 处理业务
+        std::cout << "处理业务中..." << std::endl;
+        std::cout << "收到消息：" << request->message() << std::endl;
+        std::string ret = request->message() + "，这是响应!";
+        response->set_message(ret);
+
+        // done->Run(); 不需要显式run了，因为closureguard析构的时候自动run了
+    }
+    EchoServiceImpl() {}
+    ~EchoServiceImpl() {}
+};
+
+
+int main(int argc, char *argv[])
+{
+    google::ParseCommandLineFlags(&argc, &argv, true);
+    init_logger(FLAGS_run_mode, FLAGS_log_file, FLAGS_log_level);
+
+    //服务端改造思想
+    //1.构造Echo服务
+    //2.搭建Rpc服务器
+    //3.运行Rpc服务
+    //4.注册服务
+
+
+    // 1. 关闭brpc的日志输出
+    logging::LoggingSettings settings;
+    settings.logging_dest = logging::LoggingDestination::LOG_TO_NONE;
+    logging::InitLogging(settings);
+
+    // 2. 构造服务器对象
+    brpc::Server server;
+
+    // 3. 向brpc服务器对象中，新增EchoService服务
+    EchoServiceImpl echo_service;
+    int ret = server.AddService(&echo_service, brpc::ServiceOwnership::SERVER_DOESNT_OWN_SERVICE); // service是局部变量，不需要被server占有
+    if(ret == -1) {
+        std::cerr << "添加服务失败" << std::endl;
+        return -1;
+    }
+    brpc::ServerOptions options;
+    options.idle_timeout_sec = -1; // 连接空闲超时事件，超时后连接被关闭
+    options.num_threads = 1; // io线程数量
+
+    // 4. 启动brpc服务器
+    ret = server.Start(FLAGS_listen_port, &options);
+    if(ret == -1) {
+        std::cerr << "服务启动失败" << std::endl;
+        return -1;
+    }
+
+    // 5. 向etcd注册键值对 <服务名称:url>
+    std::shared_ptr<Registry> rclient = std::make_shared<Registry>(FLAGS_etcd_host);
+    rclient->registry(FLAGS_base_service + FLAGS_instance_name, FLAGS_access_host);
+
+    // 6. 等待运行结束
+    server.RunUntilAskedToQuit();
+
+    // std::this_thread::sleep_for(std::chrono::seconds(600));
+    return 0;
+}
+```
+
+![Alt text](recording.gif)
+
+
 
 
 

@@ -30,7 +30,7 @@ public:
         auto resp = _client->put(key, val, _lease_id).get();
         if(resp.is_ok() == false)
         {
-            LOG_ERROR("注册数据失败：{}", resp.error_message());
+            LOG_ERROR("向etcd注册键值对数据时失败，原因：{}", resp.error_message());
             return false;
         }
         return true;
@@ -47,7 +47,7 @@ public:
 // 服务发现客户端类，本质上是在获取数据
 class Discovery
 {
-    using NotifyCallback = std::function<void(std::string_view, std::string_view)>;
+    using NotifyCallback = std::function<void(const std::string &, const std::string &)>;
 private:
     std::shared_ptr<etcd::Client> _client;
     std::shared_ptr<etcd::Watcher> _watcher;
