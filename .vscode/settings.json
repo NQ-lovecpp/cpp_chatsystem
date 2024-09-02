@@ -63,5 +63,7 @@
         "hash_map": "cpp",
         "hash_set": "cpp",
         "unordered_set": "cpp"
-    }
+    },
+    "markdown-image.local.path": "/Pics",
+    "markdown-image.local.referencePath": "../Pics/"
 }
