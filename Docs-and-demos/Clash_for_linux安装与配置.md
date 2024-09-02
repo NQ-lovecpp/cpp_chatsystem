@@ -130,7 +130,7 @@ http://127.0.0.1:9090/ui
 
 通过这些步骤，你应该可以成功配置并访问 Clash Dashboard，从而更方便地管理和监控你的 Clash 实例。
 
-# clash的日志
+# 三、clash的日志
 
 Clash 有以下几个挡位的日志等级（Log Levels），可以用于控制日志输出的详细程度：
 
@@ -150,7 +150,7 @@ log-level: info
 
 
 
-# 三、clash守护进程化
+# 四、clash守护进程化
 要让 Clash 从命令行启动并守护进程化，而不使用 `systemctl`，可以按照以下步骤进行操作：
 
 ### 1. 启动 Clash
