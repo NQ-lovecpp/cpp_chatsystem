@@ -6,6 +6,10 @@ registry:registry.cc main.pb.cc
 
 main.pb.cc:main.proto
 	protoc --cpp_out=. $^
+
+estest:es_test.cc
+	g++ -g -std=c++17 -o $@ $^ -lgflags -ljsoncpp -lspdlog -lelasticlient 
+
 .PHONY:clean
 clean:
 	rm -f discovery registry

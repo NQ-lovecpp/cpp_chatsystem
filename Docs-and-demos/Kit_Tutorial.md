@@ -2341,7 +2341,7 @@ int main(int argc, char *argv[])
 }
 ```
 
-![Alt text](recording.gif)
+![Alt text](../Pics/etcd_and_brpc.gif)
 
 
 
@@ -2357,6 +2357,37 @@ int main(int argc, char *argv[])
 - **自动负载均衡**：自动分配搜索请求负载，保证查询效率。
 
 **Elasticsearch** 是**面向文档**（document oriented）的，可以存储整个对象或文档，并为每个文档建立索引，使之可搜索。
+
+严格地说，Elasticsearch 是一种数据库，但它并不属于传统意义上的关系型数据库 (RDBMS)。Elasticsearch 是一种 **分布式搜索引擎** 和 **数据分析引擎**，同时也是一种 **NoSQL** 数据库。
+
+更具体地说，Elasticsearch 属于以下几类数据库：
+
+1. **NoSQL数据库**：Elasticsearch 是一种 NoSQL 数据库，因为它不依赖于关系数据模型，没有固定的模式，可以存储和查询结构化和非结构化的数据。
+
+2. **文档型数据库**：在 Elasticsearch 中，数据以 JSON 文档的形式存储，每个文档都有一个唯一的ID，可以包含嵌套的结构，这使得它与其他文档数据库（如 MongoDB）有一定的相似性。
+
+3. **分布式数据库**：Elasticsearch 天生支持分布式架构，数据可以分片存储在多个节点上，提供了高可用性和水平扩展的能力。
+
+4. **搜索引擎**：Elasticsearch 的核心功能是提供强大的全文搜索能力，这也是它最主要的应用场景之一。它基于 Apache Lucene 构建，提供了快速的文本搜索、复杂的查询以及强大的分析功能。
+
+因此，虽然 Elasticsearch 是一种数据库，但它更专注于搜索和分析功能，与传统的关系型数据库有显著的不同。
+
+### ES与RDBMS的相似之处
+Elasticsearch (ES) 与关系型数据库管理系统 (RDBMS) 中的概念有许多相似之处。以下是一些关键概念及其类比，并以表格形式展示它们的对应关系。
+
+| Elasticsearch (ES) | RDBMS             | 描述                                           |
+|---------------------|-------------------|------------------------------------------------|
+| 索引 (Index)        | 数据库 (Database) | 在 ES 中，索引相当于 RDBMS 中的数据库。每个索引包含多个文档，类似于数据库中的表。 |
+| 类型 (Type)         | 表 (Table)        | 在 ES 6.x 之前，一个索引可以有多个类型，相当于一个数据库中的多个表。ES 6.x 以后，ES 不再推荐使用类型，每个索引通常对应一个数据模型。 |
+| 文档 (Document)     | 行 (Row)          | 文档是 JSON 格式的单个记录，相当于 RDBMS 中的一行数据。 |
+| 字段 (Field)        | 列 (Column)       | 文档中的字段类似于 RDBMS 中的列，每个字段包含一个具体的数据值。 |
+| 映射 (Mapping)      | 模式 (Schema)     | 映射定义了文档中的字段及其数据类型，相当于 RDBMS 中的表结构或模式。 |
+| 分片 (Shard)        | 分区 (Partition)  | 分片是索引的基本单元，一个索引可以有多个分片，每个分片存储部分数据。相当于 RDBMS 中的数据分区。 |
+| 副本 (Replica)      | 备份 (Backup)     | 副本是分片的拷贝，用于容错和提高查询性能，相当于 RDBMS 中的数据备份。 |
+| 查询 (Query)        | 查询 (Query)      | ES 中的查询类似于 RDBMS 中的 SQL 查询，用于检索数据。 |
+
+
+
 
 ## 6.2 ES安装
 
@@ -2520,14 +2551,14 @@ discovery.seed_hosts: ["127.0.0.1"]
 ## 6.6 Kibana访问 ES 进行测试
 
 1. **创建索引库**
-    ```c++
-    POST /user/_doc
+    ```json
+    POST /user/_doc # restful请求：post请求方法，user索引，_doc类型
     {
         "settings" : {
             "analysis" : {
-                "analyzer" : {
+                "analyzer" : { # 中文分词器
                     "ik" : {
-                        "tokenizer" : "ik_max_word"
+                        "tokenizer" : "ik_max_word" # 分词粒度描述，max是以最大力度分词
                     }
                 }
             }
@@ -2535,9 +2566,9 @@ discovery.seed_hosts: ["127.0.0.1"]
         "mappings" : {
             "dynamic" : true,
             "properties" : {
-                "nickname" : {
-                    "type" : "text",
-                    "analyzer" : "ik_max_word"
+                "nickname" : { # 昵称
+                    "type" : "text", # 文本类型
+                    "analyzer" : "ik_max_word" # 使用中文分词器
                 },
                 "user_id" : {
                     "type" : "keyword",
@@ -2549,16 +2580,18 @@ discovery.seed_hosts: ["127.0.0.1"]
                 },
                 "description" : {
                     "type" : "text",
-                    "enabled" : false
+                    "enabled" : false # 仅作存储，不作搜做
                 },
                 "avatar_id" : {
                     "type" : "keyword",
-                    "enabled" : false
+                    "enabled" : false # 仅作存储，不作搜索
                 }
             }
         }
     }
     ```
+
+![Alt text](../Pics/PixPin_2024-09-02_17-23-49.png)
 
 2. **新增数据**
     ```c++
@@ -2658,8 +2691,9 @@ discovery.seed_hosts: ["127.0.0.1"]
 
 7. **运行测试用例**
     ```bash
-    make test
+    sudo make test
     ```
+    ![Alt text](../Pics/PixPin_2024-09-02_16-04-04.png)
 
 ## 6.8 ES客户端接口介绍
 
@@ -2690,11 +2724,9 @@ cpr::Response index(const std::string &indexName,
 
 ### 6.8.4 删除文档接口
 ```c++
-cpr::Response remove(const std::string &index
-
-Name, 
-                     const std::string &docType, 
-                     const std::string &id, 
+cpr::Response remove(const std::string &indexName, 
+                     const std::string &docType,
+                     const std::string &id,
                      const std::string &routing = std::string());
 ```
 
@@ -2726,6 +2758,11 @@ int main() {
     return 0; 
 }
 ```
+ES客户端API使用注意：
+1. 地址后边不要忘了相对根目录：`http://127.0.0.1:9200/`
+2. ES客户端API使用，要进行异常捕捉，否则操作失败会导致程序异常退出
+
+
 
 ### 6.9.1 编译链接
 ```c++
@@ -2744,11 +2781,13 @@ export LD_LIBRARY_PATH=/usr/local/lib:$LD_LIBRARY_PATH
 
 ### 6.10.1 封装内容
 
+索引创建，数据新增，数据查询，数据删除
+
 - **索引构造过程**
     - 字段类型：`type : text / keyword`
-    - 是否索引：`enable : true/false`
+    - 是否索引：`enable : true / false`
     - 分词器类型：`analyzer : ik_max_word / standard`
-
+ 
 - **新增文档构造过程**
     - 直接添加字段和值。
 
@@ -2756,6 +2795,7 @@ export LD_LIBRARY_PATH=/usr/local/lib:$LD_LIBRARY_PATH
     - 关注条件匹配方式（`match` 还是 `term/terms`）。
     - 过滤条件字段。
 
+封装思想：
 封装的过程是对 `Json::Value` 对象的组织过程，较为简单。
 
 

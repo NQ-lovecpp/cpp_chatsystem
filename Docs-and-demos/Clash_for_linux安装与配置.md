@@ -214,3 +214,19 @@ ps aux | grep clash
 ![Alt text](../Pics/PixPin_2024-09-02_15-10-07.png)
 
 这将显示当前正在运行的 Clash 进程。
+
+# 五、配置bash的代理服务器（必须）
+
+```bash
+# 前四个必须设置
+# 1.设置 HTTP 和 HTTPS 代理端口为 7890
+# 2.设置 FTP 代理端口为 7890
+# 3.设置 SOCKS5 代理端口为 7891（用于程序支持 SOCKS5 的情况）
+export http_proxy="http://127.0.0.1:7890"
+export https_proxy="http://127.0.0.1:7890"
+export ftp_proxy="http://127.0.0.1:7890"
+export ALL_PROXY="socks5://127.0.0.1:7891"
+
+# 设置不走代理的地址（可选）
+export no_proxy="localhost,127.0.0.1,.example.com"
+```
