@@ -2958,7 +2958,12 @@ cpp-httplib 是一个轻量级、简单易用的 C++ HTTP 客户端/服务器库
 
 ![Alt text](../Pics/websocket原理.png)
 
+
+具体协议升级的过程如下：
+![Alt text](../Pics/socket协议升级.png)
+
 **报文格式重点字段：**
+![Alt text](../Pics/websocket报文格式.png)
 
 - **FIN:** 表示末尾帧。
 - **RSV1~3:** 保留字段，若未启用扩展则应置 1。
@@ -3155,7 +3160,7 @@ int main(){
 </html>
 ```
 
-**说明：** 在控制台中可以看到连接建立、客户端和服务器通信以及断开连接的过程。
+**说明：** 在浏览器控制台中可以看到连接建立、客户端和服务器通信以及断开连接的过程。
 
 
 
@@ -3165,6 +3170,12 @@ int main(){
 ## 9.1 介绍
 
 **Redis（Remote Dictionary Server）** 是一个开源的高性能键值对（key-value）数据库。它通常用作数据结构服务器，因为除了基本的键值存储功能外，Redis 还支持多种类型的数据结构，如字符串（strings）、哈希（hashes）、列表（lists）、集合（sets）、有序集合（sorted sets）以及范围查询、位图、超日志和地理空间索引等。
+
+
+在项目中的应用：
+- 用户的登录会话管理
+- 验证码管理
+- 群聊成员ID
 
 **主要特性：**
 
@@ -3210,7 +3221,7 @@ protected-mode no  # 把 yes 改成 no
 ### 9.2.3 控制 Redis 启动
 
 **启动 Redis 服务：**
-
+redis默认会在port 6379上提供服务
 ```plaintext
 service redis-server start
 ```
@@ -3226,6 +3237,12 @@ service redis-server stop
 ```plaintext
 service redis-server restart
 ```
+
+**设置开机自启动 Redis ：**
+```
+sudo systemctl enable redis-server
+```
+
 
 ## 9.3 装 redis-plus-plus
 
