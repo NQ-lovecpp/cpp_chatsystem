@@ -64,7 +64,10 @@
         "hash_set": "cpp",
         "unordered_set": "cpp",
         "any": "cpp",
-        "future": "cpp"
+        "future": "cpp",
+        "csignal": "cpp",
+        "regex": "cpp",
+        "shared_mutex": "cpp"
     },
     "markdown-image.local.path": "/Pics",
     "markdown-image.local.referencePath": "../Pics/"

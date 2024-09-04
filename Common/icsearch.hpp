@@ -193,6 +193,7 @@ public:
     ESInsert& append(const std::string &key, const std::string &value)
     {
         _item[key] = value;
+        return *this;
     }
 
     bool insert_and_send(const std::string &id)
@@ -240,7 +241,6 @@ private:
 public:
     ESRemove(const std::string &index_name, 
              const std::string &index_type, 
-             const std::string &id,
              std::shared_ptr<elasticlient::Client> es_client_ptr)
         :_name(index_name)
         , _type(index_type)
@@ -309,6 +309,8 @@ public:
         Json::Value terms;
         terms["terms"]=fields;
         _must_not["must_not"].append(terms);
+
+        return *this;
     }
 
     ESSearch& append_should_match(const std::string &key, const std::string &val)
@@ -332,14 +334,15 @@ public:
         }
         Json::Value query;
         query["bool"] = cond;
-
+        Json::Value req_body;
+        req_body["query"] = query;
 
         // 1. 序列化请求体
         std::string body;
-        bool ret = Serialize(query, &body);
+        bool ret = Serialize(req_body, &body);
         if (ret == false) {
             LOG_ERROR("索引序列化失败！");
-            return false;
+            return Json::Value();
         } else {
             LOG_DEBUG("索引序列化成功！");
         }
@@ -349,18 +352,27 @@ public:
             auto resp = _client->search(_name, _type, body);
             if (resp.status_code < 200 | resp.status_code >= 300) {
                 LOG_ERROR("查找数据 {} 失败，响应状态码：", body, resp.status_code);
-                return false;
+                LOG_DEBUG("响应正文：\n{}", resp.text);
+                return Json::Value();
             } else {
                 // 3. 打印响应状态码和响应正文
-                LOG_DEBUG("查找数据 {} 成功，ES服务器发回响应：", );
-                LOG_DEBUG("状态码: {}", resp.status_code);
+                LOG_DEBUG("查找数据 {} 成功，查询query：{}", _name, body);
+                LOG_DEBUG("ES服务器发回响应，状态码: {}", resp.status_code);
                 LOG_DEBUG("响应正文：\n{}", resp.text);
             }
+            // 4. 反序列化
+            Json::Value json_result;
+            ret = Deserialize(resp.text, &json_result);
+            if (ret == false) {
+                LOG_ERROR("检索数据 {} 结果的反序列化失败", resp.text);
+                return Json::Value();
+            }
+            return json_result["hits"]["hits"];
+
         } catch(std::exception &e) {
             LOG_ERROR("查找数据 {} 失败，失败原因：{}", body, e.what());
-            return false;
+            return Json::Value();
         }
-
-        return true;
+        return Json::Value();
     }
 };
