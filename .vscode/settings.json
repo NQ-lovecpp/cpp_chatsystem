@@ -68,7 +68,8 @@
         "csignal": "cpp",
         "regex": "cpp",
         "shared_mutex": "cpp",
-        "codecvt": "cpp"
+        "codecvt": "cpp",
+        "*.ipp": "cpp"
     },
     "markdown-image.local.path": "/Pics",
     "markdown-image.local.referencePath": "../Pics/"
