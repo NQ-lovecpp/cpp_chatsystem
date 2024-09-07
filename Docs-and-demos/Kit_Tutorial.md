@@ -3480,31 +3480,33 @@ dev@dev-host:~/workspace$ sh build2-install-0.17.0.sh --timeout 1800
 
 **安装命令：**
 
-```powershell
-dev@dev-host:~/workspace$ sudo apt-get install gcc-11-plugin-dev
-dev@dev-host:~/workspace$ mkdir odb-build && cd odb-build
-dev@dev-host:~/workspace/odb-build$ bpkg create -d odb-gcc-N cc \
-  config.cxx=g++ \
-  config.cc.coptions=-O3 \
-  config.bin.rpath=/usr/lib \
-  config.install.root=/usr/ \
-  config.install.sudo=sudo
+```bash
+sudo apt install build-essential manpages-dev software-properties-common
+sudo add-apt-repository ppa:ubuntu-toolchain-r/test
+
+sudo apt-get install gcc-11-plugin-dev
+mkdir odb-build && cd odb-build
+bpkg create -d odb-gcc-N cc config.cxx=g++ config.cc.coptions=-O3 config.bin.rpath=/usr/lib config.install.root=/usr/ config.install.sudo=sudo
 ```
 
 - 构建和安装 `odb`。
 
-```powershell
-dev@dev-host:~/workspace/odb-build$ cd odb-gcc-N
-dev@dev-host:~/workspace/odb-build/odb-gcc-N$ bpkg build odb@https://pkg.cppget.org/1/beta
-dev@dev-host:~/workspace/odb-build/odb-gcc-N$ bpkg test odb
-dev@dev-host:~/workspace/odb-build/odb-gcc-N$ bpkg install odb
+```bash
+sudo apt-get install gcc-9-plugin-dev
+
+cd odb-gcc-N
+bpkg add https://pkg.cppget.org/1/beta
+bpkg build odb@https://pkg.cppget.org/1/beta
+bpkg test odb
+bpkg install odb
+odb --version
 ```
 
 - 若无法找到 `odb`，执行以下命令：
 
-```powershell
-dev@dev-host:~/workspace/odb-build/odb-gcc-N$ sudo echo 'export PATH=${PATH}:/usr/local/bin' >> ~/.bashrc
-dev@dev-host:~/workspace/odb-build/odb-gcc-N$ export PATH=${PATH}:/usr/local/bin
+```bash
+sudo echo 'export PATH=${PATH}:/usr/local/bin' >> ~/.bashrc
+export PATH=${PATH}:/usr/local/bin
 ```
 
 ### 10.1.3 安装ODB运行时库
@@ -3515,24 +3517,20 @@ dev@dev-host:~/workspace/odb-build/odb-gcc-N$ export PATH=${PATH}:/usr/local/bin
 
 **安装命令：**
 
-```powershell
-dev@dev-host:~/workspace/odb-build$ bpkg create -d libodb-gcc-N cc \
-  config.cxx=g++ \
-  config.cc.coptions=-O3 \
-  config.install.root=/usr/ \
-  config.install.sudo=sudo
-dev@dev-host:~/workspace/odb-build$ cd libodb-gcc-N
-dev@dev-host:~/workspace/odb-build/libodb-gcc-N$ bpkg add https://pkg.cppget.org/1/beta
-dev@dev-host:~/workspace/odb-build/libodb-gcc-N$ bpkg fetch
-dev@dev-host:~/workspace/odb-build/libodb-gcc-N$ bpkg build libodb
-dev@dev-host:~/workspace/odb-build/libodb-gcc-N$ bpkg build libodb-mysql
+```bash
+bpkg create -d libodb-gcc-N cc config.cxx=g++ config.cc.coptions=-O3 config.install.root=/usr/ config.install.sudo=sudo
+cd libodb-gcc-N
+bpkg add https://pkg.cppget.org/1/beta
+bpkg fetch
+bpkg build libodb
+bpkg build libodb-mysql
 ```
 
 ### 10.1.4 安装mysql和客户端开发包
 
 **安装命令：**
 
-```cpp
+```bash
 sudo apt install mysql-server
 sudo apt install -y libmysqlclient-dev
 ```
@@ -3541,7 +3539,7 @@ sudo apt install -y libmysqlclient-dev
 
 **修改配置文件：**
 
-```cpp
+```bash
 sudo vim /etc/my.cnf  或者  /etc/mysql/my.cnf
 ```
 
@@ -3563,8 +3561,8 @@ bind-address = 0.0.0.0
 
 - 使用 `debian-sys-maint` 用户登录并修改 `root` 用户密码。
 
-```cpp
-dev@bite:~$ sudo mysql -u debian-sys-maint -p
+```bash
+sudo mysql -u debian-sys-maint -p
 Enter password: # 输入密码
 mysql> ALTER USER 'root'@'localhost' IDENTIFIED WITH mysql_native_password BY 'xxxxxx';
 mysql> FLUSH PRIVILEGES;
@@ -3586,8 +3584,8 @@ sudo systemctl enable mysql
 
 - 构建 `libodb-boost`。
 
-```powershell
-dev@dev-host:~/workspace/odb-build/libodb-gcc-N$ bpkg build libodb-boost
+```bash
+bpkg build libodb-boost
 ```
 
 ## 10.2 总体操作
@@ -3596,16 +3594,16 @@ dev@dev-host:~/workspace/odb-build/libodb-gcc-N$ bpkg build libodb-boost
 
 **命令：**
 
-```powershell
-dev@dev-host:~/workspace/odb-build/libodb-gcc-N$ bpkg install --all --recursive
+```bash
+bpkg install --all --recursive
 ```
 
 ### 10.2.2 总体卸载
 
 **命令：**
 
-```powershell
-dev@dev-host:~/workspace/odb-build/libodb-gcc-N$ bpkg uninstall --all --recursive
+```bash
+bpkg uninstall --all --recursive
 ```
 
 ### 10.2.3 总体升级
@@ -3614,12 +3612,12 @@ dev@dev-host:~/workspace/odb-build/libodb-gcc-N$ bpkg uninstall --all --recursiv
 
 - 依次执行fetch、status、uninstall、build、install命令。
 
-```powershell
-dev@dev-host:~/workspace/odb-build/libodb-gcc-N$ bpkg fetch
-dev@dev-host:~/workspace/odb-build/libodb-gcc-N$ bpkg status
-dev@dev-host:~/workspace/odb-build/libodb-gcc-N$ bpkg uninstall --all --recursive
-dev@dev-host:~/workspace/odb-build/libodb-gcc-N$ bpkg build --upgrade --recursive
-dev@dev-host:~/workspace/odb-build/libodb-gcc-N$ bpkg install --all --recursive
+```bash
+bpkg fetch
+bpkg status
+bpkg uninstall --all --recursive
+bpkg build --upgrade --recursive
+bpkg install --all --recursive
 ```
 
 ## 10.3 测试样例
@@ -3664,9 +3662,12 @@ class Person {
 
 **命令：**
 
-```cpp
-dev@dev-host:~/workspace/odb-test$ odb -d mysql  --std c++11 --generate-query --generate-schema --profile boost/date-time person.hxx
+```bash
+odb -d mysql  --std c++11 --generate-query --generate-schema --profile boost/date-time person.hxx
 ```
+
+![Alt text](../Pics/PixPin_2024-09-05_14-18-17.png)
+
 
 ### 10.3.3 编写主函数代码：test.cc
 
@@ -3721,8 +3722,8 @@ int main() {
 
 **命令：**
 
-```cpp
-dev@dev-host:~/workspace/odb-test$ c++ -o test test.cpp person-odb.cxx -lodb-mysql -lodb -lodb-boost
+```bash
+c++ -o test test.cpp person-odb.cxx -lodb-mysql -lodb -lodb-boost
 ```
 
 ### 10.3.5 运行时报错解决
@@ -3737,11 +3738,14 @@ export LD_LIBRARY_PATH=/usr/local/lib:$LD_LIBRARY_PATH
 
 ### 10.4.1 ODB类型映射
 
+![Alt text](../Pics/C++andmyqsltype.png)
+
+![Alt text](../Pics/time_type.png)
+
+
 **步骤：**
 
-- ODB 编程中使用预处理器指令（#pragma）来提供元数据，指示如何将 C++类型映射到数据库模式。
-
-**常用#pragma指令：**
+ODB（Open Database）在数据元结构定义时，使用预处理器指令（#pragma）来提供元数据，这些元数据指示如何将C++类型映射到数据库模式。这些#pragma指令是在C++代码中使用的，它们不是C++语言的一部分，而是特定于ODB编译器的扩展。以下是ODB中**常用#pragma指令：**
 
 - **#pragma db object:** 声明一个类为数据库对象。
 - **#pragma db table("table_name"):** 指定类映射的数据库表名。
@@ -3765,7 +3769,20 @@ export LD_LIBRARY_PATH=/usr/local/lib:$LD_LIBRARY_PATH
 
 ### 10.5.1 ODB的基础操作
 
+在odb的使用中，我们最关注的其实是三个点：
+- 一个是增删改的基础操作
+- 一个是基于原生sql语句的查询，
+- 一个是基于多表连接的复杂查找
+
+能解决这三个问题，就能满足数据库的基本功能操作。
+
 **代码示例：**
+
+1. 构造连接池对象
+2. 构造数据库操作database对象
+3. 获取事务对象，开启事务
+4. 数据库操作
+5. 提交事务
 
 ```cpp
 #include <odb/database.hxx>

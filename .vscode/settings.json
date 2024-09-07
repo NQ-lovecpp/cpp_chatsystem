@@ -69,7 +69,10 @@
         "regex": "cpp",
         "shared_mutex": "cpp",
         "codecvt": "cpp",
-        "*.ipp": "cpp"
+        "*.ipp": "cpp",
+        "strstream": "cpp",
+        "cfenv": "cpp",
+        "forward_list": "cpp"
     },
     "markdown-image.local.path": "/Pics",
     "markdown-image.local.referencePath": "../Pics/"
