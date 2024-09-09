@@ -3974,6 +3974,9 @@ sudo systemctl start rabbitmq-server.service
 
 ```shell
 sudo systemctl status rabbitmq-server.service
+
+# 开机自启
+sudo systemctl enable rabbitmq-server
 ```
 
 **创建管理员用户：**
