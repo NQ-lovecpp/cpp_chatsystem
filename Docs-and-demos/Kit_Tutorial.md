@@ -4223,6 +4223,22 @@ g++ -o example example.cpp -lamqpcpp -lev
 
 ## 12.2 API使用测试
 
+### 手动安装
+
+
+```bash
+sudo apt-get install libcurl4-openssl-dev libssl-dev uuid-dev libjsoncpp-dev
+
+git clone https://github.com/aliyun/aliyun-openapi-cpp-sdk.git
+
+cd aliyun-openapi-cpp-sdk
+mkdir sdk_build
+cd sdk_build
+cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/usr ..
+make
+sudo make install
+```
+
 ### 12.2.1 创建 AccessKey
 
 **说明：**
@@ -4333,12 +4349,17 @@ g++ -o main main.cc -std=c++11 -lalibabacloud-sdk-core
 
 **封装一个简单的短信发送接口：**
 
-- 管理 SDK 中的 `client` 对象。
-- 提供向指定手机号发送指定短信的接口。
+对DMS平台的短信通知类与接口进行二次封装，以便于在项目中使用，封装一个DMS客户端类：
+  1. 构造时候，传入访问密钥相关信息
+  2. 向外提供调用接口（手机号，验证码）---用于向平台发送请求
 
+
+![Alt text](../Pics/dms1.png)
 
 
 # 13. 语音识别 SDK
+
+![Alt text](../Pics/baiduvoiceplatform.png)
 
 ## 13.1 安装使用
 

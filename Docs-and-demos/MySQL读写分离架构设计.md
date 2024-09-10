@@ -46,7 +46,7 @@ SHOW MASTER STATUS;
 ```
 记下 `File` 和 `Position` 的值。
 
-![Alt text](image.png)
+![Alt text](../Pics/mysql1.png)
 
 #### **1.2 设置从节点 (Slave)**
 1. **修改从节点的配置文件** `my.cnf`，设置 `server-id`（确保与主节点不同）并禁用二进制日志（除非你要做链式复制）。
