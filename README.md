@@ -431,3 +431,10 @@ sudo rabbitmq-plugins enable rabbitmq_management
 访问 Web UI 界面，默认端口为 `15672`。
 
 
+
+
+
+
+
+
+# 微服务通信接口设计

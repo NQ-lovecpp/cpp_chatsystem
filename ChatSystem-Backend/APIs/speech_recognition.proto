@@ -1,0 +1,28 @@
+/*
+    语音识别服务器的子服务注册信息： /service/speech/instance_id
+        服务名称：/service/speech
+        实例ID: instance_id     每个能够提供用户操作服务的子服务器唯一ID
+    当服务发现的时候，通过 /service/speech 进行服务发现，就可以发现所有的能够提供用户操作的实例信息了
+*/
+syntax = "proto3";
+package bite_im;
+
+option cc_generic_services = true;
+
+message SpeechRecognitionReq {
+    string request_id = 1;
+    bytes speech_content = 2;
+    optional string user_id = 3;
+    optional string session_id = 4;
+}
+
+message SpeechRecognitionRsp {
+    string request_id = 1;
+    bool success = 2;
+    string errmsg = 3; 
+    string recognition_result = 4;
+}
+
+service SpeechService {
+    rpc SpeechRecognition(SpeechRecognitionReq) returns (SpeechRecognitionRsp);
+}
