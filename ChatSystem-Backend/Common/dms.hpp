@@ -1,7 +1,7 @@
 // 封装一个DMS客户端类：
 //   1. 构造时候，传入访问密钥相关信息
 //   2. 向外提供调用接口（手机号，验证码）---用于向平台发送请求
-
+#pragma once
 #include <cstdlib>
 #include <iostream>
 #include <memory>

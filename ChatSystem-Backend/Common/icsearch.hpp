@@ -1,3 +1,4 @@
+#pragma once
 #include <elasticlient/client.h>
 #include <json/json.h>
 #include <cpr/cpr.h>

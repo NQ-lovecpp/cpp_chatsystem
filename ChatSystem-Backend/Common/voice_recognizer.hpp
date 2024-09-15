@@ -2,8 +2,8 @@
 // 1. 在构造函数中，输入语音识别平台的key相关信息
 // 2. 提供一个语音识别的接口（输入参数就是语音数据）
 
-
-#include "../Third-party/aip-cpp-sdk-4.16.7/speech.h"
+#pragma once
+#include "speech.h"
 #include "logger.hpp"
 
 class VoiceRecognizerClient
@@ -12,8 +12,8 @@ private:
     aip::Speech _client;
 public:
     VoiceRecognizerClient(const std::string &app_id, 
-                    const std::string &api_key, 
-                    const std::string &secret_key) 
+                          const std::string &api_key, 
+                          const std::string &secret_key) 
         :_client(app_id, api_key, secret_key)
     {}
 

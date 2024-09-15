@@ -1,3 +1,4 @@
+#pragma once
 #include <ev.h>
 #include <amqpcpp.h>
 #include <amqpcpp/libev.h>

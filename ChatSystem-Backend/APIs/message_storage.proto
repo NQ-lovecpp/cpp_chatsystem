@@ -5,7 +5,7 @@
     当服务发现的时候，通过 /service/message_storage 进行服务发现，就可以发现所有的能够提供用户操作的实例信息了
 */
 syntax = "proto3";
-package bite_im;
+package chen_im;
 import "base.proto";
 
 option cc_generic_services = true;
@@ -15,8 +15,8 @@ message GetHistoryMsgReq {
     string chat_session_id = 2;
     int64 start_time = 3;
     int64 over_time = 4;
-    optional string user_id = 5;
-    optional string session_id = 6;
+     string user_id = 5;
+     string session_id = 6;
 }
 message GetHistoryMsgRsp {
     string request_id = 1;
@@ -29,9 +29,9 @@ message GetRecentMsgReq {
     string request_id = 1;
     string chat_session_id = 2;
     int64 msg_count = 3;
-    optional int64 cur_time = 4;//用于扩展获取指定时间前的n条消息
-    optional string user_id = 5;
-    optional string session_id = 6;
+     int64 cur_time = 4;//用于扩展获取指定时间前的n条消息
+     string user_id = 5;
+     string session_id = 6;
 }
 message GetRecentMsgRsp {
     string request_id = 1;
@@ -42,8 +42,8 @@ message GetRecentMsgRsp {
 
 message MsgSearchReq {
     string request_id = 1;
-    optional string user_id = 2;
-    optional string session_id = 3;
+     string user_id = 2;
+     string session_id = 3;
     string chat_session_id = 4;
     string search_key = 5;
 }

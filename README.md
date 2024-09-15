@@ -434,7 +434,871 @@ sudo rabbitmq-plugins enable rabbitmq_management
 
 
 
+# 四、后台服务的通信流程图
+## 入口网关子服务业务接口
+## 用户管理子服务业务接口
+## 好友管理子服务业务接口
+## 转发管理子服务业务接口
+## 消息存储子服务业务接口
+## 文件存储子服务业务接口
+## 语音识别子服务业务接口
+
+
+# 五、微服务通信接口设计
+因为微服务框架的思想是将业务拆分到不同的节点主机上提供服务，因此主机节点之间的通信就尤为重要，而在进行开发之前，首先要做的就是将通信接口定义出来（用protobuf），这样只要双方遵循约定，即可实现业务往来。
 
 
 
-# 微服务通信接口设计
+
+## 网关服务(`gateway.proto`、`base.proto`、`notify.proto`)
+网关负责直接与客户端进行通信，其基础业务请求使用HTTP协议进行通信，通知类业务使用Websocket协议进行通信，接口定义如下：
+
+
+
+### 网关的HTTP接口
+HTTP通信，分为首行，头部和正文三部分，首行中的URI明确了业务请求目标，头部进行正文或连接描述，正文中包含请求或响应的内容，在约定的内容中，首先需要定义出来的就是URI：
+```proto
+syntax = "proto3";
+package bite_im;
+option cc_generic_services = true;
+/*
+    消息推送使用websocket长连接进行
+    websocket长连接转换请求：ws://host:ip/ws
+    长连建立以后，需要客户端给服务器发送一个身份验证信息
+*/
+message ClientAuthenticationReq {
+    string request_id = 1;
+    string session_id = 2;
+}
+message ClientAuthenticationRsp {
+    string request_id = 1;
+    bool success = 2;
+    string errmsg = 3;
+}
+
+//通信接口统一采用POST请求实现,正文采用protobuf协议进行组织
+/*  
+    HTTP HEADER：
+    POST /service/xxxxx
+    Content-Type: application/x-protobuf
+    Content-Length: 123
+
+    xxxxxx
+
+    -------------------------------------------------------
+
+    HTTP/1.1 200 OK 
+    Content-Type: application/x-protobuf
+    Content-Length: 123
+
+    xxxxxxxxxx
+*/
+
+```
+
+
+在客户端与网关服务器的通信中，使用HTTP协议进行通信，通信时采用POST请求作为请求方法，正文采用protobuf作为正文协议格式，具体内容字段以前边各个文件中定义的字段格式为准
+
+
+  以下是HTTP请求的功能与接口路径对应关系：
+
+| 功能描述                           | HTTP路径                                    |
+|-----------------------------------|--------------------------------------------|
+| 获取随机验证码                     | /service/user/get_random_verify_code        |
+| 获取短信验证码                     | /service/user/get_phone_verify_code         |
+| 用户名密码注册                     | /service/user/username_register             |
+| 用户名密码登录                     | /service/user/username_login                |
+| 手机号码注册                       | /service/user/phone_register                |
+| 手机号码登录                       | /service/user/phone_login                   |
+| 获取个人信息                       | /service/user/get_user_info                 |
+| 修改头像                           | /service/user/set_avatar                    |
+| 修改昵称                           | /service/user/set_nickname                  |
+| 修改签名                           | /service/user/set_description               |
+| 修改绑定手机                       | /service/user/set_phone                     |
+| 获取好友列表                       | /service/friend/get_friend_list             |
+| 获取好友信息                       | /service/friend/get_friend_info             |
+| 发送好友申请                       | /service/friend/add_friend_apply            |
+| 好友申请处理                       | /service/friend/add_friend_process          |
+| 删除好友                           | /service/friend/remove_friend               |
+| 搜索用户                           | /service/friend/search_friend               |
+| 获取指定用户的消息会话列表           | /service/friend/get_chat_session_list       |
+| 创建消息会话                       | /service/friend/create_chat_session         |
+| 获取消息会话成员列表                 | /service/friend/get_chat_session_member     |
+| 获取待处理好友申请事件列表           | /service/friend/get_pending_friend_events   |
+| 获取历史消息/离线消息列表            | /service/message_storage/get_history        |
+| 获取最近N条消息列表                 | /service/message_storage/get_recent         |
+| 搜索历史消息                       | /service/message_storage/search_history     |
+| 发送消息                           | /service/message_transmit/new_message       |
+| 获取单个文件数据                    | /service/file/get_single_file               |
+| 获取多个文件数据                    | /service/file/get_multi_file                |
+| 发送单个文件                       | /service/file/put_single_file               |
+| 发送多个文件                       | /service/file/put_multi_file                |
+| 语音转文字                         | /service/speech/recognition                 |
+
+
+
+
+### 网关的Websocket接口
+websocket通信接口中，包含两方面内容：
+- 连接的身份识别：
+
+    当用户登录成功后，向服务器发起websocket长连接请求，建立长连接。
+    长连接建立成功后，向服务器发送身份鉴权请求，请求内容为protobuf结构数据，主要内容为：
+    - 请求ID
+    - 登录会话ID： 用于进行身份识别
+
+    该请求不需要服务端进行回复，鉴权成功则长连接保持，鉴权失败则断开长连接即可。
+
+    gateway.proto:
+    ```proto
+    syntax = "proto3";
+    package chen_im;
+    option cc_generic_services = true;
+
+    message ClientAuthenticationReq {
+        string request_id = 1;
+        string session_id = 2;
+    }
+
+    ```
+
+
+
+
+
+- 事件通知的内容
+
+    因为事件通知在websocket长连接通信中进行，因此只需要定义出消息结构即可：先将一些公共结构给提取出来进行定义，定义到一个base.proto文件中。
+
+    base.proto:
+    ```proto
+    syntax = "proto3";
+    package chen_im;
+
+    option cc_generic_services = true;
+
+    //用户信息结构
+    message UserInfo {
+        string user_id = 1;//用户ID
+        string nickname = 2;//昵称
+        string description = 3;//个人签名/描述
+        string phone = 4; //绑定手机号
+        bytes  avatar = 5;//头像照片，文件内容使用二进制
+    }
+
+    //聊天会话信息
+    message ChatSessionInfo {
+        optional string single_chat_friend_id = 1;//群聊会话不需要设置，单聊会话设置为对方ID
+        string chat_session_id = 2; //会话ID
+        string chat_session_name = 3;//会话名称
+        optional MessageInfo prev_message = 4;//会话上一条消息，新建的会话没有最新消息
+        optional bytes avatar = 5;//会话头像 --群聊会话不需要，直接由前端固定渲染，单聊就是对方的头像
+    }
+
+    //消息类型
+    enum MessageType {
+        STRING = 0;
+        IMAGE = 1;
+        FILE = 2;
+        SPEECH = 3;
+    }
+    message StringMessageInfo {
+        string content = 1;//文字聊天内容
+    }
+    message ImageMessageInfo {
+        optional string file_id = 1;//图片文件id,客户端发送的时候不用设置，由transmit服务器进行设置后交给storage的时候设置
+        optional bytes image_content = 2;//图片数据，在ES中存储消息的时候只要id不要文件数据, 服务端转发的时候需要原样转发
+    }
+    message FileMessageInfo {
+        optional string file_id = 1;//文件id,客户端发送的时候不用设置
+        int64 file_size = 2;//文件大小
+        string file_name = 3;//文件名称
+        optional bytes file_contents = 4;//文件数据，在ES中存储消息的时候只要id和元信息，不要文件数据, 服务端转发的时候也不需要填充
+    }
+    message SpeechMessageInfo {
+        optional string file_id = 1;//语音文件id,客户端发送的时候不用设置
+        optional bytes file_contents = 2;//文件数据，在ES中存储消息的时候只要id不要文件数据, 服务端转发的时候也不需要填充
+    }
+    message MessageContent {
+        MessageType message_type = 1; //消息类型
+        oneof msg_content {
+            StringMessageInfo string_message = 2;//文字消息
+            FileMessageInfo file_message = 3;//文件消息
+            SpeechMessageInfo speech_message = 4;//语音消息
+            ImageMessageInfo image_message = 5;//图片消息
+        };
+    }
+    //消息结构
+    message MessageInfo {
+        string message_id = 1;//消息ID
+        string chat_session_id = 2;//消息所属聊天会话ID
+        int64 timestamp = 3;//消息产生时间
+        UserInfo sender = 4;//消息发送者信息
+        MessageContent message = 5;
+    }
+
+    message Message {
+        string request_id = 1;
+        MessageInfo message = 2;
+    }
+
+    message FileDownloadData {
+        string file_id = 1;
+        bytes file_content = 2;
+    }
+
+    message FileUploadData {
+        string file_name = 1;
+        int64 file_size = 2;
+        bytes file_content = 3;
+    }
+    ```
+
+    然后，开始定义通知内容结构，notify.proto：
+    ```proto
+    syntax = "proto3";
+    package chen_im;
+    import "base.proto";
+
+    option cc_generic_services = true;
+
+    enum NotifyType {
+        FRIEND_ADD_APPLY_NOTIFY = 0;
+        FRIEND_ADD_PROCESS_NOTIFY = 1;
+        CHAT_SESSION_CREATE_NOTIFY = 2;
+        CHAT_MESSAGE_NOTIFY = 3;
+        FRIEND_REMOVE_NOTIFY = 4;
+    }
+
+    message NotifyFriendAddApply {
+        UserInfo user_info = 1;  //申请人信息
+    }
+    message NotifyFriendAddProcess {
+        bool agree = 1;
+        UserInfo user_info = 2;  //处理人信息
+    }
+    message NotifyFriendRemove {
+        string user_id = 1; //删除自己的用户ID
+    }
+    message NotifyNewChatSession {
+        ChatSessionInfo chat_session_info = 1; //新建会话信息
+    }
+    message NotifyNewMessage {
+        MessageInfo message_info = 1; //新消息
+    }
+
+
+    message NotifyMessage {
+        optional string notify_event_id = 1;//通知事件操作id（有则填无则忽略）
+        NotifyType notify_type = 2;//通知事件类型
+        oneof notify_remarks {      //事件备注信息
+            NotifyFriendAddApply friend_add_apply = 3;
+            NotifyFriendAddProcess friend_process_result = 4;
+            NotifyFriendRemove friend_remove = 7;
+            NotifyNewChatSession new_chat_session_info = 5;//会话信息
+            NotifyNewMessage new_message_info = 6;//消息信息
+        }
+    }
+    ```
+
+
+
+## 用户管理子服务(`user.proto`)
+
+```proto
+syntax = "proto3";
+package chen_im;
+import "base.proto";
+
+option cc_generic_services = true;
+
+//----------------------------
+//用户名注册   
+message UserRegisterReq {
+    string request_id = 1;
+    string nickname = 2;
+    string password = 3;
+    string verify_code_id = 4;
+    string verify_code = 5;
+}
+message UserRegisterRsp {
+    string request_id = 1;
+    bool success = 2;
+    string errmsg = 3;
+}
+//----------------------------
+//用户名登录 
+message UserLoginReq {
+    string request_id = 1;
+    string nickname = 2;
+    string password = 3;
+    string verify_code_id = 4;
+    string verify_code = 5;
+}
+message UserLoginRsp {
+    string request_id = 1;
+    bool success = 2;
+    string errmsg = 3;
+    string login_session_id = 4;
+}
+//----------------------------
+//手机号验证码获取
+message PhoneVerifyCodeReq {
+    string request_id = 1;
+    string phone_number = 2;
+}
+message PhoneVerifyCodeRsp {
+    string request_id = 1;
+    bool success = 2;
+    string errmsg = 3;
+    string verify_code_id = 4;
+}
+//----------------------------
+//手机号注册
+message PhoneRegisterReq {
+    string request_id = 1;
+    string phone_number = 2;
+    string verify_code_id = 3;
+    string verify_code = 4;
+}
+message PhoneRegisterRsp {
+    string request_id = 1;
+    bool success = 2;
+    string errmsg = 3;
+}
+//----------------------------
+//手机号登录
+message PhoneLoginReq {
+    string request_id = 1;
+    string phone_number = 2;
+    string verify_code_id = 3;
+    string verify_code = 4;
+}
+message PhoneLoginRsp {
+    string request_id = 1;
+    bool success = 2;
+    string errmsg = 3; 
+    string login_session_id = 4;
+}
+//个人信息获取-这个只用于获取当前登录用户的信息
+//  客户端传递的时候只需要填充session_id即可
+//其他个人/好友信息的获取在好友操作中完成
+message GetUserInfoReq {
+    string request_id = 1;
+    optional string user_id = 2;
+    optional string session_id = 3;
+}
+message GetUserInfoRsp {
+    string request_id = 1;
+    bool success = 2;
+    string errmsg = 3; 
+    UserInfo user_info = 4;
+}
+//----------------------------
+//用户头像修改 
+message SetUserAvatarReq {
+    string request_id = 1;
+    optional string user_id = 2;
+    optional string session_id = 3;
+    bytes avatar = 4;
+}
+message SetUserAvatarRsp {
+    string request_id = 1;
+    bool success = 2;
+    string errmsg = 3; 
+}
+//----------------------------
+//用户昵称修改 
+message SetUserNicknameReq {
+    string request_id = 1;
+    optional string user_id = 2;
+    optional string session_id = 3;
+    string nickname = 4;
+}
+message SetUserNicknameRsp {
+    string request_id = 1;
+    bool success = 2;
+    string errmsg = 3; 
+}
+//----------------------------
+//用户签名修改 
+message SetUserDescriptionReq {
+    string request_id = 1;
+    optional string user_id = 2;
+    optional string session_id = 3;
+    string description = 4;
+}
+message SetUserDescriptionRsp {
+    string request_id = 1;
+    bool success = 2;
+    string errmsg = 3; 
+}
+//----------------------------
+//用户手机修改 
+message SetUserPhoneNumberReq {
+    string request_id = 1;
+    optional string user_id = 2;
+    optional string session_id = 3;
+    string phone_number = 4;
+    string phone_verify_code_id = 5;
+    string phone_verify_code = 6;
+}
+message SetUserPhoneNumberRsp {
+    string request_id = 1;
+    bool success = 2;
+    string errmsg = 3; 
+}
+
+service UserService {
+    rpc UserRegister(UserRegisterReq) returns (UserRegisterRsp);
+    rpc UserLogin(UserLoginReq) returns (UserLoginRsp);
+    rpc GetPhoneVerifyCode(PhoneVerifyCodeReq) returns (PhoneVerifyCodeRsp);
+    rpc PhoneRegister(PhoneRegisterReq) returns (PhoneRegisterRsp);
+    rpc PhoneLogin(PhoneLoginReq) returns (PhoneLoginRsp);
+    rpc GetUserInfo(GetUserInfoReq) returns (GetUserInfoRsp);
+    rpc SetUserAvatar(SetUserAvatarReq) returns (SetUserAvatarRsp);
+    rpc SetUserNickname(SetUserNicknameReq) returns (SetUserNicknameRsp);
+    rpc SetUserDescription(SetUserDescriptionReq) returns (SetUserDescriptionRsp);
+    rpc SetUserPhoneNumber(SetUserPhoneNumberReq) returns (SetUserPhoneNumberRsp);
+}
+```
+
+
+
+## 好友管理子服务(`friend.proto`)
+
+```proto
+syntax = "proto3";
+package chen_im;
+import "base.proto";
+
+option cc_generic_services = true;
+
+
+//--------------------------------------
+//好友列表获取
+message GetFriendListReq {
+    string request_id = 1;
+    optional string user_id = 2;
+    optional string session_id = 3;
+}
+message GetFriendListRsp {
+    string request_id = 1;
+    bool success = 2;
+    string errmsg = 3; 
+    repeated UserInfo friend_list = 4;
+}
+
+//--------------------------------------
+//好友删除
+message FriendRemoveReq {
+    string request_id = 1;
+    optional string user_id = 2;
+    optional string session_id = 3;
+    string peer_id = 4;
+}
+message FriendRemoveRsp {
+    string request_id = 1;
+    bool success = 2;
+    string errmsg = 3; 
+}
+//--------------------------------------
+//添加好友--发送好友申请
+message FriendAddReq {
+    string request_id = 1;
+    optional string session_id = 2;
+    optional string user_id = 3;//申请人id
+    string respondent_id = 4;//被申请人id
+}
+message FriendAddRsp {
+    string request_id = 1;
+    bool success = 2;
+    string errmsg = 3; 
+    string notify_event_id = 4;//通知事件id
+}
+//--------------------------------------
+//好友申请的处理
+message FriendAddProcessReq {
+    string request_id = 1;
+    string notify_event_id = 2;//通知事件id
+    bool agree = 3;//是否同意好友申请
+    string apply_user_id = 4; //申请人的用户id
+    optional string session_id = 5;
+    optional string user_id = 6;
+}
+//   +++++++++++++++++++++++++++++++++
+message FriendAddProcessRsp {
+    string request_id = 1;
+    bool success = 2;
+    string errmsg = 3; 
+    optional string new_session_id = 4; // 同意后会创建会话，向网关返回会话信息，用于通知双方会话的建立，这个字段客户端不需要关注
+}
+//--------------------------------------
+//获取待处理的，申请自己好友的信息列表
+message GetPendingFriendEventListReq {
+    string request_id = 1;
+    optional string session_id = 2;
+    optional string user_id = 3;
+}
+
+message FriendEvent {
+    string event_id = 1;
+    UserInfo sender = 3;
+}
+message GetPendingFriendEventListRsp {
+    string request_id = 1;
+    bool success = 2;
+    string errmsg = 3; 
+    repeated FriendEvent event = 4;
+}
+
+//--------------------------------------
+//好友搜索
+message FriendSearchReq {
+    string request_id = 1;
+    string search_key = 2;//就是名称模糊匹配关键字
+    optional string session_id = 3;
+    optional string user_id = 4;
+}
+message FriendSearchRsp {
+    string request_id = 1;
+    bool success = 2;
+    string errmsg = 3; 
+    repeated UserInfo user_info = 4;
+}
+
+//--------------------------------------
+//会话列表获取
+message GetChatSessionListReq {
+    string request_id = 1;
+    optional string session_id = 2;
+    optional string user_id = 3;
+}
+message GetChatSessionListRsp {
+    string request_id = 1;
+    bool success = 2;
+    string errmsg = 3; 
+    repeated ChatSessionInfo chat_session_info_list = 4;
+}
+//--------------------------------------
+//创建会话
+message ChatSessionCreateReq {
+    string request_id = 1;
+    optional string session_id = 2;
+    optional string user_id = 3;
+    string chat_session_name = 4;
+    //需要注意的是，这个列表中也必须包含创建者自己的用户ID
+    repeated string member_id_list = 5;
+}
+message ChatSessionCreateRsp {
+    string request_id = 1;
+    bool success = 2;
+    string errmsg = 3; 
+    //这个字段属于后台之间的数据，给前端回复的时候不需要这个字段，会话信息通过通知进行发送
+    optional ChatSessionInfo chat_session_info = 4; 
+}
+//--------------------------------------
+//获取会话成员列表
+message GetChatSessionMemberReq {
+    string request_id = 1;
+    optional string session_id = 2;
+    optional string user_id = 3;
+    string chat_session_id = 4;
+}
+message GetChatSessionMemberRsp {
+    string request_id = 1;
+    bool success = 2;
+    string errmsg = 3; 
+    repeated UserInfo member_info_list = 4;
+}
+
+service FriendService {
+    rpc GetFriendList(GetFriendListReq) returns (GetFriendListRsp);
+    rpc FriendRemove(FriendRemoveReq) returns (FriendRemoveRsp);
+    rpc FriendAdd(FriendAddReq) returns (FriendAddRsp);
+    rpc FriendAddProcess(FriendAddProcessReq) returns (FriendAddProcessRsp);
+    rpc FriendSearch(FriendSearchReq) returns (FriendSearchRsp);
+    rpc GetChatSessionList(GetChatSessionListReq) returns (GetChatSessionListRsp);
+    rpc ChatSessionCreate(ChatSessionCreateReq) returns (ChatSessionCreateRsp);
+    rpc GetChatSessionMember(GetChatSessionMemberReq) returns (GetChatSessionMemberRsp);
+    rpc GetPendingFriendEventList(GetPendingFriendEventListReq) returns (GetPendingFriendEventListRsp);
+}
+```
+
+
+## 文件管理子服务(`file.proto`)
+```proto
+syntax = "proto3";
+package chen_im;
+import "base.proto";
+
+option cc_generic_services = true;
+
+
+message GetSingleFileReq {
+    string request_id = 1;
+    string file_id = 2;
+    optional string user_id = 3;
+    optional string session_id = 4;
+}
+message GetSingleFileRsp {
+    string request_id = 1;
+    bool success = 2;
+    string errmsg = 3; 
+    FileDownloadData file_data = 4;
+}
+
+message GetMultiFileReq {
+    string request_id = 1;
+    optional string user_id = 2;
+    optional string session_id = 3;
+    repeated string file_id_list = 4;
+}
+message GetMultiFileRsp {
+    string request_id = 1;
+    bool success = 2;
+    string errmsg = 3; 
+    repeated FileDownloadData file_data = 4;
+}
+
+message PutSingleFileReq {
+    string request_id = 1;
+    optional string user_id = 2;
+    optional string session_id = 3;
+    FileUploadData file_data = 4;
+}
+message PutSingleFileRsp {
+    string request_id = 1;
+    bool success = 2;
+    string errmsg = 3;
+    FileMessageInfo file_info = 4;
+}
+
+message PutMultiFileReq {
+    string request_id = 1;
+    optional string user_id = 2;
+    optional string session_id = 3;
+    repeated FileUploadData file_data = 4;
+}
+message PutMultiFileRsp {
+    string request_id = 1;
+    bool success = 2;
+    string errmsg = 3; 
+    repeated FileMessageInfo file_info = 4;
+}
+
+service FileService {
+    rpc GetSingleFile(GetSingleFileReq) returns (GetSingleFileRsp);
+    rpc GetMultiFile(GetMultiFileReq) returns (GetMultiFileRsp);
+    rpc PutSingleFile(PutSingleFileReq) returns (PutSingleFileRsp);
+    rpc PutMultiFile(PutMultiFileReq) returns (PutMultiFileRsp);
+}
+
+```
+
+
+## 消息管理子服务(`message_storage.proto`)
+
+```proto
+/*
+    消息存储服务器的子服务注册信息： /service/message_storage/instance_id
+        服务名称：/service/message_storage
+        实例ID: instance_id     每个能够提供用户操作服务的子服务器唯一ID
+    当服务发现的时候，通过 /service/message_storage 进行服务发现，就可以发现所有的能够提供用户操作的实例信息了
+*/
+syntax = "proto3";
+package chen_im;
+import "base.proto";
+
+option cc_generic_services = true;
+
+message GetHistoryMsgReq {
+    string request_id = 1;
+    string chat_session_id = 2;
+    int64 start_time = 3;
+    int64 over_time = 4;
+    optional string user_id = 5;
+    optional string session_id = 6;
+}
+message GetHistoryMsgRsp {
+    string request_id = 1;
+    bool success = 2;
+    string errmsg = 3; 
+    repeated MessageInfo msg_list = 4;
+}
+
+message GetRecentMsgReq {
+    string request_id = 1;
+    string chat_session_id = 2;
+    int64 msg_count = 3;
+    optional int64 cur_time = 4;//用于扩展获取指定时间前的n条消息
+    optional string user_id = 5;
+    optional string session_id = 6;
+}
+message GetRecentMsgRsp {
+    string request_id = 1;
+    bool success = 2;
+    string errmsg = 3; 
+    repeated MessageInfo msg_list = 4;
+}
+
+message MsgSearchReq {
+    string request_id = 1;
+    optional string user_id = 2;
+    optional string session_id = 3;
+    string chat_session_id = 4;
+    string search_key = 5;
+}
+message MsgSearchRsp {
+    string request_id = 1;
+    bool success = 2;
+    string errmsg = 3; 
+    repeated MessageInfo msg_list = 4;
+}
+
+service MsgStorageService {
+    rpc GetHistoryMsg(GetHistoryMsgReq) returns (GetHistoryMsgRsp);
+    rpc GetRecentMsg(GetRecentMsgReq) returns (GetRecentMsgRsp);
+    rpc MsgSearch(MsgSearchReq) returns (MsgSearchRsp);
+    
+}
+
+```
+
+## 转发管理子服务(`message_transmit.proto`)
+
+```proto
+/*
+    消息转发服务器的子服务注册信息： /service/message_transmit/instance_id
+        服务名称：/service/message_transmit
+        实例ID: instance_id     每个能够提供用户操作服务的子服务器唯一ID
+    当服务发现的时候，通过 /service/message_transmit 进行服务发现，就可以发现所有的能够提供用户操作的实例信息了
+*/
+//消息转发服务器接口
+syntax = "proto3";
+package chen_im;
+import "base.proto";
+
+option cc_generic_services = true;
+
+//这个用于和网关进行通信
+message NewMessageReq {
+    string request_id = 1;
+    optional string user_id = 2;
+    optional string session_id = 3;
+    string chat_session_id = 4;
+    MessageContent message = 5;
+}
+message NewMessageRsp {
+    string request_id = 1;
+    bool success = 2;
+    string errmsg = 3; 
+}
+
+//这个用于内部的通信,生成完整的消息信息，并获取消息的转发人员列表
+message GetTransmitTargetRsp {
+    string request_id = 1;
+    bool success = 2;
+    string errmsg = 3; 
+    MessageInfo message = 4;
+    repeated string target_id_list = 5;
+}
+
+service MsgTransmitService {
+    rpc GetTransmitTarget(NewMessageReq) returns (GetTransmitTargetRsp);
+}
+```
+
+## 语音转换子服务(`speach_recognition.proto`)
+```proto
+/*
+    语音识别服务器的子服务注册信息： /service/speech/instance_id
+        服务名称：/service/speech
+        实例ID: instance_id     每个能够提供用户操作服务的子服务器唯一ID
+    当服务发现的时候，通过 /service/speech 进行服务发现，就可以发现所有的能够提供用户操作的实例信息了
+*/
+syntax = "proto3";
+package chen_im;
+
+option cc_generic_services = true;
+
+message SpeechRecognitionReq {
+    string request_id = 1;
+    bytes speech_content = 2;
+    optional string user_id = 3;
+    optional string session_id = 4;
+}
+
+message SpeechRecognitionRsp {
+    string request_id = 1;
+    bool success = 2;
+    string errmsg = 3; 
+    string recognition_result = 4;
+}
+
+service SpeechService {
+    rpc SpeechRecognition(SpeechRecognitionReq) returns (SpeechRecognitionRsp);
+}
+```
+
+# 六、实现微服务
+
+## SpeechRecognitionServer 设计与实现
+
+### 6.1 功能设计
+
+**语音转换子服务：**
+
+- 用于调用语音识别 SDK，进行语音识别，将语音转为文字后返回给网关。
+- 提供的功能性接口只有一个：语音消息的文字转换，供客户端进行语音消息的文字转换。
+
+### 6.2 模块划分
+
+1. **参数/配置文件解析模块：**需要设置如下参数
+    - rpc所需信息：
+      - rpc服务器的地址和端口号
+    - 服务注册所需要的信息：
+      - 注册中心的地址和端口号：便于向注册中心发起服务注册
+      - 实际提供rpc服务的地址和端口号信息：相当于value
+    - 语音识别平台所需信息：
+      - app_id
+      - api_key
+      - secret_key
+    - 日志模块所需信息：
+      - 运行模式
+      - 日志文件名称
+      - 日志输出级别
+
+2. **日志模块：**
+   - 基于 `spdlog` 框架封装的模块直接使用进行日志输出。
+
+3. **服务注册模块：**
+   - 基于 `etcd` 框架封装的注册模块直接使用进行语音识别子服务的服务注册。
+
+4. **RPC 服务模块：**
+   - 基于 `brpc` 框架搭建 RPC 服务器。
+
+5. **语音识别 SDK 模块：**
+   - 基于语音识别平台提供的 SDK 直接使用，完成语音的识别转文字。
+
+### 6.3 模块功能示意图
+![Alt text](./Pics/语音模块架构图1.png)
+
+
+### 6.4 接口实现流程
+
+- 参数解析
+- 初始化日志器
+- 搭建rpc服务器
+- 服务注册
+- 语音识别：
+  1. 接收请求，从请求中取出语音数据。
+  2. 基于语音识别 SDK 进行语音识别，获取识别后的文本内容。
+  3. 组织响应进行返回。
+
+
+
+
+
+
+

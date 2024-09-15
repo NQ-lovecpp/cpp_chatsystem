@@ -5,7 +5,7 @@
     当服务发现的时候，通过 /service/user 进行服务发现，就可以发现所有的能够提供用户操作的实例信息了
 */
 syntax = "proto3";
-package bite_im;
+package chen_im;
 import "base.proto";
 
 option cc_generic_services = true;
@@ -83,8 +83,8 @@ message PhoneLoginRsp {
 //其他个人/好友信息的获取在好友操作中完成
 message GetUserInfoReq {
     string request_id = 1;
-    optional string user_id = 2;
-    optional string session_id = 3;
+     string user_id = 2;
+     string session_id = 3;
 }
 message GetUserInfoRsp {
     string request_id = 1;
@@ -96,8 +96,8 @@ message GetUserInfoRsp {
 //用户头像修改 
 message SetUserAvatarReq {
     string request_id = 1;
-    optional string user_id = 2;
-    optional string session_id = 3;
+     string user_id = 2;
+     string session_id = 3;
     bytes avatar = 4;
 }
 message SetUserAvatarRsp {
@@ -109,8 +109,8 @@ message SetUserAvatarRsp {
 //用户昵称修改 
 message SetUserNicknameReq {
     string request_id = 1;
-    optional string user_id = 2;
-    optional string session_id = 3;
+     string user_id = 2;
+     string session_id = 3;
     string nickname = 4;
 }
 message SetUserNicknameRsp {
@@ -122,8 +122,8 @@ message SetUserNicknameRsp {
 //用户签名修改 
 message SetUserDescriptionReq {
     string request_id = 1;
-    optional string user_id = 2;
-    optional string session_id = 3;
+     string user_id = 2;
+     string session_id = 3;
     string description = 4;
 }
 message SetUserDescriptionRsp {
@@ -135,8 +135,8 @@ message SetUserDescriptionRsp {
 //用户手机修改 
 message SetUserPhoneNumberReq {
     string request_id = 1;
-    optional string user_id = 2;
-    optional string session_id = 3;
+     string user_id = 2;
+     string session_id = 3;
     string phone_number = 4;
     string phone_verify_code_id = 5;
     string phone_verify_code = 6;

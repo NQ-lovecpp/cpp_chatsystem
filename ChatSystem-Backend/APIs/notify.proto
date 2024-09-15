@@ -1,5 +1,5 @@
 syntax = "proto3";
-package bite_im;
+package chen_im;
 import "base.proto";
 
 option cc_generic_services = true;
@@ -31,7 +31,7 @@ message NotifyNewMessage {
 
 
 message NotifyMessage {
-    optional string notify_event_id = 1;//通知事件操作id（有则填无则忽略）
+    string notify_event_id = 1;//通知事件操作id（有则填无则忽略）
     NotifyType notify_type = 2;//通知事件类型
     oneof notify_remarks {      //事件备注信息
         NotifyFriendAddApply friend_add_apply = 3;

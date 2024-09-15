@@ -4,7 +4,7 @@
 //  Copyright (c) 2024 Yuji Hirose. All rights reserved.
 //  MIT License
 //
-
+#pragma once
 #ifndef CPPHTTPLIB_HTTPLIB_H
 #define CPPHTTPLIB_HTTPLIB_H
 

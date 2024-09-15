@@ -1,5 +1,5 @@
 syntax = "proto3";
-package bite_im;
+package chen_im;
 option cc_generic_services = true;
 /*
     消息推送使用websocket长连接进行

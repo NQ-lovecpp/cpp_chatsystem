@@ -5,7 +5,7 @@
     当服务发现的时候，通过 /service/friend 进行服务发现，就可以发现所有的能够提供用户操作的实例信息了
 */
 syntax = "proto3";
-package bite_im;
+package chen_im;
 import "base.proto";
 
 option cc_generic_services = true;
@@ -15,8 +15,8 @@ option cc_generic_services = true;
 //好友列表获取
 message GetFriendListReq {
     string request_id = 1;
-    optional string user_id = 2;
-    optional string session_id = 3;
+     string user_id = 2;
+     string session_id = 3;
 }
 message GetFriendListRsp {
     string request_id = 1;
@@ -29,8 +29,8 @@ message GetFriendListRsp {
 //好友删除
 message FriendRemoveReq {
     string request_id = 1;
-    optional string user_id = 2;
-    optional string session_id = 3;
+     string user_id = 2;
+     string session_id = 3;
     string peer_id = 4;
 }
 message FriendRemoveRsp {
@@ -42,8 +42,8 @@ message FriendRemoveRsp {
 //添加好友--发送好友申请
 message FriendAddReq {
     string request_id = 1;
-    optional string session_id = 2;
-    optional string user_id = 3;//申请人id
+     string session_id = 2;
+     string user_id = 3;//申请人id
     string respondent_id = 4;//被申请人id
 }
 message FriendAddRsp {
@@ -59,22 +59,22 @@ message FriendAddProcessReq {
     string notify_event_id = 2;//通知事件id
     bool agree = 3;//是否同意好友申请
     string apply_user_id = 4; //申请人的用户id
-    optional string session_id = 5;
-    optional string user_id = 6;
+     string session_id = 5;
+     string user_id = 6;
 }
 //   +++++++++++++++++++++++++++++++++
 message FriendAddProcessRsp {
     string request_id = 1;
     bool success = 2;
     string errmsg = 3; 
-    optional string new_session_id = 4; // 同意后会创建会话，向网关返回会话信息，用于通知双方会话的建立，这个字段客户端不需要关注
+     string new_session_id = 4; // 同意后会创建会话，向网关返回会话信息，用于通知双方会话的建立，这个字段客户端不需要关注
 }
 //--------------------------------------
 //获取待处理的，申请自己好友的信息列表
 message GetPendingFriendEventListReq {
     string request_id = 1;
-    optional string session_id = 2;
-    optional string user_id = 3;
+     string session_id = 2;
+     string user_id = 3;
 }
 
 message FriendEvent {
@@ -93,8 +93,8 @@ message GetPendingFriendEventListRsp {
 message FriendSearchReq {
     string request_id = 1;
     string search_key = 2;//就是名称模糊匹配关键字
-    optional string session_id = 3;
-    optional string user_id = 4;
+     string session_id = 3;
+     string user_id = 4;
 }
 message FriendSearchRsp {
     string request_id = 1;
@@ -107,8 +107,8 @@ message FriendSearchRsp {
 //会话列表获取
 message GetChatSessionListReq {
     string request_id = 1;
-    optional string session_id = 2;
-    optional string user_id = 3;
+     string session_id = 2;
+     string user_id = 3;
 }
 message GetChatSessionListRsp {
     string request_id = 1;
@@ -120,8 +120,8 @@ message GetChatSessionListRsp {
 //创建会话
 message ChatSessionCreateReq {
     string request_id = 1;
-    optional string session_id = 2;
-    optional string user_id = 3;
+     string session_id = 2;
+     string user_id = 3;
     string chat_session_name = 4;
     //需要注意的是，这个列表中也必须包含创建者自己的用户ID
     repeated string member_id_list = 5;
@@ -131,14 +131,14 @@ message ChatSessionCreateRsp {
     bool success = 2;
     string errmsg = 3; 
     //这个字段属于后台之间的数据，给前端回复的时候不需要这个字段，会话信息通过通知进行发送
-    optional ChatSessionInfo chat_session_info = 4; 
+     ChatSessionInfo chat_session_info = 4; 
 }
 //--------------------------------------
 //获取会话成员列表
 message GetChatSessionMemberReq {
     string request_id = 1;
-    optional string session_id = 2;
-    optional string user_id = 3;
+     string session_id = 2;
+     string user_id = 3;
     string chat_session_id = 4;
 }
 message GetChatSessionMemberRsp {

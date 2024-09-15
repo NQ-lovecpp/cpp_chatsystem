@@ -6,7 +6,7 @@
 */
 //消息转发服务器接口
 syntax = "proto3";
-package bite_im;
+package chen_im;
 import "base.proto";
 
 option cc_generic_services = true;
@@ -14,8 +14,8 @@ option cc_generic_services = true;
 //这个用于和网关进行通信
 message NewMessageReq {
     string request_id = 1;
-    optional string user_id = 2;
-    optional string session_id = 3;
+     string user_id = 2;
+     string session_id = 3;
     string chat_session_id = 4;
     MessageContent message = 5;
 }

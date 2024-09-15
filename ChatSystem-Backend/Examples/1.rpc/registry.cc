@@ -18,7 +18,7 @@ DEFINE_string(etcd_host, "http://127.0.0.1:2379", "服务注册中心地址");
 DEFINE_string(base_service, "/service", "服务监控根目录");
 DEFINE_string(instance_name, "/echo/instance_1", "当前实例名称");
 
-// 开放的端口理应一致
+// 宣告的和实际开放的端口理应一致
 DEFINE_string(access_host, "127.0.0.1:7777", "当前实例的外部访问地址(对外宣告的)");
 DEFINE_uint32(listen_port, 7777, "Rpc服务器监听端口(实际开放的)");
 

@@ -5,15 +5,15 @@
     当服务发现的时候，通过 /service/speech 进行服务发现，就可以发现所有的能够提供用户操作的实例信息了
 */
 syntax = "proto3";
-package bite_im;
+package chen_im;
 
 option cc_generic_services = true;
 
 message SpeechRecognitionReq {
     string request_id = 1;
     bytes speech_content = 2;
-    optional string user_id = 3;
-    optional string session_id = 4;
+    string user_id = 3;
+    string session_id = 4;
 }
 
 message SpeechRecognitionRsp {

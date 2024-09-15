@@ -5,7 +5,7 @@
     当服务发现的时候，通过 /service/file 进行服务发现，就可以发现所有的能够提供用户操作的实例信息了
 */
 syntax = "proto3";
-package bite_im;
+package chen_im;
 import "base.proto";
 
 option cc_generic_services = true;
@@ -14,8 +14,8 @@ option cc_generic_services = true;
 message GetSingleFileReq {
     string request_id = 1;
     string file_id = 2;
-    optional string user_id = 3;
-    optional string session_id = 4;
+     string user_id = 3;
+     string session_id = 4;
 }
 message GetSingleFileRsp {
     string request_id = 1;
@@ -26,8 +26,8 @@ message GetSingleFileRsp {
 
 message GetMultiFileReq {
     string request_id = 1;
-    optional string user_id = 2;
-    optional string session_id = 3;
+     string user_id = 2;
+     string session_id = 3;
     repeated string file_id_list = 4;
 }
 message GetMultiFileRsp {
@@ -39,8 +39,8 @@ message GetMultiFileRsp {
 
 message PutSingleFileReq {
     string request_id = 1;
-    optional string user_id = 2;
-    optional string session_id = 3;
+     string user_id = 2;
+     string session_id = 3;
     FileUploadData file_data = 4;
 }
 message PutSingleFileRsp {
@@ -52,8 +52,8 @@ message PutSingleFileRsp {
 
 message PutMultiFileReq {
     string request_id = 1;
-    optional string user_id = 2;
-    optional string session_id = 3;
+     string user_id = 2;
+     string session_id = 3;
     repeated FileUploadData file_data = 4;
 }
 message PutMultiFileRsp {
