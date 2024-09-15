@@ -12,8 +12,7 @@
 
 #include "logger.hpp"
 
-using namespace std;
-using namespace AlibabaCloud;
+namespace chen_im {
 
 class DMSClient
 {
@@ -32,7 +31,7 @@ public:
 
         AlibabaCloud::Credentials credential(AccessKeyID, AccessKeySecret);
 
-        _client = make_unique<AlibabaCloud::CommonClient>(credential, configuration);
+        _client = std::make_unique<AlibabaCloud::CommonClient>(credential, configuration);
     }
 
     // 向指定手机号发送验证码
@@ -69,3 +68,4 @@ public:
     }
 };
 
+}

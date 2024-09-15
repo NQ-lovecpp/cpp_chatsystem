@@ -7,7 +7,7 @@
 
 #include "logger.hpp"
 
-
+namespace chen_im {
 
 bool Serialize(const Json::Value &val, std::string *out_str)
 {
@@ -377,3 +377,5 @@ public:
         return Json::Value();
     }
 };
+
+}

@@ -8,6 +8,8 @@
 #include <string>
 #include <string_view>
 
+namespace chen_im {
+
 // 全局的日志器
 std::shared_ptr<spdlog::logger> g_default_logger;
 
@@ -44,9 +46,12 @@ void init_logger(bool mode, const std::string &file_name, int log_level)
 }
 
 // [文件名:行号]
-#define LOG_TRACE(format, ...)    g_default_logger->trace(   std::string("[{:>10s}:{:<4d}] ") + format , __FILE__, __LINE__, ##__VA_ARGS__)
-#define LOG_DEBUG(format, ...)    g_default_logger->debug(   std::string("[{:>10s}:{:<4d}] ") + format , __FILE__, __LINE__, ##__VA_ARGS__)
-#define LOG_INFO(format, ...)     g_default_logger->info(    std::string("[{:>10s}:{:<4d}] ") + format , __FILE__, __LINE__, ##__VA_ARGS__)
-#define LOG_WARN(format, ...)     g_default_logger->warn(    std::string("[{:>10s}:{:<4d}] ") + format , __FILE__, __LINE__, ##__VA_ARGS__)
-#define LOG_ERROR(format, ...)    g_default_logger->error(   std::string("[{:>10s}:{:<4d}] ") + format , __FILE__, __LINE__, ##__VA_ARGS__)
-#define LOG_CRITICAL(format, ...) g_default_logger->critical(std::string("[{:>10s}:{:<4d}] ") + format , __FILE__, __LINE__, ##__VA_ARGS__)
+#define LOG_TRACE(format, ...)    chen_im::g_default_logger->trace(   std::string("[{:>10s}:{:<4d}] ") + format , __FILE__, __LINE__, ##__VA_ARGS__)
+#define LOG_DEBUG(format, ...)    chen_im::g_default_logger->debug(   std::string("[{:>10s}:{:<4d}] ") + format , __FILE__, __LINE__, ##__VA_ARGS__)
+#define LOG_INFO(format, ...)     chen_im::g_default_logger->info(    std::string("[{:>10s}:{:<4d}] ") + format , __FILE__, __LINE__, ##__VA_ARGS__)
+#define LOG_WARN(format, ...)     chen_im::g_default_logger->warn(    std::string("[{:>10s}:{:<4d}] ") + format , __FILE__, __LINE__, ##__VA_ARGS__)
+#define LOG_ERROR(format, ...)    chen_im::g_default_logger->error(   std::string("[{:>10s}:{:<4d}] ") + format , __FILE__, __LINE__, ##__VA_ARGS__)
+#define LOG_CRITICAL(format, ...) chen_im::g_default_logger->critical(std::string("[{:>10s}:{:<4d}] ") + format , __FILE__, __LINE__, ##__VA_ARGS__)
+
+
+}

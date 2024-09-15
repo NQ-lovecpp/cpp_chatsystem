@@ -37,7 +37,7 @@ DEFINE_string(secret_key, "Hg2prK8pIPxMGYWwJ97ULVd6wzUTgWkb", "语音平台加�
 int main(int argc,char *argv[])
 {
     google::ParseCommandLineFlags(&argc, &argv, true);
-    init_logger(FLAGS_run_mode,  FLAGS_log_file,  FLAGS_log_level);
+    chen_im::init_logger(FLAGS_run_mode,  FLAGS_log_file,  FLAGS_log_level);
 
     // 构造SpeechServer
     chen_im::SpeechServerFactory ssf_factory;

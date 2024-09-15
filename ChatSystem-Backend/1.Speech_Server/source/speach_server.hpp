@@ -10,7 +10,7 @@
 // 1. 创建子类，继承于SpeechService创建一个子类，并实现rpc调用
 namespace chen_im
 {
-    class SpeechServiceImpl : public chen_im::SpeechService
+    class SpeechServiceImpl : public chen_im::SpeechService // implementation
     {
     private:
         std::shared_ptr<VoiceRecognizerClient> _voice_client;

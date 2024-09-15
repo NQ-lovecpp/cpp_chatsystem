@@ -9,6 +9,7 @@
 #include <functional>
 #include "logger.hpp"
 
+namespace chen_im {
 
 class MQClient
 {
@@ -135,3 +136,5 @@ private:
     }
 
 };
+
+}

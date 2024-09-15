@@ -22,6 +22,8 @@ DEFINE_string(service_to_call, "/service/speech/recognition", "服务监控根�
 
 int main(int argc, char *argv[])
 {
+    using namespace chen_im;
+
     google::ParseCommandLineFlags(&argc, &argv, true);
     init_logger(FLAGS_run_mode, FLAGS_log_file, FLAGS_log_level);
 
@@ -34,7 +36,7 @@ int main(int argc, char *argv[])
     auto del_cb = std::bind(&ServiceManager::when_service_offline, service_manager.get(), std::placeholders::_1, std::placeholders::_2);
     std::shared_ptr<Discovery> dclient = std::make_shared<Discovery>(FLAGS_etcd_host, FLAGS_base_service, put_cb, del_cb);
     
-    // 3. 通过Rpc信道管理对象，获取提供Echo服务的信道
+    // 3. 通过Rpc信道管理对象，获取提供语音服务的信道
     auto channel = service_manager->get(FLAGS_service_to_call);
     if (!channel) {
         LOG_ERROR("获取 {} 的brpc服务信道失败，retry...", FLAGS_service_to_call);

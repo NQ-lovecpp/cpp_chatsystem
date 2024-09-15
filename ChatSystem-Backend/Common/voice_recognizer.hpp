@@ -6,6 +6,9 @@
 #include "speech.h"
 #include "logger.hpp"
 
+
+namespace chen_im {
+
 class VoiceRecognizerClient
 {
 private:
@@ -30,3 +33,5 @@ public:
 
     ~VoiceRecognizerClient() {}
 };
+
+}

@@ -5,6 +5,8 @@
 
 #include "./logger.hpp"
 
+namespace chen_im {
+
 // 信道管理对象
 // 1. 把一种服务的所有提供该服务的信道管理起来，因为提供同一种服务的主机可能有很多(目前只设计一对多)
 // 一个ChannelManager对象管理一种服务，但是管理多个信道，而信道和一个套接字是对应的
@@ -169,3 +171,5 @@ public:
         return sit->second->get();
     }
 };
+
+}

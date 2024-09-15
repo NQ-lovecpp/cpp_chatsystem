@@ -10,6 +10,9 @@
 
 #include "./logger.hpp"
 
+
+namespace chen_im {
+
 // 服务注册客户端类，本质上是在放数据
 class Registry
 {
@@ -112,3 +115,4 @@ public:
 };
 
 
+}
