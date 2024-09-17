@@ -1,9 +1,12 @@
+// es基本的增删查改操作
+
 #pragma once
 #include <elasticlient/client.h>
 #include <json/json.h>
 #include <cpr/cpr.h>
 #include <iostream>
 #include <memory>
+#include <vector>
 
 #include "logger.hpp"
 
@@ -217,7 +220,7 @@ public:
                 return false;
             } else {
                 // 3. 打印响应状态码和响应正文
-                LOG_DEBUG("搜索 {} 成功，ES服务器发回响应：", _name);
+                LOG_DEBUG("搜索 {}索引 成功，ES服务器发回响应：", _name);
                 LOG_DEBUG("状态码: {}", resp.status_code);
                 LOG_DEBUG("响应正文：\n{}", resp.text);
             }
@@ -300,7 +303,7 @@ public:
     {}
     ~ESSearch() {}
 
-    ESSearch& append_must_not_terms(const std::string &key, const std::string &value)
+    ESSearch& append_must_not_terms(const std::string &key, const std::vector<std::string> &value)
     {
         Json::Value fields;
         for(const auto& val:value)
@@ -309,7 +312,7 @@ public:
         }
         Json::Value terms;
         terms["terms"]=fields;
-        _must_not["must_not"].append(terms);
+        _must_not.append(terms);
 
         return *this;
     }
@@ -321,7 +324,7 @@ public:
         Json::Value match;
         match["match"] = field;
         _should.append(match);
-        return*this;
+        return *this;
     }
 
     Json::Value search()

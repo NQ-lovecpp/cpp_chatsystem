@@ -65,7 +65,7 @@ int main(int argc, char *argv[])
 
 
     // 4. 数据检索（搜索）
-    Json::Value ret_user = ESSearch("test_user", "_doc", client)
+    Json::Value ret_user = chen_im::ESSearch("test_user", "_doc", client)
         .append_should_match("phone.keyword", "11122223333") // keyword表示phone这个词作为关键字搜索
         .search();
     if (ret_user.empty()  || ret_user.isArray() == false ) {
