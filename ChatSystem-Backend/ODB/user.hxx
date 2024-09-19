@@ -15,6 +15,7 @@ typedef boost::posix_time::ptime ptime;
 class User
 {
     friend class odb::access;
+
 private:
 #pragma db id auto
     unsigned long _id;
@@ -24,11 +25,11 @@ private:
     odb::nullable<std::string> _nickname;    // 用户昵称-不一定存在
     odb::nullable<std::string> _description; // 用户签名 - 不一定存在
 #pragma db type("varchar(64)")
-    odb::nullable<std::string> _password;    // 用户密码 - 不一定存在
+    odb::nullable<std::string> _password; // 用户密码 - 不一定存在
 #pragma db type("varchar(64)") index unique
-    odb::nullable<std::string> _phone;       // 用户手机号 - 不一定存在
+    odb::nullable<std::string> _phone; // 用户手机号 - 不一定存在
 #pragma db type("varchar(64)")
-    odb::nullable<std::string> _avatar_id;   // 用户头像文件ID - 不一定存在
+    odb::nullable<std::string> _avatar_id; // 用户头像文件ID - 不一定存在
 
 public:
     // 用户名+密码注册

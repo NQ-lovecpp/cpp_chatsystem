@@ -13,7 +13,7 @@
 namespace chen_im {  
   
     /// @brief 生成一个唯一ID  
-    /// @return 返回生成的唯一ID字符串  
+    /// @return 返回生成的唯一ID字符串 形如：34cc-e65243b7-0000
     std::string generate_uuid() {  
         std::random_device rd;  
         std::mt19937 generator(rd());  

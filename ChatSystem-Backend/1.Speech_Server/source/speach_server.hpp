@@ -1,8 +1,8 @@
 // 实现语音识别子服务
 #pragma once
-#include "voice_recognizer.hpp"  // 语音识别的封装
-#include "etcd.hpp"              // 服务注册封装
-#include "logger.hpp"            // 日志封装
+#include "voice_recognizer.hpp"        // 语音识别的封装
+#include "etcd.hpp"                    // 服务注册封装
+#include "logger.hpp"                  // 日志封装
 #include "speech_recognition.pb.h"     // protobuf框架代码
 
 #include <brpc/server.h>

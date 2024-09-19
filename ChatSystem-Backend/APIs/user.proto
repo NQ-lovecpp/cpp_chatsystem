@@ -1,13 +1,6 @@
-/*
-    用户操作服务器的子服务注册信息： /service/user/instance_id
-        服务名称：/service/user
-        实例ID: instance_id     每个能够提供用户操作服务的子服务器唯一ID
-    当服务发现的时候，通过 /service/user 进行服务发现，就可以发现所有的能够提供用户操作的实例信息了
-*/
 syntax = "proto3";
 package chen_im;
 import "base.proto";
-
 option cc_generic_services = true;
 
 //----------------------------
@@ -16,8 +9,8 @@ message UserRegisterReq {
     string request_id = 1;
     string nickname = 2;
     string password = 3;
-    string verify_code_id = 4;
-    string verify_code = 5;
+    string verify_code_id = 4; //目前客户端实现了本地验证，该字段没用了
+    string verify_code = 5;//目前客户端实现了本地验证，该字段没用了
 }
 message UserRegisterRsp {
     string request_id = 1;
@@ -83,8 +76,8 @@ message PhoneLoginRsp {
 //其他个人/好友信息的获取在好友操作中完成
 message GetUserInfoReq {
     string request_id = 1;
-     string user_id = 2;
-     string session_id = 3;
+    string user_id = 2;    // 这个字段是网关进行身份鉴权之后填入的字段
+    string session_id = 3; // 进行客户端身份识别的关键字段
 }
 message GetUserInfoRsp {
     string request_id = 1;
@@ -92,12 +85,23 @@ message GetUserInfoRsp {
     string errmsg = 3; 
     UserInfo user_info = 4;
 }
+//内部接口
+message GetMultiUserInfoReq {
+    string request_id = 1;
+    repeated string users_id = 2;
+}
+message GetMultiUserInfoRsp {
+    string request_id = 1;
+    bool success = 2;
+    string errmsg = 3; 
+    map<string, UserInfo> users_info = 4;
+}
 //----------------------------
 //用户头像修改 
 message SetUserAvatarReq {
     string request_id = 1;
-     string user_id = 2;
-     string session_id = 3;
+    string user_id = 2;
+    string session_id = 3;
     bytes avatar = 4;
 }
 message SetUserAvatarRsp {
@@ -109,8 +113,8 @@ message SetUserAvatarRsp {
 //用户昵称修改 
 message SetUserNicknameReq {
     string request_id = 1;
-     string user_id = 2;
-     string session_id = 3;
+    string user_id = 2;
+    string session_id = 3;
     string nickname = 4;
 }
 message SetUserNicknameRsp {
@@ -122,8 +126,8 @@ message SetUserNicknameRsp {
 //用户签名修改 
 message SetUserDescriptionReq {
     string request_id = 1;
-     string user_id = 2;
-     string session_id = 3;
+    string user_id = 2;
+    string session_id = 3;
     string description = 4;
 }
 message SetUserDescriptionRsp {
@@ -135,8 +139,8 @@ message SetUserDescriptionRsp {
 //用户手机修改 
 message SetUserPhoneNumberReq {
     string request_id = 1;
-     string user_id = 2;
-     string session_id = 3;
+    string user_id = 2;
+    string session_id = 3;
     string phone_number = 4;
     string phone_verify_code_id = 5;
     string phone_verify_code = 6;
@@ -154,6 +158,7 @@ service UserService {
     rpc PhoneRegister(PhoneRegisterReq) returns (PhoneRegisterRsp);
     rpc PhoneLogin(PhoneLoginReq) returns (PhoneLoginRsp);
     rpc GetUserInfo(GetUserInfoReq) returns (GetUserInfoRsp);
+    rpc GetMultiUserInfo(GetMultiUserInfoReq) returns (GetMultiUserInfoRsp);
     rpc SetUserAvatar(SetUserAvatarReq) returns (SetUserAvatarRsp);
     rpc SetUserNickname(SetUserNicknameReq) returns (SetUserNicknameRsp);
     rpc SetUserDescription(SetUserDescriptionReq) returns (SetUserDescriptionRsp);

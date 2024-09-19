@@ -12,16 +12,13 @@ SRC_FILES = $(wildcard *.hxx)
 $(OUTPUT_DIR):
 	mkdir -p $(OUTPUT_DIR)
 
-# Rule to generate ODB files (excluding the source .hxx file from being moved)
-%.cxx %.hxx %.ixx %.sql: %.hxx | $(OUTPUT_DIR)
+# Rule to generate ODB files and move them directly to the output directory
+$(OUTPUT_DIR)/%: %.hxx | $(OUTPUT_DIR)
 	$(ODB_COMPILER) $(DATABASE) $(CXX_STANDARD) $(OPTIONS) $<
+	mv $*-odb.cxx $*-odb.hxx $*-odb.ixx $*.sql $(OUTPUT_DIR)/
 
-# Move generated files (excluding the source .hxx file) to the output directory
-move_files:
-	mv user-odb.cxx user-odb.hxx user-odb.ixx user.sql $(OUTPUT_DIR)/ 2>/dev/null || true
-
-# Target to generate ODB files for all .hxx files and move them
-generate: $(SRC_FILES:%.hxx=%.cxx) move_files
+# Target to generate ODB files for all .hxx files
+generate: $(SRC_FILES:%.hxx=$(OUTPUT_DIR)/%)
 
 .PHONY: clean
 clean:

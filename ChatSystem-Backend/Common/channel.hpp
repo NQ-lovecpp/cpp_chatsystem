@@ -83,8 +83,6 @@ public:
 // 2. 把各种服务管理起来
 class ServiceManager
 {
-public:
-    using Ptr = std::shared_ptr<ServiceManager>;
 private:
     std::mutex _mutex;
     std::unordered_set<std::string> _concern; // 关心的服务
@@ -123,7 +121,7 @@ public:
                 return;
             }
 
-            // 先获取管理对象，没有则创建新的管理对象
+            // 先获取该服务的信道管理对象，没有则创建新的管理对象
             auto sit = _services.find(service_name);
             if (sit == _services.end()) {// 没有则创建新的管理对象
                 s = std::make_shared<ChannelManager>(service_name);

@@ -170,7 +170,7 @@ public:
 
         return true;
     }
-}; 
+};
 
 
 // 数据新增：
