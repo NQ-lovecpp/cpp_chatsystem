@@ -83,6 +83,8 @@ public:
 // 2. 把各种服务管理起来
 class ServiceManager
 {
+public:
+    using ptr = std::shared_ptr<ServiceManager>;
 private:
     std::mutex _mutex;
     std::unordered_set<std::string> _concern; // 关心的服务

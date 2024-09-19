@@ -172,9 +172,9 @@ namespace chen_im
     //         LOG_INFO("消息数据删除成功!");
     //         return true;
     //     }
-    //     std::vector<bite_im::Message> search(const std::string &key, const std::string &ssid)
+    //     std::vector<chen_im::Message> search(const std::string &key, const std::string &ssid)
     //     {
-    //         std::vector<bite_im::Message> res;
+    //         std::vector<chen_im::Message> res;
     //         Json::Value json_user = ESSearch(_es_client, "message")
     //                                     .append_must_term("chat_session_id.keyword", ssid)
     //                                     .append_must_match("content", key)
@@ -188,7 +188,7 @@ namespace chen_im
     //         LOG_DEBUG("检索结果条目数量：{}", sz);
     //         for (int i = 0; i < sz; i++)
     //         {
-    //             bite_im::Message message;
+    //             chen_im::Message message;
     //             message.user_id(json_user[i]["_source"]["user_id"].asString());
     //             message.message_id(json_user[i]["_source"]["message_id"].asString());
     //             boost::posix_time::ptime ctime(boost::posix_time::from_time_t(

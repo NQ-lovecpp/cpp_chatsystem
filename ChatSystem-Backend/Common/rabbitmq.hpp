@@ -13,6 +13,8 @@ namespace chen_im {
 
 class MQClient
 {
+public:
+    using ptr = std::shared_ptr<MQClient>;
 private:
     struct ev_loop*     _loop;       // 实例化底层网络通信框架的I/O事件监控句柄
     std::unique_ptr<AMQP::LibEvHandler > _handler;    // libEventHandler句柄，将AMQP框架与事件监控关联起来

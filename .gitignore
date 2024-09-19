@@ -1,0 +1,13 @@
+# 忽略所有名为 build 的目录
+build/
+
+# 忽略所有名为 odb_builds 的目录
+odb_builds/
+
+# 忽略所有名为 api_builds 的目录
+api_builds/
+
+# 递归忽略任意子目录下的这些文件夹
+**/build/
+**/odb_builds/
+**/api_builds/

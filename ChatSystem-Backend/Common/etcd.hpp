@@ -16,6 +16,8 @@ namespace chen_im {
 // 服务注册客户端类，本质上是在放数据
 class Registry
 {
+public:
+    using ptr = std::shared_ptr<Registry>;
 private:
     std::shared_ptr<etcd::Client> _client; // etcd的客户端对象
     std::shared_ptr<etcd::KeepAlive> _keep_alive; // 一个租约的保活对象
@@ -50,6 +52,8 @@ public:
 // 服务发现客户端类，本质上是在获取数据
 class Discovery
 {
+public:
+    using ptr = std::shared_ptr<Discovery>;
     using NotifyCallback = std::function<void(const std::string &, const std::string &)>;
 private:
     std::shared_ptr<etcd::Client> _client;
