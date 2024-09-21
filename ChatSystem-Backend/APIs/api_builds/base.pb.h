@@ -39,7 +39,7 @@ namespace protobuf_base_2eproto {
 struct TableStruct {
   static const ::google::protobuf::internal::ParseTableField entries[];
   static const ::google::protobuf::internal::AuxillaryParseTableField aux[];
-  static const ::google::protobuf::internal::ParseTable schema[11];
+  static const ::google::protobuf::internal::ParseTable schema[10];
   static const ::google::protobuf::internal::FieldMetadata field_metadata[];
   static const ::google::protobuf::internal::SerializationTable serialization_table[];
   static const ::google::protobuf::uint32 offsets[];
@@ -62,9 +62,6 @@ extern FileUploadDataDefaultTypeInternal _FileUploadData_default_instance_;
 class ImageMessageInfo;
 class ImageMessageInfoDefaultTypeInternal;
 extern ImageMessageInfoDefaultTypeInternal _ImageMessageInfo_default_instance_;
-class Message;
-class MessageDefaultTypeInternal;
-extern MessageDefaultTypeInternal _Message_default_instance_;
 class MessageContent;
 class MessageContentDefaultTypeInternal;
 extern MessageContentDefaultTypeInternal _MessageContent_default_instance_;
@@ -88,7 +85,6 @@ template<> ::chen_im::FileDownloadData* Arena::CreateMaybeMessage<::chen_im::Fil
 template<> ::chen_im::FileMessageInfo* Arena::CreateMaybeMessage<::chen_im::FileMessageInfo>(Arena*);
 template<> ::chen_im::FileUploadData* Arena::CreateMaybeMessage<::chen_im::FileUploadData>(Arena*);
 template<> ::chen_im::ImageMessageInfo* Arena::CreateMaybeMessage<::chen_im::ImageMessageInfo>(Arena*);
-template<> ::chen_im::Message* Arena::CreateMaybeMessage<::chen_im::Message>(Arena*);
 template<> ::chen_im::MessageContent* Arena::CreateMaybeMessage<::chen_im::MessageContent>(Arena*);
 template<> ::chen_im::MessageInfo* Arena::CreateMaybeMessage<::chen_im::MessageInfo>(Arena*);
 template<> ::chen_im::SpeechMessageInfo* Arena::CreateMaybeMessage<::chen_im::SpeechMessageInfo>(Arena*);
@@ -1310,130 +1306,6 @@ class MessageInfo : public ::google::protobuf::Message /* @@protoc_insertion_poi
 };
 // -------------------------------------------------------------------
 
-class Message : public ::google::protobuf::Message /* @@protoc_insertion_point(class_definition:chen_im.Message) */ {
- public:
-  Message();
-  virtual ~Message();
-
-  Message(const Message& from);
-
-  inline Message& operator=(const Message& from) {
-    CopyFrom(from);
-    return *this;
-  }
-  #if LANG_CXX11
-  Message(Message&& from) noexcept
-    : Message() {
-    *this = ::std::move(from);
-  }
-
-  inline Message& operator=(Message&& from) noexcept {
-    if (GetArenaNoVirtual() == from.GetArenaNoVirtual()) {
-      if (this != &from) InternalSwap(&from);
-    } else {
-      CopyFrom(from);
-    }
-    return *this;
-  }
-  #endif
-  static const ::google::protobuf::Descriptor* descriptor();
-  static const Message& default_instance();
-
-  static void InitAsDefaultInstance();  // FOR INTERNAL USE ONLY
-  static inline const Message* internal_default_instance() {
-    return reinterpret_cast<const Message*>(
-               &_Message_default_instance_);
-  }
-  static constexpr int kIndexInFileMessages =
-    8;
-
-  void Swap(Message* other);
-  friend void swap(Message& a, Message& b) {
-    a.Swap(&b);
-  }
-
-  // implements Message ----------------------------------------------
-
-  inline Message* New() const final {
-    return CreateMaybeMessage<Message>(NULL);
-  }
-
-  Message* New(::google::protobuf::Arena* arena) const final {
-    return CreateMaybeMessage<Message>(arena);
-  }
-  void CopyFrom(const ::google::protobuf::Message& from) final;
-  void MergeFrom(const ::google::protobuf::Message& from) final;
-  void CopyFrom(const Message& from);
-  void MergeFrom(const Message& from);
-  void Clear() final;
-  bool IsInitialized() const final;
-
-  size_t ByteSizeLong() const final;
-  bool MergePartialFromCodedStream(
-      ::google::protobuf::io::CodedInputStream* input) final;
-  void SerializeWithCachedSizes(
-      ::google::protobuf::io::CodedOutputStream* output) const final;
-  ::google::protobuf::uint8* InternalSerializeWithCachedSizesToArray(
-      bool deterministic, ::google::protobuf::uint8* target) const final;
-  int GetCachedSize() const final { return _cached_size_.Get(); }
-
-  private:
-  void SharedCtor();
-  void SharedDtor();
-  void SetCachedSize(int size) const final;
-  void InternalSwap(Message* other);
-  private:
-  inline ::google::protobuf::Arena* GetArenaNoVirtual() const {
-    return NULL;
-  }
-  inline void* MaybeArenaPtr() const {
-    return NULL;
-  }
-  public:
-
-  ::google::protobuf::Metadata GetMetadata() const final;
-
-  // nested types ----------------------------------------------------
-
-  // accessors -------------------------------------------------------
-
-  // string request_id = 1;
-  void clear_request_id();
-  static const int kRequestIdFieldNumber = 1;
-  const ::std::string& request_id() const;
-  void set_request_id(const ::std::string& value);
-  #if LANG_CXX11
-  void set_request_id(::std::string&& value);
-  #endif
-  void set_request_id(const char* value);
-  void set_request_id(const char* value, size_t size);
-  ::std::string* mutable_request_id();
-  ::std::string* release_request_id();
-  void set_allocated_request_id(::std::string* request_id);
-
-  // .chen_im.MessageInfo message = 2;
-  bool has_message() const;
-  void clear_message();
-  static const int kMessageFieldNumber = 2;
-  private:
-  const ::chen_im::MessageInfo& _internal_message() const;
-  public:
-  const ::chen_im::MessageInfo& message() const;
-  ::chen_im::MessageInfo* release_message();
-  ::chen_im::MessageInfo* mutable_message();
-  void set_allocated_message(::chen_im::MessageInfo* message);
-
-  // @@protoc_insertion_point(class_scope:chen_im.Message)
- private:
-
-  ::google::protobuf::internal::InternalMetadataWithArena _internal_metadata_;
-  ::google::protobuf::internal::ArenaStringPtr request_id_;
-  ::chen_im::MessageInfo* message_;
-  mutable ::google::protobuf::internal::CachedSize _cached_size_;
-  friend struct ::protobuf_base_2eproto::TableStruct;
-};
-// -------------------------------------------------------------------
-
 class FileDownloadData : public ::google::protobuf::Message /* @@protoc_insertion_point(class_definition:chen_im.FileDownloadData) */ {
  public:
   FileDownloadData();
@@ -1469,7 +1341,7 @@ class FileDownloadData : public ::google::protobuf::Message /* @@protoc_insertio
                &_FileDownloadData_default_instance_);
   }
   static constexpr int kIndexInFileMessages =
-    9;
+    8;
 
   void Swap(FileDownloadData* other);
   friend void swap(FileDownloadData& a, FileDownloadData& b) {
@@ -1595,7 +1467,7 @@ class FileUploadData : public ::google::protobuf::Message /* @@protoc_insertion_
                &_FileUploadData_default_instance_);
   }
   static constexpr int kIndexInFileMessages =
-    10;
+    9;
 
   void Swap(FileUploadData* other);
   friend void swap(FileUploadData& a, FileUploadData& b) {
@@ -3128,117 +3000,6 @@ inline void MessageInfo::set_allocated_message(::chen_im::MessageContent* messag
 
 // -------------------------------------------------------------------
 
-// Message
-
-// string request_id = 1;
-inline void Message::clear_request_id() {
-  request_id_.ClearToEmptyNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited());
-}
-inline const ::std::string& Message::request_id() const {
-  // @@protoc_insertion_point(field_get:chen_im.Message.request_id)
-  return request_id_.GetNoArena();
-}
-inline void Message::set_request_id(const ::std::string& value) {
-  
-  request_id_.SetNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited(), value);
-  // @@protoc_insertion_point(field_set:chen_im.Message.request_id)
-}
-#if LANG_CXX11
-inline void Message::set_request_id(::std::string&& value) {
-  
-  request_id_.SetNoArena(
-    &::google::protobuf::internal::GetEmptyStringAlreadyInited(), ::std::move(value));
-  // @@protoc_insertion_point(field_set_rvalue:chen_im.Message.request_id)
-}
-#endif
-inline void Message::set_request_id(const char* value) {
-  GOOGLE_DCHECK(value != NULL);
-  
-  request_id_.SetNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited(), ::std::string(value));
-  // @@protoc_insertion_point(field_set_char:chen_im.Message.request_id)
-}
-inline void Message::set_request_id(const char* value, size_t size) {
-  
-  request_id_.SetNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited(),
-      ::std::string(reinterpret_cast<const char*>(value), size));
-  // @@protoc_insertion_point(field_set_pointer:chen_im.Message.request_id)
-}
-inline ::std::string* Message::mutable_request_id() {
-  
-  // @@protoc_insertion_point(field_mutable:chen_im.Message.request_id)
-  return request_id_.MutableNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited());
-}
-inline ::std::string* Message::release_request_id() {
-  // @@protoc_insertion_point(field_release:chen_im.Message.request_id)
-  
-  return request_id_.ReleaseNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited());
-}
-inline void Message::set_allocated_request_id(::std::string* request_id) {
-  if (request_id != NULL) {
-    
-  } else {
-    
-  }
-  request_id_.SetAllocatedNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited(), request_id);
-  // @@protoc_insertion_point(field_set_allocated:chen_im.Message.request_id)
-}
-
-// .chen_im.MessageInfo message = 2;
-inline bool Message::has_message() const {
-  return this != internal_default_instance() && message_ != NULL;
-}
-inline void Message::clear_message() {
-  if (GetArenaNoVirtual() == NULL && message_ != NULL) {
-    delete message_;
-  }
-  message_ = NULL;
-}
-inline const ::chen_im::MessageInfo& Message::_internal_message() const {
-  return *message_;
-}
-inline const ::chen_im::MessageInfo& Message::message() const {
-  const ::chen_im::MessageInfo* p = message_;
-  // @@protoc_insertion_point(field_get:chen_im.Message.message)
-  return p != NULL ? *p : *reinterpret_cast<const ::chen_im::MessageInfo*>(
-      &::chen_im::_MessageInfo_default_instance_);
-}
-inline ::chen_im::MessageInfo* Message::release_message() {
-  // @@protoc_insertion_point(field_release:chen_im.Message.message)
-  
-  ::chen_im::MessageInfo* temp = message_;
-  message_ = NULL;
-  return temp;
-}
-inline ::chen_im::MessageInfo* Message::mutable_message() {
-  
-  if (message_ == NULL) {
-    auto* p = CreateMaybeMessage<::chen_im::MessageInfo>(GetArenaNoVirtual());
-    message_ = p;
-  }
-  // @@protoc_insertion_point(field_mutable:chen_im.Message.message)
-  return message_;
-}
-inline void Message::set_allocated_message(::chen_im::MessageInfo* message) {
-  ::google::protobuf::Arena* message_arena = GetArenaNoVirtual();
-  if (message_arena == NULL) {
-    delete message_;
-  }
-  if (message) {
-    ::google::protobuf::Arena* submessage_arena = NULL;
-    if (message_arena != submessage_arena) {
-      message = ::google::protobuf::internal::GetOwnedMessage(
-          message_arena, message, submessage_arena);
-    }
-    
-  } else {
-    
-  }
-  message_ = message;
-  // @@protoc_insertion_point(field_set_allocated:chen_im.Message.message)
-}
-
-// -------------------------------------------------------------------
-
 // FileDownloadData
 
 // string file_id = 1;
@@ -3474,8 +3235,6 @@ inline void FileUploadData::set_allocated_file_content(::std::string* file_conte
 #ifdef __GNUC__
   #pragma GCC diagnostic pop
 #endif  // __GNUC__
-// -------------------------------------------------------------------
-
 // -------------------------------------------------------------------
 
 // -------------------------------------------------------------------

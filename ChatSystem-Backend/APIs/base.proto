@@ -1,6 +1,5 @@
 syntax = "proto3";
 package chen_im;
-
 option cc_generic_services = true;
 
 //用户信息结构
@@ -14,11 +13,14 @@ message UserInfo {
 
 //聊天会话信息
 message ChatSessionInfo {
-     string single_chat_friend_id = 1;//群聊会话不需要设置，单聊会话设置为对方ID
+    //群聊会话不需要设置，单聊会话设置为对方用户ID
+    string single_chat_friend_id = 1;
     string chat_session_id = 2; //会话ID
     string chat_session_name = 3;//会话名称git 
-     MessageInfo prev_message = 4;//会话上一条消息，新建的会话没有最新消息
-     bytes avatar = 5;//会话头像 --群聊会话不需要，直接由前端固定渲染，单聊就是对方的头像
+    //会话上一条消息，新建的会话没有最新消息
+    MessageInfo prev_message = 4;
+    //会话头像 --群聊会话不需要，直接由前端固定渲染，单聊就是对方的头像
+    bytes avatar = 5;
 }
 
 //消息类型
@@ -32,18 +34,23 @@ message StringMessageInfo {
     string content = 1;//文字聊天内容
 }
 message ImageMessageInfo {
-     string file_id = 1;//图片文件id,客户端发送的时候不用设置，由transmit服务器进行设置后交给storage的时候设置
-     bytes image_content = 2;//图片数据，在ES中存储消息的时候只要id不要文件数据, 服务端转发的时候需要原样转发
+    //图片文件id,客户端发送的时候不用设置，由transmit服务器进行设置后交给storage的时候设置
+    string file_id = 1;
+    //图片数据，在ES中存储消息的时候只要id不要文件数据, 服务端转发的时候需要原样转发
+    bytes image_content = 2;
 }
 message FileMessageInfo {
-     string file_id = 1;//文件id,客户端发送的时候不用设置
+    string file_id = 1;//文件id,客户端发送的时候不用设置
     int64 file_size = 2;//文件大小
     string file_name = 3;//文件名称
-     bytes file_contents = 4;//文件数据，在ES中存储消息的时候只要id和元信息，不要文件数据, 服务端转发的时候也不需要填充
+    //文件数据，在ES中存储消息的时候只要id和元信息，不要文件数据, 服务端转发的时候也不需要填充
+    bytes file_contents = 4;
 }
 message SpeechMessageInfo {
-     string file_id = 1;//语音文件id,客户端发送的时候不用设置
-     bytes file_contents = 2;//文件数据，在ES中存储消息的时候只要id不要文件数据, 服务端转发的时候也不需要填充
+    //语音文件id,客户端发送的时候不用设置
+    string file_id = 1;
+    //文件数据，在ES中存储消息的时候只要id不要文件数据, 服务端转发的时候也不需要填充
+    bytes file_contents = 2;
 }
 message MessageContent {
     MessageType message_type = 1; //消息类型
@@ -63,18 +70,13 @@ message MessageInfo {
     MessageContent message = 5;
 }
 
-message Message {
-    string request_id = 1;
-    MessageInfo message = 2;
-}
-
 message FileDownloadData {
     string file_id = 1;
     bytes file_content = 2;
 }
 
 message FileUploadData {
-    string file_name = 1;
-    int64 file_size = 2;
-    bytes file_content = 3;
+    string file_name = 1;   //文件名称
+    int64 file_size = 2;    //文件大小
+    bytes file_content = 3; //文件数据
 }

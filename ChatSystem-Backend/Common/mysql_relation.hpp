@@ -10,7 +10,7 @@ namespace chen_im
     {
     public:
         using ptr = std::shared_ptr<RelationTable>;
-        RelationTable(const std::shared_ptr<odb::core::database> &db) : _db(db) {}
+        RelationTable(const std::shared_ptr<odb::mysql::database> &db) : _db(db) {}
         // 新增关系信息
         bool insert(const std::string &uid, const std::string &pid)
         {
@@ -94,6 +94,6 @@ namespace chen_im
         }
 
     private:
-        std::shared_ptr<odb::core::database> _db;
+        std::shared_ptr<odb::mysql::database> _db;
     };
 }

@@ -4,13 +4,18 @@
 #include "message.hxx"
 #include "message-odb.hxx"
 
+#include <odb/mysql/database.hxx>
+#include <odb/query.hxx>
+#include <odb/result.hxx>
+
+
 namespace chen_im
 {
     class MessageTable
     {
     public:
         using ptr = std::shared_ptr<MessageTable>;
-        MessageTable(const std::shared_ptr<odb::core::database> &db) : _db(db) {}
+        MessageTable(const std::shared_ptr<odb::mysql::database> &db) : _db(db) {}
         ~MessageTable() {}
         bool insert(Message &msg)
         {
@@ -58,7 +63,7 @@ namespace chen_im
                 cond << "session_id='" << ssid << "' ";
                 cond << "order by create_time desc limit " << count;
                 result r(_db->query<Message>(cond.str()));
-                for (result::iterator i(r.begin()); i != r.end(); ++i)
+                for (auto i(r.begin()); i != r.end(); ++i)
                 {
                     res.push_back(*i);
                 }
@@ -85,7 +90,7 @@ namespace chen_im
                 result r(_db->query<Message>(query::session_id == ssid &&
                                              query::create_time >= stime &&
                                              query::create_time <= etime));
-                for (result::iterator i(r.begin()); i != r.end(); ++i)
+                for (auto i(r.begin()); i != r.end(); ++i)
                 {
                     res.push_back(*i);
                 }
@@ -101,6 +106,6 @@ namespace chen_im
         }
 
     private:
-        std::shared_ptr<odb::core::database> _db;
+        std::shared_ptr<odb::mysql::database> _db;
     };
 }

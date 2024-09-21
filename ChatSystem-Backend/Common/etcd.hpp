@@ -84,9 +84,9 @@ private:
 
 public:
     Discovery(const std::string &host_url, 
-    const std::string &base_dir, 
-    const NotifyCallback &put_cb, 
-    const NotifyCallback &del_cb)
+              const std::string &base_dir, 
+              const NotifyCallback &put_cb, 
+              const NotifyCallback &del_cb)
         :_client(std::make_shared<etcd::Client>(host_url))
         ,_watcher(std::make_shared<etcd::Watcher>(*_client, base_dir, 
                   std::bind(&Discovery::callback, this, std::placeholders::_1), true))

@@ -46,7 +46,8 @@ int main(int argc,char *argv[])
     ssf_factory.build_registry_client(FLAGS_etcd_host, FLAGS_base_service + FLAGS_instance_name, FLAGS_access_host);
 
 
-    auto speech_server = ssf_factory.build();
+    std::shared_ptr<chen_im::SpeechServer> speech_server = ssf_factory.build();
+    
     speech_server->run();
     return 0;
 }

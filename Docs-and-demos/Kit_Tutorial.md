@@ -3686,7 +3686,7 @@ odb -d mysql  --std c++11 --generate-query --generate-schema --profile boost/dat
 #include "person-odb.hxx"
 
 int main() {
-    std::shared_ptr<odb::core::database> db(
+    std::shared_ptr<odb::mysql::database> db(
         new odb::mysql::database("root", "Zwc111...", "mytest", "127.0.0.1", 0, 0, "utf8"));
     if (!db) { return -1; }
     ptime p = boost::posix_time::second_clock::local_time();

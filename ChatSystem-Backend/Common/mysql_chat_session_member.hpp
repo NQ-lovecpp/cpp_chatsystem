@@ -9,7 +9,7 @@ namespace chen_im
     {
     public:
         using ptr = std::shared_ptr<ChatSessionMemeberTable>;
-        ChatSessionMemeberTable(const std::shared_ptr<odb::core::database> &db) : _db(db) {}
+        ChatSessionMemeberTable(const std::shared_ptr<odb::mysql::database> &db) : _db(db) {}
         // 单个会话成员的新增 --- ssid & uid
         bool append(ChatSessionMember &csm)
         {
@@ -107,6 +107,6 @@ namespace chen_im
         }
 
     private:
-        std::shared_ptr<odb::core::database> _db;
+        std::shared_ptr<odb::mysql::database> _db;
     };
 }

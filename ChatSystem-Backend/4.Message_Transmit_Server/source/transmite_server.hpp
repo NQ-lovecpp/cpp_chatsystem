@@ -20,7 +20,7 @@ namespace chen_im
     public:
         TransmiteServiceImpl(const std::string &user_service_name,
                              const ServiceManager::ptr &channels,
-                             const std::shared_ptr<odb::core::database> &mysql_client,
+                             const std::shared_ptr<odb::mysql::database> &mysql_client,
                              const std::string &exchange_name,
                              const std::string &routing_key,
                              const MQClient::ptr &mq_client) : _user_service_name(user_service_name),
@@ -112,7 +112,7 @@ namespace chen_im
     public:
         using ptr = std::shared_ptr<TransmiteServer>;
         TransmiteServer(
-            const std::shared_ptr<odb::core::database> &mysql_client,
+            const std::shared_ptr<odb::mysql::database> &mysql_client,
             const Discovery::ptr discovery_client,
             const Registry::ptr &registry_client,
             const std::shared_ptr<brpc::Server> &server) : _service_discoverer(discovery_client),
@@ -129,7 +129,7 @@ namespace chen_im
     private:
         Discovery::ptr _service_discoverer;                 // 服务发现客户端
         Registry::ptr _registry_client;                     // 服务注册客户端
-        std::shared_ptr<odb::core::database> _mysql_client; // mysql数据库客户端
+        std::shared_ptr<odb::mysql::database> _mysql_client; // mysql数据库客户端
         std::shared_ptr<brpc::Server> _rpc_server;
     };
 
@@ -256,7 +256,7 @@ namespace chen_im
         MQClient::ptr _mq_client;
 
         Registry::ptr _registry_client;                     // 服务注册客户端
-        std::shared_ptr<odb::core::database> _mysql_client; // mysql数据库客户端
+        std::shared_ptr<odb::mysql::database> _mysql_client; // mysql数据库客户端
         std::shared_ptr<brpc::Server> _rpc_server;
     };
 }

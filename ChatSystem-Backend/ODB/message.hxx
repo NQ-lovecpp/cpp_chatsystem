@@ -73,7 +73,8 @@ namespace chen_im
         unsigned long _id;
 #pragma db type("varchar(64)") index unique
         std::string _message_id;
-#pragma db type("varchar(64)") index
+
+#pragma db type("varchar(64)") index column("session_id")
         std::string _session_id; // 所属会话ID
 #pragma db type("varchar(64)")
         std::string _user_id;        // 发送者用户ID

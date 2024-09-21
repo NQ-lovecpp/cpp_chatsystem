@@ -24,8 +24,8 @@ int main(int argc, char *argv[])
 {
     using namespace chen_im;
 
-    google::ParseCommandLineFlags(&argc, &argv, true);
-    init_logger(FLAGS_run_mode, FLAGS_log_file, FLAGS_log_level);
+    google::ParseCommandLineFlags(&argc, &argv, true); // 解析命令行参数
+    init_logger(FLAGS_run_mode, FLAGS_log_file, FLAGS_log_level); // 初始化日志器
 
     // 1. 先构造Rpc信道管理对象，并关心语音服务
     auto service_manager = std::make_shared<ServiceManager>();
@@ -34,7 +34,7 @@ int main(int argc, char *argv[])
     // 2. 构造服务发现对象, 先定义新增和删除时的回调
     auto put_cb = std::bind(&ServiceManager::when_service_online, service_manager.get(), std::placeholders::_1, std::placeholders::_2);
     auto del_cb = std::bind(&ServiceManager::when_service_offline, service_manager.get(), std::placeholders::_1, std::placeholders::_2);
-    std::shared_ptr<Discovery> dclient = std::make_shared<Discovery>(FLAGS_etcd_host, FLAGS_base_service, put_cb, del_cb);
+    std::shared_ptr<Discovery> discovery_client = std::make_shared<Discovery>(FLAGS_etcd_host, FLAGS_base_service, put_cb, del_cb);
     
     // 3. 通过Rpc信道管理对象，获取提供语音服务的信道
     auto channel = service_manager->get(FLAGS_service_to_call);
@@ -45,7 +45,7 @@ int main(int argc, char *argv[])
 
     // 4. 加载语音文件
     std::string file_content;
-    aip::get_file_content("./16k.pcm", &file_content);
+    aip::get_file_content("../test/16k.pcm", &file_content);
 
     // 5. 发起Echo方法的rpc调用(同步调用)
     chen_im::SpeechService_Stub stub(channel.get());
@@ -53,7 +53,7 @@ int main(int argc, char *argv[])
     chen_im::SpeechRecognitionReq req;
     req.set_speech_content(file_content);
     req.set_request_id("111111");
-    std::cout << file_content.size() << std::endl;
+    LOG_DEBUG("发送的语音文件大小：{}", file_content.size());
 
 
     auto ctrl = new brpc::Controller;

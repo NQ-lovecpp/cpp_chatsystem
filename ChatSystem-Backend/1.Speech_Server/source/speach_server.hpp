@@ -10,7 +10,7 @@
 // 1. 创建子类，继承于SpeechService创建一个子类，并实现rpc调用
 namespace chen_im
 {
-    class SpeechServiceImpl : public chen_im::SpeechService // implementation
+    class SpeechServiceImpl : public chen_im::SpeechService // implement 执行 v.
     {
     private:
         std::shared_ptr<VoiceRecognizerClient> _voice_client;
@@ -54,11 +54,12 @@ namespace chen_im
     };
 
 
-
+    // 语言识别服务器
     class SpeechServer
     {
     private:
-        std::shared_ptr<VoiceRecognizerClient> _voice_client;    // 作为一个语音识别客户端
+        // 三种身份
+        std::shared_ptr<VoiceRecognizerClient> _voice_client;    // 作为一个百度语音识别服务的客户端
         std::shared_ptr<Registry>              _registry_client; // 作为注册中心的客户端
         std::shared_ptr<brpc::Server>          _brpc_server;     // 作为一个brpc服务器
     public:
@@ -129,7 +130,7 @@ namespace chen_im
         }
 
         /// @brief 构造brpc服务器
-        /// @param idle_timeout_sec 连接空闲超时事件，超时后连接被关闭
+        /// @param timeout_sec 连接空闲超时事件，超时后连接被关闭
         /// @param num_threads io线程数量
         /// @param port brpc服务的端口号
         void build_brpc_server(uint16_t port, int timeout_sec, int num_threads)
@@ -138,21 +139,22 @@ namespace chen_im
             auto speach_service = new chen_im::SpeechServiceImpl(_voice_client);
             int ret = _brpc_server->AddService(speach_service, brpc::ServiceOwnership::SERVER_OWNS_SERVICE); // service应当被server管理起来
             if(ret == -1) {
-                LOG_ERROR("添加服务失败!");
+                LOG_ERROR("向brpc中添加服务失败!");
                 abort();
             }
 
+            // 配置brpc的选项
             brpc::ServerOptions options;
             options.idle_timeout_sec = timeout_sec; 
             options.num_threads = num_threads;
-            // 启动服务 
+
+            // 启动brpc服务 
             ret = _brpc_server->Start(port, &options);
             if(ret == -1) {
                 LOG_ERROR("brpc服务启动失败!");
                 abort();
             }
         }
-
 
         SpeechServerFactory() {}
         ~SpeechServerFactory() {}

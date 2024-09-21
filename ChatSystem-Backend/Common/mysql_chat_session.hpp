@@ -11,7 +11,7 @@ namespace chen_im
     {
     public:
         using ptr = std::shared_ptr<ChatSessionTable>;
-        ChatSessionTable(const std::shared_ptr<odb::core::database> &db) : _db(db) {}
+        ChatSessionTable(const std::shared_ptr<odb::mysql::database> &db) : _db(db) {}
         bool insert(ChatSession &cs)
         {
             try
@@ -143,6 +143,6 @@ namespace chen_im
         }
 
     private:
-        std::shared_ptr<odb::core::database> _db;
+        std::shared_ptr<odb::mysql::database> _db;
     };
 }

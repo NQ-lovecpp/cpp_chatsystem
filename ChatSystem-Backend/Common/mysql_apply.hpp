@@ -10,7 +10,7 @@ namespace chen_im
     {
     public:
         using ptr = std::shared_ptr<FriendApplyTable>;
-        FriendApplyTable(const std::shared_ptr<odb::core::database> &db) : _db(db) {}
+        FriendApplyTable(const std::shared_ptr<odb::mysql::database> &db) : _db(db) {}
         bool insert(FriendApply &ev)
         {
             try
@@ -87,6 +87,6 @@ namespace chen_im
         }
 
     private:
-        std::shared_ptr<odb::core::database> _db;
+        std::shared_ptr<odb::mysql::database> _db;
     };
 }
