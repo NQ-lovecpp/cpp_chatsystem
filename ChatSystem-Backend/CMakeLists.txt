@@ -1,0 +1,15 @@
+cmake_minimum_required(VERSION 3.1.3)
+project(all-test)
+
+set(CMAKE_CXX_FLAGS_DEBUG "")
+set(CMAKE_C_FLAGS_DEBUG "")
+set(CMAKE_BUILD_TYPE "Release")
+
+add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/1.Speech_Server)
+add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/2.File_Server)
+add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/3.User_Server)
+add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/4.Message_Transmit_Server)
+add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/5.Message_Store_Server)
+add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/6.Friend_Server)
+add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/7.Gateway_Server)
+set(CMAKE_INSTALL_PREFIX ${CMAKE_CURRENT_BINARY_DIR})

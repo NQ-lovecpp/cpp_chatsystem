@@ -108,14 +108,19 @@ public:
     // 消费一条消息
     bool consume_message(const std::string &queue_name, 
                          const std::string &tag, 
-                         const OnGetMessage &callback)
+                         std::function<void(const char*, size_t)> callback)
     {
+        LOG_DEBUG("Consuming messages from queue: {} with tag: {}", queue_name, tag);
         _channel->consume(queue_name, tag)
             .onReceived([&](const AMQP::Message &message, uint64_t deliveryTag, bool redelivered) {
+                if (!callback) {
+                    LOG_ERROR("Callback function is empty!");
+                    abort();
+                }
                 callback(message.body(), message.size());
                 _channel->ack(deliveryTag);
             })
-            .onError([&](const char* msg){
+            .onError([&](const char* msg) {
                 LOG_ERROR("订阅 {} 失败, 原因: {}", queue_name, msg);
                 return false;
             });
