@@ -112,7 +112,7 @@ public:
     {
         LOG_DEBUG("Consuming messages from queue: {} with tag: {}", queue_name, tag);
         _channel->consume(queue_name, tag)
-            .onReceived([&](const AMQP::Message &message, uint64_t deliveryTag, bool redelivered) {
+            .onReceived([&, callback](const AMQP::Message &message, uint64_t deliveryTag, bool redelivered) {
                 if (!callback) {
                     LOG_ERROR("Callback function is empty!");
                     abort();

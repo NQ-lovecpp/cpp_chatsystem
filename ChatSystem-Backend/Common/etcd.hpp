@@ -102,7 +102,7 @@ public:
         }
 
         // 2. 打印服务列表
-        LOG_DEBUG("拉取服务列表：");
+        LOG_DEBUG("服务发现客户端被初始化，拉取当前服务列表：");
         size_t sz = resp.keys().size();
         for(int i = 0; i < sz; i++)
         {

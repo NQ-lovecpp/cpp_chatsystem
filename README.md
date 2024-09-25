@@ -1417,7 +1417,7 @@ service SpeechService {
      - 连接消息管理子服务：打开聊天会话时，需要获取最近的一条消息进行展示。
 
 8. **ES 客户端模块：**
-   - 基于 `elasticsearch` 框架实现访问客户端，向 ES 服务器中存储用户简息，以便于用户搜索。
+   - 基于 `elasticsearch` 框架实现访问客户端，向 ES 服务器中存储用户信息，以便于用户搜索。
 
 9. **短信平台客户端模块：**
    - 基于短信平台 SDK 封装使用，用于向用户手机号发送指定验证码。
@@ -1456,34 +1456,124 @@ service SpeechService {
 **ODB 映射数据结构：**
 
 ```cpp
+#pragma once
 #include <string>
-#include <cstddef>
-#include <odb/core.hxx>
+#include <cstddef> // std::size_t
+#include <boost/date_time/posix_time/posix_time.hpp>
 #include <odb/nullable.hxx>
+#include <odb/core.hxx>
 
-#pragma db object
-class user {
-    public:
-        user () {}
-    private:
-        friend class odb::access;
-        
-        #pragma db id auto
-        unsigned long _id;
-        #pragma db unique type("VARCHAR(127)")
-        std::string _user_id;
-        #pragma db unique type("VARCHAR(63)")
-        odb::nullable<std::string> _nickname;
-        #pragma db type("VARCHAR(255)")
-        odb::nullable<std::string> _passwd;
-        #pragma db type("VARCHAR(127)")
-        odb::nullable<std::string> _avatar_id;
-        #pragma db unique type("VARCHAR(15)")
-        odb::nullable<std::string> _phone_number;
-        #pragma db type("VARCHAR(255)")
-        odb::nullable<std::string> _description;
+/* 在 C++ 中，要使用 ODB 将类声明为持久化类，
+需要包含 ODB 的核心头文件，并使用 #pragma db object 指令 #pragma db object
+指示 ODB 编译器将 person 类视为一个持久化类。 */
+
+typedef boost::posix_time::ptime ptime;
+
+#pragma db object table("user")
+class User
+{
+    friend class odb::access;
+
+private:
+#pragma db id auto
+    unsigned long _id;
+#pragma db type("varchar(64)") index unique
+    std::string _user_id;
+#pragma db type("varchar(64)") index unique
+    odb::nullable<std::string> _nickname;    // 用户昵称-不一定存在
+    odb::nullable<std::string> _description; // 用户签名 - 不一定存在
+#pragma db type("varchar(64)")
+    odb::nullable<std::string> _password;    // 用户密码 - 不一定存在
+#pragma db type("varchar(64)") index unique
+    odb::nullable<std::string> _phone;       // 用户手机号 - 不一定存在
+#pragma db type("varchar(64)")
+    odb::nullable<std::string> _avatar_id;   // 用户头像文件ID - 不一定存在
+
+public:
+    // 用户名+密码注册
+    User(const std::string &uid, const std::string &nickname, const std::string &password) : _user_id(uid), _nickname(nickname), _password(password) {}
+
+    // 手机号+密码注册
+    User(const std::string &uid, const std::string &phone) : _user_id(uid), _nickname(uid), _phone(phone) {}
+
+    void user_id(const std::string &val)
+    {
+        _user_id = val;
+    }
+    std::string user_id() { return _user_id; }
+
+    std::string nickname()
+    {
+        if (_nickname)
+            return *_nickname;
+        return std::string();
+    }
+    void nickname(const std::string &val) { _nickname = val; }
+
+    std::string description()
+    {
+        if (!_description)
+            return std::string();
+        return *_description;
+    }
+    void description(const std::string &val) { _description = val; }
+
+    std::string password()
+    {
+        if (!_password)
+            return std::string();
+        return *_password;
+    }
+    void password(const std::string &val) { _password = val; }
+
+    std::string phone()
+    {
+        if (!_phone)
+            return std::string();
+        return *_phone;
+    }
+    void phone(const std::string &val) { _phone = val; }
+
+    std::string avatar_id()
+    {
+        if (!_avatar_id)
+            return std::string();
+        return *_avatar_id;
+    }
+    void avatar_id(const std::string &val) { _avatar_id = val; }
+
+    User() {}
+    ~User() {}
 };
+
+// odb -d mysql --std c++17 --generate-query --generate-schema --profile boost/date-time user.hxx
 ```
+
+
+ODB自动生成的SQL代码:
+```sql
+DROP TABLE IF EXISTS `user`;
+
+CREATE TABLE `user` (
+  `id` BIGINT UNSIGNED NOT NULL PRIMARY KEY AUTO_INCREMENT,
+  `user_id` varchar(64) NOT NULL,
+  `nickname` varchar(64) NULL,
+  `description` TEXT NULL,
+  `password` varchar(64) NULL,
+  `phone` varchar(64) NULL,
+  `avatar_id` varchar(64) NULL)
+ ENGINE=InnoDB;
+
+CREATE UNIQUE INDEX `user_id_i`
+  ON `user` (`user_id`);
+
+CREATE UNIQUE INDEX `nickname_i`
+  ON `user` (`nickname`);
+
+CREATE UNIQUE INDEX `phone_i`
+  ON `user` (`phone`);
+```
+
 
 ### 4.2 内存数据库数据管理
 

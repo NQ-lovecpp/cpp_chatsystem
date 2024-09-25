@@ -2,11 +2,11 @@
 #include <brpc/server.h>
 #include <butil/logging.h>
 
-#include "es_user_CRUD.hpp"  // es数据管理客户端封装
+#include "es_user_CRUD.hpp"       // es数据管理客户端封装
 #include "mysql_message.hpp" // mysql数据管理客户端封装
 #include "etcd.hpp"          // 服务注册模块封装
 #include "logger.hpp"        // 日志模块封装
-#include "utility.hpp"       // 基础工具接口
+#include "utility.hpp"         // 基础工具接口
 #include "channel.hpp"       // 信道管理模块封装
 #include "rabbitmq.hpp"
 
@@ -40,7 +40,8 @@ namespace chen_im
                                    ::google::protobuf::Closure *done)
         {
             brpc::ClosureGuard rpc_guard(done);
-            auto err_response = [this, response](const std::string &rid, const std::string &errmsg) -> void
+            auto err_response = [this, response](const std::string &rid,
+                                                 const std::string &errmsg) -> void
             {
                 response->set_request_id(rid);
                 response->set_success(false);
@@ -281,98 +282,91 @@ namespace chen_im
         }
         void onMessage(const char *body, size_t sz)
         {
-            try {
-                LOG_DEBUG("收到新消息，进行存储处理！ arg1: {}, arg2: {}", body, sz);
-                LOG_DEBUG("");
-                // 1. 取出序列化的消息内容，进行反序列化
-                chen_im::MessageInfo message;
-                bool ret = message.ParseFromArray(body, sz);
-                if (ret == false)
-                {
-                    LOG_ERROR("对消费到的消息进行反序列化失败！");
-                    return;
-                }
-                // 2. 根据不同的消息类型进行不同的处理
-                std::string file_id, file_name, content;
-                int64_t file_size;
-                switch (message.message().message_type())
-                {
-                //  1. 如果是一个文本类型消息，取元信息存储到ES中
-                case MessageType::STRING:
-                    content = message.message().string_message().content();
-                    ret = _es_message->append_user(
-                        message.sender().user_id(),
-                        message.message_id(),
-                        message.timestamp(),
-                        message.chat_session_id(),
-                        content);
-                    if (ret == false)
-                    {
-                        LOG_ERROR("文本消息向存储引擎进行存储失败！");
-                        return;
-                    }
-                    break;
-                //  2. 如果是一个图片/语音/文件消息，则取出数据存储到文件子服务中，并获取文件ID
-                case MessageType::IMAGE:
-                {
-                    const auto &msg = message.message().image_message();
-                    ret = _PutFile("", msg.image_content(), msg.image_content().size(), file_id);
-                    if (ret == false)
-                    {
-                        LOG_ERROR("上传图片到文件子服务失败！");
-                        return;
-                    }
-                }
-                break;
-                case MessageType::FILE:
-                {
-                    const auto &msg = message.message().file_message();
-                    file_name = msg.file_name();
-                    file_size = msg.file_size();
-                    ret = _PutFile(file_name, msg.file_contents(), file_size, file_id);
-                    if (ret == false)
-                    {
-                        LOG_ERROR("上传文件到文件子服务失败！");
-                        return;
-                    }
-                }
-                break;
-                case MessageType::SPEECH:
-                {
-                    const auto &msg = message.message().speech_message();
-                    ret = _PutFile("", msg.file_contents(), msg.file_contents().size(), file_id);
-                    if (ret == false)
-                    {
-                        LOG_ERROR("上传语音到文件子服务失败！");
-                        return;
-                    }
-                }
-                break;
-                default:
-                    LOG_ERROR("消息类型错误！");
-                    return;
-                }
-                // 3. 提取消息的元信息，存储到mysql数据库中
-                chen_im::Message msg(message.message_id(),
-                                    message.chat_session_id(),
-                                    message.sender().user_id(),
-                                    message.message().message_type(),
-                                    boost::posix_time::from_time_t(message.timestamp()));
-                msg.content(content);
-                msg.file_id(file_id);
-                msg.file_name(file_name);
-                msg.file_size(file_size);
-                ret = _mysql_message->insert(msg);
-                if (ret == false)
-                {
-                    LOG_ERROR("向数据库插入新消息失败！");
-                    return;
-                }
-
-            } catch (const std::exception &e) {
-                LOG_ERROR("Exception in onMessage: {}", e.what());
+            LOG_DEBUG("收到新消息，进行存储处理！");
+            // 1. 取出序列化的消息内容，进行反序列化
+            chen_im::MessageInfo message;
+            bool ret = message.ParseFromArray(body, sz);
+            if (ret == false)
+            {
+                LOG_ERROR("对消费到的消息进行反序列化失败！");
+                return;
             }
-
+            // 2. 根据不同的消息类型进行不同的处理
+            std::string file_id, file_name, content;
+            int64_t file_size;
+            switch (message.message().message_type())
+            {
+            //  1. 如果是一个文本类型消息，取元信息存储到ES中
+            case MessageType::STRING:
+                content = message.message().string_message().content();
+                ret = _es_message->append_user(
+                    message.sender().user_id(),
+                    message.message_id(),
+                    message.timestamp(),
+                    message.chat_session_id(),
+                    content);
+                if (ret == false)
+                {
+                    LOG_ERROR("文本消息向存储引擎进行存储失败！");
+                    return;
+                }
+                break;
+            //  2. 如果是一个图片/语音/文件消息，则取出数据存储到文件子服务中，并获取文件ID
+            case MessageType::IMAGE:
+            {
+                const auto &msg = message.message().image_message();
+                ret = _PutFile("", msg.image_content(), msg.image_content().size(), file_id);
+                if (ret == false)
+                {
+                    LOG_ERROR("上传图片到文件子服务失败！");
+                    return;
+                }
+            }
+            break;
+            case MessageType::FILE:
+            {
+                const auto &msg = message.message().file_message();
+                file_name = msg.file_name();
+                file_size = msg.file_size();
+                ret = _PutFile(file_name, msg.file_contents(), file_size, file_id);
+                if (ret == false)
+                {
+                    LOG_ERROR("上传文件到文件子服务失败！");
+                    return;
+                }
+            }
+            break;
+            case MessageType::SPEECH:
+            {
+                const auto &msg = message.message().speech_message();
+                ret = _PutFile("", msg.file_contents(), msg.file_contents().size(), file_id);
+                if (ret == false)
+                {
+                    LOG_ERROR("上传语音到文件子服务失败！");
+                    return;
+                }
+            }
+            break;
+            default:
+                LOG_ERROR("消息类型错误！");
+                return;
+            }
+            // 3. 提取消息的元信息，存储到mysql数据库中
+            chen_im::Message msg(message.message_id(),
+                                 message.chat_session_id(),
+                                 message.sender().user_id(),
+                                 message.message().message_type(),
+                                 boost::posix_time::from_time_t(message.timestamp()));
+            msg.content(content);
+            msg.file_id(file_id);
+            msg.file_name(file_name);
+            msg.file_size(file_size);
+            ret = _mysql_message->insert(msg);
+            if (ret == false)
+            {
+                LOG_ERROR("向数据库插入新消息失败！");
+                return;
+            }
         }
 
     private:
@@ -587,11 +581,8 @@ namespace chen_im
 
             MessageServiceImpl *msg_service = new MessageServiceImpl(_es_client,
                                                                      _mysql_client, _mm_channels, _file_service_name, _user_service_name);
-            if (msg_service == nullptr) {
-                LOG_WARN("初始化MessageServiceImpl指针失败!");
-            }
             int ret = _rpc_server->AddService(msg_service,
-                                              brpc::ServiceOwnership::SERVER_DOESNT_OWN_SERVICE);
+                                              brpc::ServiceOwnership::SERVER_OWNS_SERVICE);
             if (ret == -1)
             {
                 LOG_ERROR("添加Rpc服务失败！");
@@ -609,12 +600,13 @@ namespace chen_im
 
             std::function<void(const char*, size_t)> callback = std::bind(&MessageServiceImpl::onMessage, msg_service,
                                       std::placeholders::_1, std::placeholders::_2);
-            if (!callback) {
-                LOG_WARN("callback是空的!");
+            
+            if(!callback) {
+                LOG_WARN("callback是无效的！！！");
             }
+            
             _mq_client->consume_message(_queue_name, "test-tag", callback);
         }
-
         // 构造RPC服务器对象
         MessageServer::ptr build()
         {

@@ -138,7 +138,7 @@ public:
         }
 
         // 往管理对象中添加该节点
-        s->append_host(host); // 添加主机操作的线程安全已经由servicechannel类保证了
+        s->append_host(host); // 添加主机操作的线程安全已经由ChannelManager类保证了
     }
 
 
@@ -152,7 +152,8 @@ public:
             std::unique_lock<std::mutex> _lock(_mutex);
             auto sit = _services.find(service_name);
             if (sit == _services.end()) {
-                LOG_WARN("删除 {}-{} 信道时，没有找到它的信道管理对象", service_name, host);
+                LOG_WARN("删除 {}-{} 信道时，没有找到它的信道管理对象，停止删除", service_name, host);
+                return;
             }
             s = sit->second;
         }

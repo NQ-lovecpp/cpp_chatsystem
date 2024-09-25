@@ -56,7 +56,7 @@ public:
         }
         else
         {
-            LOG_ERROR("短信验证码发送失败: %s", response.error().errorMessage().c_str());
+            LOG_ERROR("短信验证码发送失败: {}", response.error().errorMessage().c_str());
             LOG_ERROR("request id: {}", response.error().requestId().c_str());
             return false;
         }

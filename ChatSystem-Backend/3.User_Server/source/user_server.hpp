@@ -24,7 +24,7 @@ namespace chen_im
     {     
     private:
         std::shared_ptr<ESUser>    _es_user;
-        std::shared_ptr<UserTable> _mysql_user;
+        std::shared_ptr<UserTable> _mysql_user_table;
         std::shared_ptr<Session>   _redis_session;
         std::shared_ptr<Status>    _redis_status;
         std::shared_ptr<Codes>     _redis_codes;
@@ -33,7 +33,7 @@ namespace chen_im
         std::string                     _file_service_name;
         std::shared_ptr<ServiceManager> _service_manager;
         std::shared_ptr<DMSClient>      _dms_client;
-       
+
     public:
         UserServiceImpl(const shared_ptr<DMSClient> &dms_client,
                         const std::shared_ptr<elasticlient::Client> &es_client,
@@ -42,7 +42,7 @@ namespace chen_im
                         const std::shared_ptr<ServiceManager> &channel_manager,
                         const std::string &file_service_name)
             :_es_user(std::make_shared<ESUser>(es_client))
-            , _mysql_user(std::make_shared<UserTable>(mysql_client))
+            , _mysql_user_table(std::make_shared<UserTable>(mysql_client))
             , _redis_session(std::make_shared<Session>(redis_client))
             ,  _redis_status(std::make_shared<Status>(redis_client))
             , _redis_codes(std::make_shared<Codes>(redis_client))
@@ -86,17 +86,19 @@ namespace chen_im
         }
 
         // 通过昵称+密码注册新用户
+        // request：请求id、昵称、密码
+        // response：请求id、是否成功、错误信息
         virtual void UserRegister(::google::protobuf::RpcController *controller,
                                   const ::chen_im::UserRegisterReq *request,
                                   ::chen_im::UserRegisterRsp *response,
-                                  ::google::protobuf::Closure *done)
+                                  ::google::protobuf::Closure *done) override
         {
             LOG_DEBUG("收到用户注册请求！");
-            brpc::ClosureGuard rpc_guard(done);
-            // 定义一个错误处理函数，当出错的时候被调用
-            auto err_response = [this, response](const std::string &rid,
+            brpc::ClosureGuard rpc_guard(done); // 把Closure指针管理起来，Closure在释放的时候会调用Run();
+            // 定义一个错误处理函数，当出错的时候主动调用它
+            auto err_response = [this, response](const std::string &request_id,
                                                  const std::string &errmsg) -> void {
-                response->set_request_id(rid);
+                response->set_request_id(request_id);
                 response->set_success(false);
                 response->set_errmsg(errmsg);
                 return;
@@ -121,7 +123,7 @@ namespace chen_im
             }
 
             // 4. 根据昵称在数据库进行判断是否昵称已存在
-            auto user = _mysql_user->select_by_nickname(nickname);
+            auto user = _mysql_user_table->select_by_nickname(nickname);
             if (user) {
                 LOG_ERROR("注册请求失败，该用户名被占用：{}, request_id: {}", request->request_id(), nickname);
                 return err_response(request->request_id(), "用户名被占用!");
@@ -130,7 +132,7 @@ namespace chen_im
             // 5. 向数据库新增数据
             std::string uid = generate_uuid();
             user = std::make_shared<User>(uid, nickname, password);
-            ret = _mysql_user->insert(user);
+            ret = _mysql_user_table->insert(user);
             if (ret == false) {
                 LOG_ERROR("向Mysql数据库新增数据失败！request_id: {}", request->request_id());
                 return err_response(request->request_id(), "Mysql数据库新增数据失败!");
@@ -149,6 +151,8 @@ namespace chen_im
         }
 
         // 通过昵称+密码登录
+        // request：请求id、昵称、密码
+        // response：请求id、是否成功、错误信息
         virtual void UserLogin(::google::protobuf::RpcController *controller,
                                const ::chen_im::UserLoginReq *request,
                                ::chen_im::UserLoginRsp *response,
@@ -170,7 +174,7 @@ namespace chen_im
             std::string password = request->password();
 
             // 2. 通过昵称获取用户信息，进行密码是否一致的判断
-            auto user = _mysql_user->select_by_nickname(nickname);
+            auto user = _mysql_user_table->select_by_nickname(nickname);
             if (!user || password != user->password()) {
                 LOG_ERROR("用户名或密码错误，递交的昵称：{}，密码{}，request_id：{}！", nickname, password, request->request_id());
                 return err_response(request->request_id(), "用户名或密码错误!");
@@ -296,7 +300,7 @@ namespace chen_im
             }
 
             // 4. 通过数据库查询判断手机号是否已经注册过
-            auto user = _mysql_user->select_by_phone(phone);
+            auto user = _mysql_user_table->select_by_phone(phone);
             if (user) {
                 LOG_ERROR("{} 该手机号已注册过用户！request_id: {}", phone, request->request_id());
                 return err_response(request->request_id(), "该手机号已注册过用户!");
@@ -305,7 +309,7 @@ namespace chen_im
             // 5. 向数据库新增用户信息
             std::string uid = generate_uuid();
             user = std::make_shared<User>(uid, phone);
-            ret = _mysql_user->insert(user);
+            ret = _mysql_user_table->insert(user);
             if (ret == false) {
                 LOG_ERROR("向数据库添加用户信息失败, phone: {}, request_id: {}！", phone, request->request_id());
                 return err_response(request->request_id(), "向数据库添加用户信息失败!");
@@ -354,7 +358,7 @@ namespace chen_im
             }
 
             // 3. 根据手机号从数据数据进行用户信息查询，判断用用户是否存在
-            auto user = _mysql_user->select_by_phone(phone);
+            auto user = _mysql_user_table->select_by_phone(phone);
             if (!user) {
                 LOG_ERROR("手机号{}未注册！request_id：{}！", phone, request->request_id());
                 return err_response(request->request_id(), "该手机号未注册用户!");
@@ -408,7 +412,7 @@ namespace chen_im
             std::string uid = request->user_id();
 
             // 2. 通过用户 ID，从数据库中查询用户信息
-            auto user = _mysql_user->select_by_uid(uid);
+            auto user = _mysql_user_table->select_by_uid(uid);
             if (!user) {
                 LOG_ERROR("未找到用户信息{}, request_id: {}", uid, request->request_id());
                 return err_response(request->request_id(), "未找到用户信息!");
@@ -452,6 +456,7 @@ namespace chen_im
             response->set_success(true);
         }
 
+        // 获取一组用户信息，这是用户登录之后才会进行的操作
         virtual void GetMultiUserInfo(::google::protobuf::RpcController *controller,
                                       const chen_im::GetMultiUserInfoReq *request,
                                       chen_im::GetMultiUserInfoRsp *response,
@@ -475,7 +480,7 @@ namespace chen_im
                 uid_lists.push_back(request->users_id(i));
             }
             // 3. 从数据库进行批量用户信息查询
-            auto users = _mysql_user->select_by_multi_uid(uid_lists);
+            auto users = _mysql_user_table->select_by_multi_uid(uid_lists);
             if (users.size() != request->users_id_size())
             {
                 LOG_ERROR("{} - 从数据库查找的用户信息数量不一致 {}-{}！",
@@ -524,6 +529,7 @@ namespace chen_im
             response->set_success(true);
         }
 
+        // 设置用户头像
         virtual void SetUserAvatar(::google::protobuf::RpcController *controller,
                                    const ::chen_im::SetUserAvatarReq *request,
                                    ::chen_im::SetUserAvatarRsp *response,
@@ -542,7 +548,7 @@ namespace chen_im
             // 1. 从请求中取出用户 ID 与头像数据
             std::string uid = request->user_id();
             // 2. 从数据库通过用户 ID 进行用户信息查询，判断用户是否存在
-            auto user = _mysql_user->select_by_uid(uid);
+            auto user = _mysql_user_table->select_by_uid(uid);
             if (!user)
             {
                 LOG_ERROR("{} - 未找到用户信息 - {}！", request->request_id(), uid);
@@ -572,7 +578,7 @@ namespace chen_im
             std::string avatar_id = rsp.file_info().file_id();
             // 4. 将返回的头像文件 ID 更新到数据库中
             user->avatar_id(avatar_id);
-            bool ret = _mysql_user->update(user);
+            bool ret = _mysql_user_table->update(user);
             if (ret == false)
             {
                 LOG_ERROR("{} - 更新数据库用户头像ID失败 ：{}！", request->request_id(), avatar_id);
@@ -591,6 +597,7 @@ namespace chen_im
             response->set_success(true);
         }
 
+        // 设置用户昵称
         virtual void SetUserNickname(::google::protobuf::RpcController *controller,
                                      const ::chen_im::SetUserNicknameReq *request,
                                      ::chen_im::SetUserNicknameRsp *response,
@@ -617,7 +624,7 @@ namespace chen_im
                 return err_response(request->request_id(), "用户名长度不合法！");
             }
             // 3. 从数据库通过用户 ID 进行用户信息查询，判断用户是否存在
-            auto user = _mysql_user->select_by_uid(uid);
+            auto user = _mysql_user_table->select_by_uid(uid);
             if (!user)
             {
                 LOG_ERROR("{} - 未找到用户信息 - {}！", request->request_id(), uid);
@@ -625,7 +632,7 @@ namespace chen_im
             }
             // 4. 将新的昵称更新到数据库中
             user->nickname(new_nickname);
-            ret = _mysql_user->update(user);
+            ret = _mysql_user_table->update(user);
             if (ret == false)
             {
                 LOG_ERROR("{} - 更新数据库用户昵称失败 ：{}！", request->request_id(), new_nickname);
@@ -643,6 +650,8 @@ namespace chen_im
             response->set_request_id(request->request_id());
             response->set_success(true);
         }
+        
+        // 设置用户签名
         virtual void SetUserDescription(::google::protobuf::RpcController *controller,
                                         const ::chen_im::SetUserDescriptionReq *request,
                                         ::chen_im::SetUserDescriptionRsp *response,
@@ -662,7 +671,7 @@ namespace chen_im
             std::string uid = request->user_id();
             std::string new_description = request->description();
             // 3. 从数据库通过用户 ID 进行用户信息查询，判断用户是否存在
-            auto user = _mysql_user->select_by_uid(uid);
+            auto user = _mysql_user_table->select_by_uid(uid);
             if (!user)
             {
                 LOG_ERROR("{} - 未找到用户信息 - {}！", request->request_id(), uid);
@@ -670,7 +679,7 @@ namespace chen_im
             }
             // 4. 将新的昵称更新到数据库中
             user->description(new_description);
-            bool ret = _mysql_user->update(user);
+            bool ret = _mysql_user_table->update(user);
             if (ret == false)
             {
                 LOG_ERROR("{} - 更新数据库用户签名失败 ：{}！", request->request_id(), new_description);
@@ -688,6 +697,8 @@ namespace chen_im
             response->set_request_id(request->request_id());
             response->set_success(true);
         }
+        
+        // 设置用户手机号
         virtual void SetUserPhoneNumber(::google::protobuf::RpcController *controller,
                                         const ::chen_im::SetUserPhoneNumberReq *request,
                                         ::chen_im::SetUserPhoneNumberRsp *response,
@@ -716,7 +727,7 @@ namespace chen_im
                 return err_response(request->request_id(), "验证码错误!");
             }
             // 3. 从数据库通过用户 ID 进行用户信息查询，判断用户是否存在
-            auto user = _mysql_user->select_by_uid(uid);
+            auto user = _mysql_user_table->select_by_uid(uid);
             if (!user)
             {
                 LOG_ERROR("{} - 未找到用户信息 - {}！", request->request_id(), uid);
@@ -724,7 +735,7 @@ namespace chen_im
             }
             // 4. 将新的昵称更新到数据库中
             user->phone(new_phone);
-            bool ret = _mysql_user->update(user);
+            bool ret = _mysql_user_table->update(user);
             if (ret == false)
             {
                 LOG_ERROR("{} - 更新数据库用户手机号失败 ：{}！", request->request_id(), new_phone);
@@ -747,12 +758,13 @@ namespace chen_im
     class UserServer
     {
     private:
-        std::shared_ptr<Discovery>            _service_discoverer;  // 需要调用文件子服务，要发现文件子服务
-        std::shared_ptr<Registry>             _registry_client;     // 自己作为用户服务，要向注册中心注册自己
+        std::shared_ptr<Discovery>            _service_discovery_client;  // 需要调用文件子服务，所以要发现文件子服务
+        std::shared_ptr<Registry>             _service_registry_client;   // 自己作为用户服务，要向注册中心注册自己
+
         std::shared_ptr<elasticlient::Client> _es_client;           // 搜索引擎客户端
         std::shared_ptr<odb::mysql::database> _mysql_client;        // mysql客户端
         std::shared_ptr<sw::redis::Redis>     _redis_client;        // redis客户端
-        std::shared_ptr<brpc::Server>         _rpc_server;          // brpc服务器
+        std::shared_ptr<brpc::Server>         _rpc_server;          // 因为自己提供用户相关的rpc调用接口，所以自己时一个brpc服务器
     public:
         using ptr = std::shared_ptr<UserServer>;
         UserServer(const std::shared_ptr<Discovery> service_discoverer,
@@ -761,15 +773,16 @@ namespace chen_im
                    const std::shared_ptr<odb::mysql::database> &mysql_client,
                    std::shared_ptr<sw::redis::Redis> &redis_client,
                    const std::shared_ptr<brpc::Server> &server) 
-        : _service_discoverer(service_discoverer)
-        ,_registry_client(reg_client)
-        ,_es_client(es_client)
-        ,_mysql_client(mysql_client)
-        ,_redis_client(redis_client)
-        ,_rpc_server(server) {}
+            :_service_discovery_client(service_discoverer)
+            , _service_registry_client(reg_client)
+            , _es_client(es_client)
+            , _mysql_client(mysql_client)
+            , _redis_client(redis_client)
+            , _rpc_server(server) 
+        {}
 
         ~UserServer() {}
-        // 搭建RPC服务器，并启动服务器
+        // 启动RPC服务器，一直运行直到
         void start()
         {
             _rpc_server->RunUntilAskedToQuit();
@@ -780,13 +793,16 @@ namespace chen_im
     class UserServerBuilder
     {
     private:
-        std::shared_ptr<Registry>             _registry_client;        //                    
+        std::shared_ptr<Discovery>            _service_discoverer;     //   
+        std::shared_ptr<Registry>             _registry_client;        //     
+        
         std::shared_ptr<elasticlient::Client> _es_client;              //     
         std::shared_ptr<odb::mysql::database> _mysql_client;           //        
         std::shared_ptr<sw::redis::Redis>     _redis_client;           //        
+        
         std::string                           _file_service_name;      //             
         std::shared_ptr<ServiceManager>       _service_manager;        //       
-        std::shared_ptr<Discovery>            _service_discoverer;     //              
+       
         std::shared_ptr<DMSClient>            _dms_client;             //      
         std::shared_ptr<brpc::Server>         _rpc_server;             //      
     public:
@@ -831,8 +847,7 @@ namespace chen_im
             _file_service_name = file_service_name;
             _service_manager = std::make_shared<ServiceManager>();
             _service_manager->concern(file_service_name);
-            _service_manager->concern("/service/user_service");  // bug
-            LOG_DEBUG("设置文件子服务为需添加管理的子服务：{}", file_service_name);
+            LOG_DEBUG("将文件子服务 {} 设置为“关心”", file_service_name);
             auto put_cb = std::bind(&ServiceManager::when_service_online, _service_manager.get(), std::placeholders::_1, std::placeholders::_2);
             auto del_cb = std::bind(&ServiceManager::when_service_offline, _service_manager.get(), std::placeholders::_1, std::placeholders::_2);
             _service_discoverer = std::make_shared<Discovery>(reg_host, base_service_name, put_cb, del_cb);

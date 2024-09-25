@@ -34,8 +34,8 @@ DEFINE_int32(redis_db, 0, "Redis默认库号");
 DEFINE_bool(redis_keep_alive, true, "Redis长连接保活选项");
 
 
-DEFINE_string(dms_key_id, "uxPdTPAgRAZWoV16moQbIt1k", "短信平台密钥ID");
-DEFINE_string(dms_key_secret, "Hg2prK8pIPxMGYWwJ97ULVd6wzUTgWkb", "短信平台密钥");
+DEFINE_string(dms_key_id, "LTAI5tF8BucHcRAJUFZMk5LV", "短信平台密钥ID");
+DEFINE_string(dms_key_secret, "orWIP2wfiUbVMvMwwzq20IBnCYaJ5W", "短信平台密钥");
 
 
 int main(int argc, char *argv[])

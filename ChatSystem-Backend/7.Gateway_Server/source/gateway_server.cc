@@ -14,7 +14,7 @@ DEFINE_string(file_service, "/service/file_service", "文件存储子服务名�
 DEFINE_string(friend_service, "/service/friend_service", "好友管理子服务名称");
 DEFINE_string(message_service, "/service/message_service", "消息存储子服务名称");
 DEFINE_string(user_service, "/service/user_service", "用户管理子服务名称");
-DEFINE_string(speech_service, "/service/speech_service", "语音识别子服务名称");
+DEFINE_string(speech_service, "/service/speech/recognition", "语音识别子服务名称");
 DEFINE_string(transmite_service, "/service/transmite_service", "转发管理子服务名称");
 
 DEFINE_string(redis_host, "127.0.0.1", "Redis服务器访问地址");
