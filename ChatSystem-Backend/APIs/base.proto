@@ -40,11 +40,11 @@ message ImageMessageInfo {
     bytes image_content = 2;
 }
 message FileMessageInfo {
-    string file_id = 1;//文件id,客户端发送的时候不用设置
-    int64 file_size = 2;//文件大小
-    string file_name = 3;//文件名称
-    //文件数据，在ES中存储消息的时候只要id和元信息，不要文件数据, 服务端转发的时候也不需要填充
-    bytes file_contents = 4;
+    string file_id = 1;       //文件id,客户端发送的时候不用设置
+    int64 file_size = 2;      //文件大小
+    string file_name = 3;     //文件名称
+    bytes file_contents = 4;  //文件数据，在ES中存储消息的时候只要存id、size、name，不要文件content, 子服务之间转发的时候也不需要填充
+
 }
 message SpeechMessageInfo {
     //语音文件id,客户端发送的时候不用设置

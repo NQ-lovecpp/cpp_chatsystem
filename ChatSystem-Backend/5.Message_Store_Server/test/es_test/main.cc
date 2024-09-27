@@ -1,4 +1,4 @@
-#include "../../../common/data_es.hpp"
+#include "../../../Common/es_user_CRUD.hpp"
 #include <gflags/gflags.h>
 
 DEFINE_bool(run_mode, false, "程序的运行模式，false-调试； true-发布；");
@@ -17,10 +17,11 @@ int main(int argc, char *argv[])
 
     auto es_msg = std::make_shared<chen_im::ESMessage>(es_client);
     es_msg->createIndex();
-    // es_msg->appendData("用户ID1", "消息ID1", 1723025035, "会话ID1", "吃饭了吗？");
-    // es_msg->appendData("用户ID2", "消息ID2", 1723025035 - 100, "会话ID1", "吃的盖浇饭！");
-    // es_msg->appendData("用户ID3", "消息ID3", 1723025035, "会话ID2", "吃饭了吗？");
-    // es_msg->appendData("用户ID4", "消息ID4", 1723025035 - 100, "会话ID2", "吃的盖浇饭！");
+    es_msg->appendData("用户ID1", "消息ID1", 1723025035, "会话ID1", "吃饭了吗？");
+    es_msg->appendData("用户ID2", "消息ID2", 1723025035 - 100, "会话ID1", "吃的盖浇饭！");
+    es_msg->appendData("用户ID3", "消息ID3", 1723025035, "会话ID2", "吃饭了吗？");
+    es_msg->appendData("用户ID4", "消息ID4", 1723025035 - 100, "会话ID2", "吃的盖浇饭！");
+    
     auto res = es_msg->search("盖浇", "会话ID1");
     for (auto &u : res) {
         std::cout << "-----------------" << std::endl;

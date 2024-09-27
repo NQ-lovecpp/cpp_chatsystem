@@ -43,7 +43,7 @@ int main(int argc, char *argv[])
     google::ParseCommandLineFlags(&argc, &argv, true);
     chen_im::init_logger(FLAGS_run_mode, FLAGS_log_file, FLAGS_log_level);
 
-    chen_im::UserServerBuilder usb;
+    chen_im::UserServerFactory usb;
     usb.make_dms_object(FLAGS_dms_key_id, FLAGS_dms_key_secret);
     usb.make_es_object({FLAGS_es_host});
     usb.make_mysql_object(FLAGS_mysql_user, FLAGS_mysql_pswd, FLAGS_mysql_host, 

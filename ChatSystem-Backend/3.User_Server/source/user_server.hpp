@@ -9,7 +9,7 @@
 #include "logger.hpp"          // 日志模块封装
 #include "utility.hpp"         // 基础工具接口
 #include "dms.hpp"             // 短信平台SDK模块封装
-#include "channel.hpp"         // 信道管理模块封装
+#include "rpc_service_manager.hpp"         // 信道管理模块封装
 
 #include "user.hxx"
 #include "user-odb.hxx"
@@ -91,7 +91,7 @@ namespace chen_im
         virtual void UserRegister(::google::protobuf::RpcController *controller,
                                   const ::chen_im::UserRegisterReq *request,
                                   ::chen_im::UserRegisterRsp *response,
-                                  ::google::protobuf::Closure *done) override
+                                  ::google::protobuf::Closure *done) overrequest_ide
         {
             LOG_DEBUG("收到用户注册请求！");
             brpc::ClosureGuard rpc_guard(done); // 把Closure指针管理起来，Closure在释放的时候会调用Run();
@@ -160,10 +160,10 @@ namespace chen_im
         {
             LOG_DEBUG("收到用户登录请求！");
             brpc::ClosureGuard rpc_guard(done);
-            auto err_response = [this, response](const std::string &rid,
+            auto err_response = [this, response](const std::string &request_id,
                                                  const std::string &errmsg) -> void
             {
-                response->set_request_id(rid);
+                response->set_request_id(request_id);
                 response->set_success(false);
                 response->set_errmsg(errmsg);
                 return;
@@ -225,10 +225,10 @@ namespace chen_im
         {
             LOG_DEBUG("收到短信验证码获取请求！");
             brpc::ClosureGuard rpc_guard(done);
-            auto err_response = [this, response](const std::string &rid,
+            auto err_response = [this, response](const std::string &request_id,
                                                  const std::string &errmsg) -> void
             {
-                response->set_request_id(rid);
+                response->set_request_id(request_id);
                 response->set_success(false);
                 response->set_errmsg(errmsg);
                 return;
@@ -271,10 +271,10 @@ namespace chen_im
         {
             LOG_DEBUG("收到手机号注册请求！");
             brpc::ClosureGuard rpc_guard(done);
-            auto err_response = [this, response](const std::string &rid,
+            auto err_response = [this, response](const std::string &request_id,
                                                  const std::string &errmsg) -> void
             {
-                response->set_request_id(rid);
+                response->set_request_id(request_id);
                 response->set_success(false);
                 response->set_errmsg(errmsg);
                 return;
@@ -336,10 +336,10 @@ namespace chen_im
         {
             LOG_DEBUG("收到手机号登录请求！");
             brpc::ClosureGuard rpc_guard(done);
-            auto err_response = [this, response](const std::string &rid,
+            auto err_response = [this, response](const std::string &request_id,
                                                  const std::string &errmsg) -> void
             {
-                response->set_request_id(rid);
+                response->set_request_id(request_id);
                 response->set_success(false);
                 response->set_errmsg(errmsg);
                 return;
@@ -400,10 +400,10 @@ namespace chen_im
         {
             LOG_DEBUG("收到获取单个用户信息请求！");
             brpc::ClosureGuard rpc_guard(done);
-            auto err_response = [this, response](const std::string &rid,
+            auto err_response = [this, response](const std::string &request_id,
                                                  const std::string &errmsg) -> void
             {
-                response->set_request_id(rid);
+                response->set_request_id(request_id);
                 response->set_success(false);
                 response->set_errmsg(errmsg);
                 return;
@@ -465,10 +465,10 @@ namespace chen_im
             LOG_DEBUG("收到批量用户信息获取请求！");
             brpc::ClosureGuard rpc_guard(done);
             // 1. 定义错误回调
-            auto err_response = [this, response](const std::string &rid,
+            auto err_response = [this, response](const std::string &request_id,
                                                  const std::string &errmsg) -> void
             {
-                response->set_request_id(rid);
+                response->set_request_id(request_id);
                 response->set_success(false);
                 response->set_errmsg(errmsg);
                 return;
@@ -537,10 +537,10 @@ namespace chen_im
         {
             LOG_DEBUG("收到用户头像设置请求！");
             brpc::ClosureGuard rpc_guard(done);
-            auto err_response = [this, response](const std::string &rid,
+            auto err_response = [this, response](const std::string &request_id,
                                                  const std::string &errmsg) -> void
             {
-                response->set_request_id(rid);
+                response->set_request_id(request_id);
                 response->set_success(false);
                 response->set_errmsg(errmsg);
                 return;
@@ -605,10 +605,10 @@ namespace chen_im
         {
             LOG_DEBUG("收到用户昵称设置请求！");
             brpc::ClosureGuard rpc_guard(done);
-            auto err_response = [this, response](const std::string &rid,
+            auto err_response = [this, response](const std::string &request_id,
                                                  const std::string &errmsg) -> void
             {
-                response->set_request_id(rid);
+                response->set_request_id(request_id);
                 response->set_success(false);
                 response->set_errmsg(errmsg);
                 return;
@@ -659,10 +659,10 @@ namespace chen_im
         {
             LOG_DEBUG("收到用户签名设置请求！");
             brpc::ClosureGuard rpc_guard(done);
-            auto err_response = [this, response](const std::string &rid,
+            auto err_response = [this, response](const std::string &request_id,
                                                  const std::string &errmsg) -> void
             {
-                response->set_request_id(rid);
+                response->set_request_id(request_id);
                 response->set_success(false);
                 response->set_errmsg(errmsg);
                 return;
@@ -706,10 +706,10 @@ namespace chen_im
         {
             LOG_DEBUG("收到用户手机号设置请求！");
             brpc::ClosureGuard rpc_guard(done);
-            auto err_response = [this, response](const std::string &rid,
+            auto err_response = [this, response](const std::string &request_id,
                                                  const std::string &errmsg) -> void
             {
-                response->set_request_id(rid);
+                response->set_request_id(request_id);
                 response->set_success(false);
                 response->set_errmsg(errmsg);
                 return;
@@ -790,7 +790,7 @@ namespace chen_im
 
     };
 
-    class UserServerBuilder
+    class UserServerFactory
     {
     private:
         std::shared_ptr<Discovery>            _service_discoverer;     //   

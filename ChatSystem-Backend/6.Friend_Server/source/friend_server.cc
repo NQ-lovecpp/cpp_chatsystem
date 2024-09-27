@@ -16,7 +16,7 @@ DEFINE_int32(rpc_threads, 1, "Rpc的IO线程数量");
 
 DEFINE_string(base_service, "/service", "服务监控根目录");
 DEFINE_string(user_service, "/service/user_service", "用户管理子服务名称");
-DEFINE_string(message_service, "/service/message_service", "消息存储子服务名称");
+DEFINE_string(message_store_service, "/service/message_store_service", "消息存储子服务名称");
 
 DEFINE_string(es_host, "http://127.0.0.1:9200/", "ES搜索引擎服务器URL");
 
@@ -36,11 +36,11 @@ int main(int argc, char *argv[])
     google::ParseCommandLineFlags(&argc, &argv, true);
     chen_im::init_logger(FLAGS_run_mode, FLAGS_log_file, FLAGS_log_level);
 
-    chen_im::FriendServerBuilder fsb;
+    chen_im::FriendServerFactory fsb;
     fsb.make_es_object({FLAGS_es_host});
     fsb.make_mysql_object(FLAGS_mysql_user, FLAGS_mysql_pswd, FLAGS_mysql_host, 
         FLAGS_mysql_db, FLAGS_mysql_cset, FLAGS_mysql_access_port, FLAGS_mysql_pool_count);
-    fsb.make_discovery_object(FLAGS_registry_host, FLAGS_base_service, FLAGS_user_service, FLAGS_message_service);
+    fsb.make_discovery_object(FLAGS_registry_host, FLAGS_base_service, FLAGS_user_service, FLAGS_message_store_service);
     fsb.make_rpc_server(FLAGS_listen_port, FLAGS_rpc_timeout, FLAGS_rpc_threads);
     fsb.make_registry_object(FLAGS_registry_host, FLAGS_base_service + FLAGS_instance_name, FLAGS_access_host);
     auto server = fsb.build();

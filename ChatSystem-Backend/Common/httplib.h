@@ -476,7 +476,7 @@ private:
     explicit data_sink_streambuf(DataSink &sink) : sink_(sink) {}
 
   protected:
-    std::streamsize xsputn(const char *s, std::streamsize n) override {
+    std::streamsize xsputn(const char *s, std::streamsize n) overrequest_ide {
       sink_.write(s, static_cast<size_t>(n));
       return n;
     }
@@ -687,9 +687,9 @@ public:
   }
 
   ThreadPool(const ThreadPool &) = delete;
-  ~ThreadPool() override = default;
+  ~ThreadPool() overrequest_ide = default;
 
-  bool enqueue(std::function<void()> fn) override {
+  bool enqueue(std::function<void()> fn) overrequest_ide {
     {
       std::unique_lock<std::mutex> lock(mutex_);
       if (max_queued_requests_ > 0 && jobs_.size() >= max_queued_requests_) {
@@ -702,7 +702,7 @@ public:
     return true;
   }
 
-  void shutdown() override {
+  void shutdown() overrequest_ide {
     // Stop all worker threads...
     {
       std::unique_lock<std::mutex> lock(mutex_);
@@ -801,7 +801,7 @@ class PathParamsMatcher final : public MatcherBase {
 public:
   PathParamsMatcher(const std::string &pattern);
 
-  bool match(Request &request) const override;
+  bool match(Request &request) const overrequest_ide;
 
 private:
   static constexpr char marker = ':';
@@ -831,7 +831,7 @@ class RegexMatcher final : public MatcherBase {
 public:
   RegexMatcher(const std::string &pattern) : regex_(pattern) {}
 
-  bool match(Request &request) const override;
+  bool match(Request &request) const overrequest_ide;
 
 private:
   std::regex regex_;
@@ -1838,9 +1838,9 @@ public:
   SSLServer(
       const std::function<bool(SSL_CTX &ssl_ctx)> &setup_ssl_ctx_callback);
 
-  ~SSLServer() override;
+  ~SSLServer() overrequest_ide;
 
-  bool is_valid() const override;
+  bool is_valid() const overrequest_ide;
 
   SSL_CTX *ssl_context() const;
 
@@ -1848,7 +1848,7 @@ public:
                     X509_STORE *client_ca_cert_store = nullptr);
 
 private:
-  bool process_and_close_socket(socket_t sock) override;
+  bool process_and_close_socket(socket_t sock) overrequest_ide;
 
   SSL_CTX *ctx_;
   std::mutex ctx_mutex_;
@@ -1869,9 +1869,9 @@ public:
                      EVP_PKEY *client_key,
                      const std::string &private_key_password = std::string());
 
-  ~SSLClient() override;
+  ~SSLClient() overrequest_ide;
 
-  bool is_valid() const override;
+  bool is_valid() const overrequest_ide;
 
   void set_ca_cert_store(X509_STORE *ca_cert_store);
   void load_ca_cert_store(const char *ca_cert, std::size_t size);
@@ -1881,13 +1881,13 @@ public:
   SSL_CTX *ssl_context() const;
 
 private:
-  bool create_and_connect_socket(Socket &socket, Error &error) override;
-  void shutdown_ssl(Socket &socket, bool shutdown_gracefully) override;
+  bool create_and_connect_socket(Socket &socket, Error &error) overrequest_ide;
+  void shutdown_ssl(Socket &socket, bool shutdown_gracefully) overrequest_ide;
   void shutdown_ssl_impl(Socket &socket, bool shutdown_gracefully);
 
   bool process_socket(const Socket &socket,
-                      std::function<bool(Stream &strm)> callback) override;
-  bool is_ssl() const override;
+                      std::function<bool(Stream &strm)> callback) overrequest_ide;
+  bool is_ssl() const overrequest_ide;
 
   bool connect_with_proxy(Socket &sock, Response &res, bool &success,
                           Error &error);
@@ -2268,15 +2268,15 @@ EncodingType encoding_type(const Request &req, const Response &res);
 class BufferStream final : public Stream {
 public:
   BufferStream() = default;
-  ~BufferStream() override = default;
+  ~BufferStream() overrequest_ide = default;
 
-  bool is_readable() const override;
-  bool is_writable() const override;
-  ssize_t read(char *ptr, size_t size) override;
-  ssize_t write(const char *ptr, size_t size) override;
-  void get_remote_ip_and_port(std::string &ip, int &port) const override;
-  void get_local_ip_and_port(std::string &ip, int &port) const override;
-  socket_t socket() const override;
+  bool is_readable() const overrequest_ide;
+  bool is_writable() const overrequest_ide;
+  ssize_t read(char *ptr, size_t size) overrequest_ide;
+  ssize_t write(const char *ptr, size_t size) overrequest_ide;
+  void get_remote_ip_and_port(std::string &ip, int &port) const overrequest_ide;
+  void get_local_ip_and_port(std::string &ip, int &port) const overrequest_ide;
+  socket_t socket() const overrequest_ide;
 
   const std::string &get_buffer() const;
 
@@ -2307,20 +2307,20 @@ public:
 
 class nocompressor final : public compressor {
 public:
-  ~nocompressor() override = default;
+  ~nocompressor() overrequest_ide = default;
 
   bool compress(const char *data, size_t data_length, bool /*last*/,
-                Callback callback) override;
+                Callback callback) overrequest_ide;
 };
 
 #ifdef CPPHTTPLIB_ZLIB_SUPPORT
 class gzip_compressor final : public compressor {
 public:
   gzip_compressor();
-  ~gzip_compressor() override;
+  ~gzip_compressor() overrequest_ide;
 
   bool compress(const char *data, size_t data_length, bool last,
-                Callback callback) override;
+                Callback callback) overrequest_ide;
 
 private:
   bool is_valid_ = false;
@@ -2330,12 +2330,12 @@ private:
 class gzip_decompressor final : public decompressor {
 public:
   gzip_decompressor();
-  ~gzip_decompressor() override;
+  ~gzip_decompressor() overrequest_ide;
 
-  bool is_valid() const override;
+  bool is_valid() const overrequest_ide;
 
   bool decompress(const char *data, size_t data_length,
-                  Callback callback) override;
+                  Callback callback) overrequest_ide;
 
 private:
   bool is_valid_ = false;
@@ -2350,7 +2350,7 @@ public:
   ~brotli_compressor();
 
   bool compress(const char *data, size_t data_length, bool last,
-                Callback callback) override;
+                Callback callback) overrequest_ide;
 
 private:
   BrotliEncoderState *state_ = nullptr;
@@ -2361,10 +2361,10 @@ public:
   brotli_decompressor();
   ~brotli_decompressor();
 
-  bool is_valid() const override;
+  bool is_valid() const overrequest_ide;
 
   bool decompress(const char *data, size_t data_length,
-                  Callback callback) override;
+                  Callback callback) overrequest_ide;
 
 private:
   BrotliDecoderResult decoder_r;
@@ -3128,15 +3128,15 @@ class SocketStream final : public Stream {
 public:
   SocketStream(socket_t sock, time_t read_timeout_sec, time_t read_timeout_usec,
                time_t write_timeout_sec, time_t write_timeout_usec);
-  ~SocketStream() override;
+  ~SocketStream() overrequest_ide;
 
-  bool is_readable() const override;
-  bool is_writable() const override;
-  ssize_t read(char *ptr, size_t size) override;
-  ssize_t write(const char *ptr, size_t size) override;
-  void get_remote_ip_and_port(std::string &ip, int &port) const override;
-  void get_local_ip_and_port(std::string &ip, int &port) const override;
-  socket_t socket() const override;
+  bool is_readable() const overrequest_ide;
+  bool is_writable() const overrequest_ide;
+  ssize_t read(char *ptr, size_t size) overrequest_ide;
+  ssize_t write(const char *ptr, size_t size) overrequest_ide;
+  void get_remote_ip_and_port(std::string &ip, int &port) const overrequest_ide;
+  void get_local_ip_and_port(std::string &ip, int &port) const overrequest_ide;
+  socket_t socket() const overrequest_ide;
 
 private:
   socket_t sock_;
@@ -3158,15 +3158,15 @@ public:
   SSLSocketStream(socket_t sock, SSL *ssl, time_t read_timeout_sec,
                   time_t read_timeout_usec, time_t write_timeout_sec,
                   time_t write_timeout_usec);
-  ~SSLSocketStream() override;
+  ~SSLSocketStream() overrequest_ide;
 
-  bool is_readable() const override;
-  bool is_writable() const override;
-  ssize_t read(char *ptr, size_t size) override;
-  ssize_t write(const char *ptr, size_t size) override;
-  void get_remote_ip_and_port(std::string &ip, int &port) const override;
-  void get_local_ip_and_port(std::string &ip, int &port) const override;
-  socket_t socket() const override;
+  bool is_readable() const overrequest_ide;
+  bool is_writable() const overrequest_ide;
+  ssize_t read(char *ptr, size_t size) overrequest_ide;
+  ssize_t write(const char *ptr, size_t size) overrequest_ide;
+  void get_remote_ip_and_port(std::string &ip, int &port) const overrequest_ide;
+  void get_local_ip_and_port(std::string &ip, int &port) const overrequest_ide;
+  socket_t socket() const overrequest_ide;
 
 private:
   socket_t sock_;
@@ -4731,7 +4731,7 @@ public:
 
                 std::smatch m2;
                 if (std::regex_match(it->second, m2, re_rfc5987_encoding)) {
-                  file_.filename = decode_url(m2[1], false); // override...
+                  file_.filename = decode_url(m2[1], false); // overrequest_ide...
                 } else {
                   is_valid_ = false;
                   return false;

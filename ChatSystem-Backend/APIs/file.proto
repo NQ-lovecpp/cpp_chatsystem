@@ -34,7 +34,7 @@ message GetMultiFileRsp {
     string request_id = 1;
     bool success = 2;
     string errmsg = 3; 
-    map<string, FileDownloadData> file_data = 4;//文件ID与文件数据的映射map
+    map<string, FileDownloadData> file_data = 4;//文件ID与文件数据的映射的map
 }
 
 message PutSingleFileReq {

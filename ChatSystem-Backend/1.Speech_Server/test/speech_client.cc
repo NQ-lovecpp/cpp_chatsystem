@@ -2,7 +2,7 @@
 //   关心想关心的服务，并调用rpc服务
 #include "etcd.hpp"
 #include "logger.hpp"
-#include "channel.hpp"  
+#include "rpc_service_manager.hpp"  
 #include "voice_recognizer.hpp"
 #include "speech_recognition.pb.h"
 #include "speech.h"

@@ -1,4 +1,4 @@
-// ES数据管理：（二次封装一下icsearch.hpp，做用户的CRUD，这份头文件更加贴近业务）
+// ES数据管理：（二次封装一下icsearch.hpp，做用户索引的CRUD，这份头文件更加贴近业务）
 //     在用户注册成功的时候，将用户的元信息，向ES也进行一份存储，以便于进行用户的搜索
 //     搜索关键字：是一个字符串，可能是一个用户ID,也可能是一个手机号，也可能是一个昵称的一部分
 //                且搜索的时候，不能搜索到自己，以及自己的好友，过滤条件其实就是一组用户ID
@@ -141,7 +141,7 @@ namespace chen_im
             LOG_INFO("消息信息索引创建成功!");
             return true;
         }
-        bool append_user(const std::string &user_id,
+        bool append_message(const std::string &user_id,
                         const std::string &message_id,
                         const long create_time,
                         const std::string &chat_session_id,
@@ -194,7 +194,7 @@ namespace chen_im
                 message.user_id(json_user[i]["_source"]["user_id"].asString());
                 message.message_id(json_user[i]["_source"]["message_id"].asString());
                 boost::posix_time::ptime ctime(boost::posix_time::from_time_t(
-                    json_user[i]["_source"]["create_time"].asInt64()));
+                    stoi(json_user[i]["_source"]["create_time"].asString())));
                 message.create_time(ctime);
                 message.session_id(json_user[i]["_source"]["chat_session_id"].asString());
                 message.content(json_user[i]["_source"]["content"].asString());

@@ -5,7 +5,7 @@
 #include "etcd.hpp"   // 服务注册模块封装
 #include "logger.hpp" // 日志模块封装
 #include "rabbitmq.hpp"
-#include "channel.hpp"
+#include "rpc_service_manager.hpp"
 #include "utility.hpp"
 #include "mysql_chat_session_member.hpp"
 
@@ -17,18 +17,32 @@ namespace chen_im
 {
     class TransmiteServiceImpl : public chen_im::MsgTransmitService
     {
+    private:
+        // 用户子服务调用相关信息
+        std::string _user_service_name;
+        ServiceManager::ptr _service_manager;
+
+        // 聊天会话成员表的操作句柄
+        ChatSessionMemeberTable::ptr _mysql_session_member_table;
+
+        // 消息队列客户端句柄
+        std::string _exchange_name;
+        std::string _routing_key;
+        MQClient::ptr _mq_client;
     public:
         TransmiteServiceImpl(const std::string &user_service_name,
                              const ServiceManager::ptr &channels,
                              const std::shared_ptr<odb::mysql::database> &mysql_client,
                              const std::string &exchange_name,
                              const std::string &routing_key,
-                             const MQClient::ptr &mq_client) : _user_service_name(user_service_name),
-                                                               _mm_channels(channels),
-                                                               _mysql_session_member_table(std::make_shared<ChatSessionMemeberTable>(mysql_client)),
-                                                               _exchange_name(exchange_name),
-                                                               _routing_key(routing_key),
-                                                               _mq_client(mq_client) {}
+                             const MQClient::ptr &mq_client)
+            : _user_service_name(user_service_name),
+              _service_manager(channels),
+              _mysql_session_member_table(std::make_shared<ChatSessionMemeberTable>(mysql_client)),
+              _exchange_name(exchange_name),
+              _routing_key(routing_key),
+              _mq_client(mq_client) 
+        {}
         ~TransmiteServiceImpl() {}
         void GetTransmitTarget(google::protobuf::RpcController *controller,
                                const ::chen_im::NewMessageReq *request,
@@ -36,30 +50,30 @@ namespace chen_im
                                ::google::protobuf::Closure *done) override
         {
             brpc::ClosureGuard rpc_guard(done);
-            auto err_response = [this, response](const std::string &rid,
+            auto err_response = [this, response](const std::string &request_id,
                                                  const std::string &errmsg) -> void
             {
-                response->set_request_id(rid);
+                response->set_request_id(request_id);
                 response->set_success(false);
                 response->set_errmsg(errmsg);
                 return;
             };
             // 从请求中获取关键信息：用户ID，所属会话ID，消息内容
-            std::string rid = request->request_id();
+            std::string request_id = request->request_id();
             std::string uid = request->user_id();
             std::string chat_ssid = request->chat_session_id();
             const MessageContent &content = request->message();
             // 进行消息组织：发送者-用户子服务获取信息，所属会话，消息内容，产生时间，消息ID
-            auto channel = _mm_channels->get(_user_service_name);
+            auto channel = _service_manager->get(_user_service_name);
             if (!channel)
             {
-                LOG_ERROR("{}-{} 没有可供访问的用户子服务节点！", rid, _user_service_name);
-                return err_response(rid, "没有可供访问的用户子服务节点！");
+                LOG_ERROR("{}-{} 没有可供访问的用户子服务节点！", request_id, _user_service_name);
+                return err_response(request_id, "没有可供访问的用户子服务节点！");
             }
             UserService_Stub stub(channel.get());
             GetUserInfoReq req;
             GetUserInfoRsp rsp;
-            req.set_request_id(rid);
+            req.set_request_id(request_id);
             req.set_user_id(uid);
             brpc::Controller cntl;
             stub.GetUserInfo(&cntl, &req, &rsp, nullptr);
@@ -84,7 +98,7 @@ namespace chen_im
                 return err_response(request->request_id(), "持久化消息发布失败：!");
             }
             // 组织响应
-            response->set_request_id(rid);
+            response->set_request_id(request_id);
             response->set_success(true);
             response->mutable_message()->CopyFrom(message);
             for (const auto &id : target_list)
@@ -92,19 +106,6 @@ namespace chen_im
                 response->add_target_id_list(id);
             }
         }
-
-    private:
-        // 用户子服务调用相关信息
-        std::string _user_service_name;
-        ServiceManager::ptr _mm_channels;
-
-        // 聊天会话成员表的操作句柄
-        ChatSessionMemeberTable::ptr _mysql_session_member_table;
-
-        // 消息队列客户端句柄
-        std::string _exchange_name;
-        std::string _routing_key;
-        MQClient::ptr _mq_client;
     };
 
     class TransmiteServer
@@ -127,13 +128,13 @@ namespace chen_im
         }
 
     private:
-        Discovery::ptr _service_discoverer;                 // 服务发现客户端
-        Registry::ptr _registry_client;                     // 服务注册客户端
+        Discovery::ptr _service_discoverer;                  // 服务发现客户端
+        Registry::ptr _registry_client;                      // 服务注册客户端
         std::shared_ptr<odb::mysql::database> _mysql_client; // mysql数据库客户端
         std::shared_ptr<brpc::Server> _rpc_server;
     };
 
-    class TransmiteServerBuilder
+    class TransmiteServerFactory
     {
     public:
         // 构造mysql客户端对象
@@ -154,12 +155,12 @@ namespace chen_im
                                    const std::string &user_service_name)
         {
             _user_service_name = user_service_name;
-            _mm_channels = std::make_shared<ServiceManager>();
-            _mm_channels->concern(user_service_name);
-            _mm_channels->concern("/service/transmite_service");  // bug
+            _service_manager = std::make_shared<ServiceManager>();
+            _service_manager->concern(user_service_name);
+            _service_manager->concern("/service/message_transmit_service"); // bug
             LOG_DEBUG("设置用户子服务为需关心的子服务：{}", user_service_name);
-            auto put_cb = std::bind(&ServiceManager::when_service_online, _mm_channels.get(), std::placeholders::_1, std::placeholders::_2);
-            auto del_cb = std::bind(&ServiceManager::when_service_offline, _mm_channels.get(), std::placeholders::_1, std::placeholders::_2);
+            auto put_cb = std::bind(&ServiceManager::when_service_online, _service_manager.get(), std::placeholders::_1, std::placeholders::_2);
+            auto del_cb = std::bind(&ServiceManager::when_service_offline, _service_manager.get(), std::placeholders::_1, std::placeholders::_2);
             _service_discoverer = std::make_shared<Discovery>(reg_host, base_service_name, put_cb, del_cb);
         }
         // 用于构造服务注册客户端对象
@@ -191,7 +192,7 @@ namespace chen_im
                 LOG_ERROR("还未初始化消息队列客户端模块！");
                 abort();
             }
-            if (!_mm_channels)
+            if (!_service_manager)
             {
                 LOG_ERROR("还未初始化信道管理模块！");
                 abort();
@@ -204,10 +205,10 @@ namespace chen_im
 
             _rpc_server = std::make_shared<brpc::Server>();
 
-            TransmiteServiceImpl *transmite_service = new TransmiteServiceImpl(
-                _user_service_name, _mm_channels, _mysql_client, _exchange_name, _routing_key, _mq_client);
+            TransmiteServiceImpl *message_transmit_service = new TransmiteServiceImpl(
+                _user_service_name, _service_manager, _mysql_client, _exchange_name, _routing_key, _mq_client);
 
-            int ret = _rpc_server->AddService(transmite_service,
+            int ret = _rpc_server->AddService(message_transmit_service,
                                               brpc::ServiceOwnership::SERVER_OWNS_SERVICE);
             if (ret == -1)
             {
@@ -248,14 +249,14 @@ namespace chen_im
 
     private:
         std::string _user_service_name;
-        ServiceManager::ptr _mm_channels;
+        ServiceManager::ptr _service_manager;
         Discovery::ptr _service_discoverer;
 
         std::string _routing_key;
         std::string _exchange_name;
         MQClient::ptr _mq_client;
 
-        Registry::ptr _registry_client;                     // 服务注册客户端
+        Registry::ptr _registry_client;                      // 服务注册客户端
         std::shared_ptr<odb::mysql::database> _mysql_client; // mysql数据库客户端
         std::shared_ptr<brpc::Server> _rpc_server;
     };

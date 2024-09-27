@@ -105,7 +105,7 @@ public:
         return true;
     }
 
-    // 消费一条消息
+    // 设置某个消息队列消费一条消息的回调函数
     bool consume_message(const std::string &queue_name, 
                          const std::string &tag, 
                          std::function<void(const char*, size_t)> callback)

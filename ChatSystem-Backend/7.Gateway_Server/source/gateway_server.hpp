@@ -1,7 +1,7 @@
 #include "redis_CRUD.hpp" // redis数据管理客户端封装
 #include "etcd.hpp"       // 服务注册模块封装
 #include "logger.hpp"     // 日志模块封装
-#include "channel.hpp"    // 信道管理模块封装
+#include "rpc_service_manager.hpp"    // 信道管理模块封装
 
 #include "connection.hpp"
 
@@ -60,18 +60,18 @@ namespace chen_im
             const std::string user_service_name,
             const std::string file_service_name,
             const std::string speech_service_name,
-            const std::string message_service_name,
-            const std::string transmite_service_name,
+            const std::string message_store_service_name,
+            const std::string message_transmit_service_name,
             const std::string friend_service_name)
             : _redis_session(std::make_shared<Session>(redis_client)),
               _redis_status(std::make_shared<Status>(redis_client)),
-              _mm_channels(channels),
+              _service_manager(channels),
               _service_discoverer(service_discoverer),
               _user_service_name(user_service_name),
               _file_service_name(file_service_name),
               _speech_service_name(speech_service_name),
-              _message_service_name(message_service_name),
-              _transmite_service_name(transmite_service_name),
+              _message_store_service_name(message_store_service_name),
+              _message_transmit_service_name(message_transmit_service_name),
               _friend_service_name(friend_service_name),
               _connections(std::make_shared<Connection>())
         {
@@ -206,7 +206,7 @@ namespace chen_im
                 return err_response("获取短信验证码请求正文反序列化失败！");
             }
             // 2. 将请求转发给用户子服务进行业务处理
-            auto channel = _mm_channels->get(_user_service_name);
+            auto channel = _service_manager->get(_user_service_name);
             if (!channel)
             {
                 LOG_ERROR("{} 未找到可提供业务处理的用户子服务节点！", req.request_id());
@@ -241,7 +241,7 @@ namespace chen_im
                 return err_response("用户名注册请求正文反序列化失败！");
             }
             // 2. 将请求转发给用户子服务进行业务处理
-            auto channel = _mm_channels->get(_user_service_name);
+            auto channel = _service_manager->get(_user_service_name);
             if (!channel)
             {
                 LOG_ERROR("{} 未找到可提供业务处理的用户子服务节点！", req.request_id());
@@ -276,7 +276,7 @@ namespace chen_im
                 return err_response("用户登录请求正文反序列化失败！");
             }
             // 2. 将请求转发给用户子服务进行业务处理
-            auto channel = _mm_channels->get(_user_service_name);
+            auto channel = _service_manager->get(_user_service_name);
             if (!channel)
             {
                 LOG_ERROR("{} 未找到可提供业务处理的用户子服务节点！", req.request_id());
@@ -311,7 +311,7 @@ namespace chen_im
                 return err_response("手机号注册请求正文反序列化失败！");
             }
             // 2. 将请求转发给用户子服务进行业务处理
-            auto channel = _mm_channels->get(_user_service_name);
+            auto channel = _service_manager->get(_user_service_name);
             if (!channel)
             {
                 LOG_ERROR("{} 未找到可提供业务处理的用户子服务节点！", req.request_id());
@@ -346,7 +346,7 @@ namespace chen_im
                 return err_response("手机号登录请求正文反序列化失败！");
             }
             // 2. 将请求转发给用户子服务进行业务处理
-            auto channel = _mm_channels->get(_user_service_name);
+            auto channel = _service_manager->get(_user_service_name);
             if (!channel)
             {
                 LOG_ERROR("{} 未找到可提供业务处理的用户子服务节点！", req.request_id());
@@ -390,7 +390,7 @@ namespace chen_im
             }
             req.set_user_id(*uid);
             // 2. 将请求转发给用户子服务进行业务处理
-            auto channel = _mm_channels->get(_user_service_name);
+            auto channel = _service_manager->get(_user_service_name);
             if (!channel)
             {
                 LOG_ERROR("{} 未找到可提供业务处理的用户子服务节点！", req.request_id());
@@ -434,7 +434,7 @@ namespace chen_im
             }
             req.set_user_id(*uid);
             // 2. 将请求转发给用户子服务进行业务处理
-            auto channel = _mm_channels->get(_user_service_name);
+            auto channel = _service_manager->get(_user_service_name);
             if (!channel)
             {
                 LOG_ERROR("{} 未找到可提供业务处理的用户子服务节点！", req.request_id());
@@ -478,7 +478,7 @@ namespace chen_im
             }
             req.set_user_id(*uid);
             // 2. 将请求转发给用户子服务进行业务处理
-            auto channel = _mm_channels->get(_user_service_name);
+            auto channel = _service_manager->get(_user_service_name);
             if (!channel)
             {
                 LOG_ERROR("{} 未找到可提供业务处理的用户子服务节点！", req.request_id());
@@ -522,7 +522,7 @@ namespace chen_im
             }
             req.set_user_id(*uid);
             // 2. 将请求转发给用户子服务进行业务处理
-            auto channel = _mm_channels->get(_user_service_name);
+            auto channel = _service_manager->get(_user_service_name);
             if (!channel)
             {
                 LOG_ERROR("{} 未找到可提供业务处理的用户子服务节点！", req.request_id());
@@ -566,7 +566,7 @@ namespace chen_im
             }
             req.set_user_id(*uid);
             // 2. 将请求转发给用户子服务进行业务处理
-            auto channel = _mm_channels->get(_user_service_name);
+            auto channel = _service_manager->get(_user_service_name);
             if (!channel)
             {
                 LOG_ERROR("{} 未找到可提供业务处理的用户子服务节点！", req.request_id());
@@ -610,7 +610,7 @@ namespace chen_im
             }
             req.set_user_id(*uid);
             // 2. 将请求转发给好友子服务进行业务处理
-            auto channel = _mm_channels->get(_friend_service_name);
+            auto channel = _service_manager->get(_friend_service_name);
             if (!channel)
             {
                 LOG_ERROR("{} 未找到可提供业务处理的用户子服务节点！", req.request_id());
@@ -628,14 +628,14 @@ namespace chen_im
             response.set_content(rsp.SerializeAsString(), "application/x-protbuf");
         }
 
-        std::shared_ptr<GetUserInfoRsp> _GetUserInfo(const std::string &rid, const std::string &uid)
+        std::shared_ptr<GetUserInfoRsp> _GetUserInfo(const std::string &request_id, const std::string &uid)
         {
             GetUserInfoReq req;
             auto rsp = std::make_shared<GetUserInfoRsp>();
-            req.set_request_id(rid);
+            req.set_request_id(request_id);
             req.set_user_id(uid);
             // 2. 将请求转发给用户子服务进行业务处理
-            auto channel = _mm_channels->get(_user_service_name);
+            auto channel = _service_manager->get(_user_service_name);
             if (!channel)
             {
                 LOG_ERROR("{} 未找到可提供业务处理的用户子服务节点！", req.request_id());
@@ -680,7 +680,7 @@ namespace chen_im
             }
             req.set_user_id(*uid);
             // 3. 将请求转发给好友子服务进行业务处理
-            auto channel = _mm_channels->get(_friend_service_name);
+            auto channel = _service_manager->get(_friend_service_name);
             if (!channel)
             {
                 LOG_ERROR("{} 未找到可提供业务处理的用户子服务节点！", req.request_id());
@@ -740,7 +740,7 @@ namespace chen_im
             }
             req.set_user_id(*uid);
             // 3. 将请求转发给好友子服务进行业务处理
-            auto channel = _mm_channels->get(_friend_service_name);
+            auto channel = _service_manager->get(_friend_service_name);
             if (!channel)
             {
                 LOG_ERROR("{} 未找到可提供业务处理的用户子服务节点！", req.request_id());
@@ -847,7 +847,7 @@ namespace chen_im
             }
             req.set_user_id(*uid);
             // 3. 将请求转发给好友子服务进行业务处理
-            auto channel = _mm_channels->get(_friend_service_name);
+            auto channel = _service_manager->get(_friend_service_name);
             if (!channel)
             {
                 LOG_ERROR("{} 未找到可提供业务处理的用户子服务节点！", req.request_id());
@@ -900,7 +900,7 @@ namespace chen_im
             }
             req.set_user_id(*uid);
             // 3. 将请求转发给好友子服务进行业务处理
-            auto channel = _mm_channels->get(_friend_service_name);
+            auto channel = _service_manager->get(_friend_service_name);
             if (!channel)
             {
                 LOG_ERROR("{} 未找到可提供业务处理的用户子服务节点！", req.request_id());
@@ -943,7 +943,7 @@ namespace chen_im
             }
             req.set_user_id(*uid);
             // 3. 将请求转发给好友子服务进行业务处理
-            auto channel = _mm_channels->get(_friend_service_name);
+            auto channel = _service_manager->get(_friend_service_name);
             if (!channel)
             {
                 LOG_ERROR("{} 未找到可提供业务处理的用户子服务节点！", req.request_id());
@@ -986,7 +986,7 @@ namespace chen_im
             }
             req.set_user_id(*uid);
             // 3. 将请求转发给好友子服务进行业务处理
-            auto channel = _mm_channels->get(_friend_service_name);
+            auto channel = _service_manager->get(_friend_service_name);
             if (!channel)
             {
                 LOG_ERROR("{} 未找到可提供业务处理的用户子服务节点！", req.request_id());
@@ -1029,7 +1029,7 @@ namespace chen_im
             }
             req.set_user_id(*uid);
             // 3. 将请求转发给好友子服务进行业务处理
-            auto channel = _mm_channels->get(_friend_service_name);
+            auto channel = _service_manager->get(_friend_service_name);
             if (!channel)
             {
                 LOG_ERROR("{} 未找到可提供业务处理的用户子服务节点！", req.request_id());
@@ -1072,7 +1072,7 @@ namespace chen_im
             }
             req.set_user_id(*uid);
             // 3. 将请求转发给好友子服务进行业务处理
-            auto channel = _mm_channels->get(_friend_service_name);
+            auto channel = _service_manager->get(_friend_service_name);
             if (!channel)
             {
                 LOG_ERROR("{} 未找到可提供业务处理的用户子服务节点！", req.request_id());
@@ -1135,7 +1135,7 @@ namespace chen_im
             }
             req.set_user_id(*uid);
             // 3. 将请求转发给好友子服务进行业务处理
-            auto channel = _mm_channels->get(_message_service_name);
+            auto channel = _service_manager->get(_message_store_service_name);
             if (!channel)
             {
                 LOG_ERROR("{} 未找到可提供业务处理的用户子服务节点！", req.request_id());
@@ -1178,7 +1178,7 @@ namespace chen_im
             }
             req.set_user_id(*uid);
             // 3. 将请求转发给好友子服务进行业务处理
-            auto channel = _mm_channels->get(_message_service_name);
+            auto channel = _service_manager->get(_message_store_service_name);
             if (!channel)
             {
                 LOG_ERROR("{} 未找到可提供业务处理的用户子服务节点！", req.request_id());
@@ -1221,7 +1221,7 @@ namespace chen_im
             }
             req.set_user_id(*uid);
             // 3. 将请求转发给好友子服务进行业务处理
-            auto channel = _mm_channels->get(_message_service_name);
+            auto channel = _service_manager->get(_message_store_service_name);
             if (!channel)
             {
                 LOG_ERROR("{} 未找到可提供业务处理的用户子服务节点！", req.request_id());
@@ -1264,7 +1264,7 @@ namespace chen_im
             }
             req.set_user_id(*uid);
             // 3. 将请求转发给好友子服务进行业务处理
-            auto channel = _mm_channels->get(_file_service_name);
+            auto channel = _service_manager->get(_file_service_name);
             if (!channel)
             {
                 LOG_ERROR("{} 未找到可提供业务处理的用户子服务节点！", req.request_id());
@@ -1307,7 +1307,7 @@ namespace chen_im
             }
             req.set_user_id(*uid);
             // 3. 将请求转发给好友子服务进行业务处理
-            auto channel = _mm_channels->get(_file_service_name);
+            auto channel = _service_manager->get(_file_service_name);
             if (!channel)
             {
                 LOG_ERROR("{} 未找到可提供业务处理的用户子服务节点！", req.request_id());
@@ -1350,7 +1350,7 @@ namespace chen_im
             }
             req.set_user_id(*uid);
             // 3. 将请求转发给好友子服务进行业务处理
-            auto channel = _mm_channels->get(_file_service_name);
+            auto channel = _service_manager->get(_file_service_name);
             if (!channel)
             {
                 LOG_ERROR("{} 未找到可提供业务处理的用户子服务节点！", req.request_id());
@@ -1393,7 +1393,7 @@ namespace chen_im
             }
             req.set_user_id(*uid);
             // 3. 将请求转发给好友子服务进行业务处理
-            auto channel = _mm_channels->get(_file_service_name);
+            auto channel = _service_manager->get(_file_service_name);
             if (!channel)
             {
                 LOG_ERROR("{} 未找到可提供业务处理的用户子服务节点！", req.request_id());
@@ -1437,7 +1437,7 @@ namespace chen_im
             }
             req.set_user_id(*uid);
             // 3. 将请求转发给好友子服务进行业务处理
-            auto channel = _mm_channels->get(_speech_service_name);
+            auto channel = _service_manager->get(_speech_service_name);
             if (!channel)
             {
                 LOG_ERROR("{} 未找到可提供业务处理的用户子服务节点！", req.request_id());
@@ -1482,7 +1482,7 @@ namespace chen_im
             }
             req.set_user_id(*uid);
             // 3. 将请求转发给好友子服务进行业务处理
-            auto channel = _mm_channels->get(_transmite_service_name);
+            auto channel = _service_manager->get(_message_transmit_service_name);
             if (!channel)
             {
                 LOG_ERROR("{} 未找到可提供业务处理的用户子服务节点！", req.request_id());
@@ -1530,10 +1530,10 @@ namespace chen_im
         std::string _user_service_name;
         std::string _file_service_name;
         std::string _speech_service_name;
-        std::string _message_service_name;
-        std::string _transmite_service_name;
+        std::string _message_store_service_name;
+        std::string _message_transmit_service_name;
         std::string _friend_service_name;
-        ServiceManager::ptr _mm_channels;
+        ServiceManager::ptr _service_manager;
         Discovery::ptr _service_discoverer;
 
         Connection::ptr _connections;
@@ -1543,7 +1543,7 @@ namespace chen_im
         std::thread _http_thread;
     };
 
-    class GatewayServerBuilder
+    class GatewayServerFactory
     {
     public:
         // 构造redis客户端对象
@@ -1559,26 +1559,26 @@ namespace chen_im
                                    const std::string &base_service_name,
                                    const std::string &file_service_name,
                                    const std::string &speech_service_name,
-                                   const std::string &message_service_name,
+                                   const std::string &message_store_service_name,
                                    const std::string &friend_service_name,
                                    const std::string &user_service_name,
-                                   const std::string &transmite_service_name)
+                                   const std::string &message_transmit_service_name)
         {
             _file_service_name = file_service_name;
             _speech_service_name = speech_service_name;
-            _message_service_name = message_service_name;
+            _message_store_service_name = message_store_service_name;
             _friend_service_name = friend_service_name;
             _user_service_name = user_service_name;
-            _transmite_service_name = transmite_service_name;
-            _mm_channels = std::make_shared<ServiceManager>();
-            _mm_channels->concern(file_service_name);
-            _mm_channels->concern(speech_service_name);
-            _mm_channels->concern(message_service_name);
-            _mm_channels->concern(friend_service_name);
-            _mm_channels->concern(user_service_name);
-            _mm_channels->concern(transmite_service_name);
-            auto put_cb = std::bind(&ServiceManager::when_service_online, _mm_channels.get(), std::placeholders::_1, std::placeholders::_2);
-            auto del_cb = std::bind(&ServiceManager::when_service_offline, _mm_channels.get(), std::placeholders::_1, std::placeholders::_2);
+            _message_transmit_service_name = message_transmit_service_name;
+            _service_manager = std::make_shared<ServiceManager>();
+            _service_manager->concern(file_service_name);
+            _service_manager->concern(speech_service_name);
+            _service_manager->concern(message_store_service_name);
+            _service_manager->concern(friend_service_name);
+            _service_manager->concern(user_service_name);
+            _service_manager->concern(message_transmit_service_name);
+            auto put_cb = std::bind(&ServiceManager::when_service_online, _service_manager.get(), std::placeholders::_1, std::placeholders::_2);
+            auto del_cb = std::bind(&ServiceManager::when_service_offline, _service_manager.get(), std::placeholders::_1, std::placeholders::_2);
             _service_discoverer = std::make_shared<Discovery>(reg_host, base_service_name, put_cb, del_cb);
         }
         void make_server_object(int websocket_port, int http_port)
@@ -1599,16 +1599,16 @@ namespace chen_im
                 LOG_ERROR("还未初始化服务发现模块！");
                 abort();
             }
-            if (!_mm_channels)
+            if (!_service_manager)
             {
                 LOG_ERROR("还未初始化信道管理模块！");
                 abort();
             }
             GatewayServer::ptr server = std::make_shared<GatewayServer>(
-                _websocket_port, _http_port, _redis_client, _mm_channels,
+                _websocket_port, _http_port, _redis_client, _service_manager,
                 _service_discoverer, _user_service_name, _file_service_name,
-                _speech_service_name, _message_service_name,
-                _transmite_service_name, _friend_service_name);
+                _speech_service_name, _message_store_service_name,
+                _message_transmit_service_name, _friend_service_name);
             return server;
         }
 
@@ -1620,11 +1620,11 @@ namespace chen_im
 
         std::string _file_service_name;
         std::string _speech_service_name;
-        std::string _message_service_name;
+        std::string _message_store_service_name;
         std::string _friend_service_name;
         std::string _user_service_name;
-        std::string _transmite_service_name;
-        ServiceManager::ptr _mm_channels;
+        std::string _message_transmit_service_name;
+        ServiceManager::ptr _service_manager;
         Discovery::ptr _service_discoverer;
     };
 }

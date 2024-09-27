@@ -4,7 +4,7 @@
 //3. 发起语音识别RPC调用
 
 #include "etcd.hpp"
-#include "channel.hpp"
+#include "rpc_service_manager.hpp"
 #include "utility.hpp"
 #include <gflags/gflags.h>
 #include <gtest/gtest.h>
@@ -18,12 +18,12 @@ DEFINE_int32(log_level, 0, "发布模式下，用于指定日志输出等级");
 
 DEFINE_string(etcd_host, "http://127.0.0.1:2379", "服务注册中心地址");
 DEFINE_string(base_service, "/service", "服务监控根目录");
-DEFINE_string(transmite_service, "/service/transmite_service", "服务监控根目录");
+DEFINE_string(message_transmit_service, "/service/message_transmit_service", "服务监控根目录");
 
 chen_im::ServiceManager::ptr sm;
 
 void string_message(const std::string &uid, const std::string &sid, const std::string &msg) {
-    auto channel = sm->get(FLAGS_transmite_service);
+    auto channel = sm->get(FLAGS_message_transmit_service);
     if (!channel) {
         std::cout << "获取通信信道失败！" << std::endl;
         return;
@@ -42,7 +42,7 @@ void string_message(const std::string &uid, const std::string &sid, const std::s
     ASSERT_TRUE(rsp.success());
 }
 void image_message(const std::string &uid, const std::string &sid, const std::string &msg) {
-    auto channel = sm->get(FLAGS_transmite_service);
+    auto channel = sm->get(FLAGS_message_transmit_service);
     if (!channel) {
         std::cout << "获取通信信道失败！" << std::endl;
         return;
@@ -62,7 +62,7 @@ void image_message(const std::string &uid, const std::string &sid, const std::st
 }
 
 void speech_message(const std::string &uid, const std::string &sid, const std::string &msg) {
-    auto channel = sm->get(FLAGS_transmite_service);
+    auto channel = sm->get(FLAGS_message_transmit_service);
     if (!channel) {
         std::cout << "获取通信信道失败！" << std::endl;
         return;
@@ -83,7 +83,7 @@ void speech_message(const std::string &uid, const std::string &sid, const std::s
 
 void file_message(const std::string &uid, const std::string &sid, 
     const std::string &filename, const std::string &content) {
-    auto channel = sm->get(FLAGS_transmite_service);
+    auto channel = sm->get(FLAGS_message_transmit_service);
     if (!channel) {
         std::cout << "获取通信信道失败！" << std::endl;
         return;
@@ -108,7 +108,7 @@ TEST(case1, test1)
 {
     //1. 先构造Rpc信道管理对象
     sm = std::make_shared<chen_im::ServiceManager>();
-    sm->concern(FLAGS_transmite_service);
+    sm->concern(FLAGS_message_transmit_service);
     sm->concern("/service/user_service");
     auto put_cb = std::bind(&chen_im::ServiceManager::when_service_online, sm.get(), std::placeholders::_1, std::placeholders::_2);
     auto del_cb = std::bind(&chen_im::ServiceManager::when_service_offline, sm.get(), std::placeholders::_1, std::placeholders::_2);

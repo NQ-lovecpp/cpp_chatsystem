@@ -1,5 +1,5 @@
 #include "etcd.hpp"
-#include "channel.hpp"
+#include "rpc_service_manager.hpp"
 #include "utility.hpp"
 #include <gflags/gflags.h>
 #include <gtest/gtest.h>

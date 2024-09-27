@@ -1,7 +1,7 @@
 // 关心想关心的服务，调用rpc服务，是rpc的客户端
 #include "../../Common/etcd.hpp"
 #include "../../Common/logger.hpp"
-#include "../../Common/channel.hpp"
+#include "../../Common/rpc_service_manager.hpp"
 #include "main.pb.h"
 #include <gflags/gflags.h>
 #include <functional>

@@ -1,5 +1,6 @@
 {
     "files.associations": {
+        "*.proto": "proto3",
         "array": "cpp",
         "atomic": "cpp",
         "bit": "cpp",
@@ -72,7 +73,8 @@
         "*.ipp": "cpp",
         "strstream": "cpp",
         "cfenv": "cpp",
-        "forward_list": "cpp"
+        "forward_list": "cpp",
+        "*.txx": "cpp"
     },
     "markdown-image.local.path": "/Pics",
     "markdown-image.local.referencePath": "../Pics/"

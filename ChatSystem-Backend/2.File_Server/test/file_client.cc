@@ -4,7 +4,7 @@
 #include <gtest/gtest.h>
 #include <thread>
 #include "etcd.hpp"
-#include "channel.hpp"
+#include "rpc_service_manager.hpp"
 #include "logger.hpp"
 #include "file.pb.h"
 #include "base.pb.h"

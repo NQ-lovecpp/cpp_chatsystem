@@ -58,5 +58,4 @@ service MsgStorageService {
     rpc GetHistoryMsg(GetHistoryMsgReq) returns (GetHistoryMsgRsp);
     rpc GetRecentMsg(GetRecentMsgReq) returns (GetRecentMsgRsp);
     rpc MsgSearch(MsgSearchReq) returns (MsgSearchRsp);
-    
 }

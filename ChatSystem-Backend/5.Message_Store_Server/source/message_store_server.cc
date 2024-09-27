@@ -6,7 +6,7 @@ DEFINE_string(log_file, "", "发布模式下，用于指定日志的输出文件
 DEFINE_int32(log_level, 0, "发布模式下，用于指定日志输出等级");
 
 DEFINE_string(registry_host, "http://127.0.0.1:2379", "服务注册中心地址");
-DEFINE_string(instance_name, "/message_service/instance1", "当前实例名称");
+DEFINE_string(instance_name, "/message_store_service/instance1", "当前实例名称");
 DEFINE_string(access_host, "127.0.0.1:10005", "当前实例的外部访问地址");
 
 DEFINE_int32(listen_port, 10005, "Rpc服务器监听端口");
@@ -41,7 +41,7 @@ int main(int argc, char *argv[])
     google::ParseCommandLineFlags(&argc, &argv, true);
     chen_im::init_logger(FLAGS_run_mode, FLAGS_log_file, FLAGS_log_level);
 
-    chen_im::MessageServerBuilder msb;
+    chen_im::MessageServerFactory msb;
     msb.make_mq_object(FLAGS_mq_user, FLAGS_mq_pswd, FLAGS_mq_host,
         FLAGS_mq_msg_exchange, FLAGS_mq_msg_queue, FLAGS_mq_msg_binding_key);
     msb.make_es_object({FLAGS_es_host});
