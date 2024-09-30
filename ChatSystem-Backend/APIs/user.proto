@@ -152,15 +152,15 @@ message SetUserPhoneNumberRsp {
 }
 
 service UserService {
-    rpc UserRegister(UserRegisterReq) returns (UserRegisterRsp);
-    rpc UserLogin(UserLoginReq) returns (UserLoginRsp);
-    rpc GetPhoneVerifyCode(PhoneVerifyCodeReq) returns (PhoneVerifyCodeRsp);
-    rpc PhoneRegister(PhoneRegisterReq) returns (PhoneRegisterRsp);
-    rpc PhoneLogin(PhoneLoginReq) returns (PhoneLoginRsp);
-    rpc GetUserInfo(GetUserInfoReq) returns (GetUserInfoRsp);
-    rpc GetMultiUserInfo(GetMultiUserInfoReq) returns (GetMultiUserInfoRsp);
-    rpc SetUserAvatar(SetUserAvatarReq) returns (SetUserAvatarRsp);
-    rpc SetUserNickname(SetUserNicknameReq) returns (SetUserNicknameRsp);
-    rpc SetUserDescription(SetUserDescriptionReq) returns (SetUserDescriptionRsp);
-    rpc SetUserPhoneNumber(SetUserPhoneNumberReq) returns (SetUserPhoneNumberRsp);
+    rpc UserRegister(UserRegisterReq) returns (UserRegisterRsp);                   // http GET "/service/user/username_register"
+    rpc UserLogin(UserLoginReq) returns (UserLoginRsp);                            // http GET "/service/user/username_login"
+    rpc GetPhoneVerifyCode(PhoneVerifyCodeReq) returns (PhoneVerifyCodeRsp);       // http GET "/service/user/get_phone_verify_code"
+    rpc PhoneRegister(PhoneRegisterReq) returns (PhoneRegisterRsp);                // http GET "/service/user/phone_register"
+    rpc PhoneLogin(PhoneLoginReq) returns (PhoneLoginRsp);                         // http GET "/service/user/phone_login"
+    rpc GetUserInfo(GetUserInfoReq) returns (GetUserInfoRsp);                      // http GET "/service/user/get_user_info"
+    rpc GetMultiUserInfo(GetMultiUserInfoReq) returns (GetMultiUserInfoRsp);       // 内部接口  
+    rpc SetUserAvatar(SetUserAvatarReq) returns (SetUserAvatarRsp);                // http GET "/service/user/set_avatar"
+    rpc SetUserNickname(SetUserNicknameReq) returns (SetUserNicknameRsp);          // http GET "/service/user/set_nickname"
+    rpc SetUserDescription(SetUserDescriptionReq) returns (SetUserDescriptionRsp); // http GET "/service/user/set_description"
+    rpc SetUserPhoneNumber(SetUserPhoneNumberReq) returns (SetUserPhoneNumberRsp); // http GET "/service/user/set_phone"
 }

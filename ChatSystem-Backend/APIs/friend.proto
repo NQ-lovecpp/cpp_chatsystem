@@ -149,13 +149,13 @@ message GetChatSessionMemberRsp {
 }
 
 service FriendService {
-    rpc GetFriendList(GetFriendListReq) returns (GetFriendListRsp);
-    rpc FriendRemove(FriendRemoveReq) returns (FriendRemoveRsp);
-    rpc FriendAdd(FriendAddReq) returns (FriendAddRsp);
-    rpc FriendAddProcess(FriendAddProcessReq) returns (FriendAddProcessRsp);
-    rpc FriendSearch(FriendSearchReq) returns (FriendSearchRsp);
-    rpc GetChatSessionList(GetChatSessionListReq) returns (GetChatSessionListRsp);
-    rpc ChatSessionCreate(ChatSessionCreateReq) returns (ChatSessionCreateRsp);
-    rpc GetChatSessionMember(GetChatSessionMemberReq) returns (GetChatSessionMemberRsp);
-    rpc GetPendingFriendEventList(GetPendingFriendEventListReq) returns (GetPendingFriendEventListRsp);
+    rpc GetFriendList(GetFriendListReq) returns (GetFriendListRsp);                                     // http GET "/service/friend/get_friend_list"
+    rpc FriendRemove(FriendRemoveReq) returns (FriendRemoveRsp);                                        // http GET "/service/friend/remove_friend"
+    rpc FriendAdd(FriendAddReq) returns (FriendAddRsp);                                                 // http GET "/service/friend/add_friend_apply"
+    rpc FriendAddProcess(FriendAddProcessReq) returns (FriendAddProcessRsp);                            // http GET "/service/friend/add_friend_process"
+    rpc FriendSearch(FriendSearchReq) returns (FriendSearchRsp);                                        // http GET "/service/friend/search_friend"
+    rpc GetChatSessionList(GetChatSessionListReq) returns (GetChatSessionListRsp);                      // http GET "/service/friend/get_chat_session_list"
+    rpc ChatSessionCreate(ChatSessionCreateReq) returns (ChatSessionCreateRsp);                         // http GET "/service/friend/create_chat_session"
+    rpc GetChatSessionMember(GetChatSessionMemberReq) returns (GetChatSessionMemberRsp);                // http GET "/service/friend/get_chat_session_member"
+    rpc GetPendingFriendEventList(GetPendingFriendEventListReq) returns (GetPendingFriendEventListRsp); // http GET "/service/friend/get_pending_friend_events"
 }

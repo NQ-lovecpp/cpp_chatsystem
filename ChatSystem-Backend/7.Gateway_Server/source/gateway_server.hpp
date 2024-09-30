@@ -19,34 +19,34 @@
 
 namespace chen_im
 {
-#define GET_PHONE_VERIFY_CODE "/service/user/get_phone_verify_code"
-#define USERNAME_REGISTER "/service/user/username_register"
-#define USERNAME_LOGIN "/service/user/username_login"
-#define PHONE_REGISTER "/service/user/phone_register"
-#define PHONE_LOGIN "/service/user/phone_login"
-#define GET_USERINFO "/service/user/get_user_info"
-#define SET_USER_AVATAR "/service/user/set_avatar"
-#define SET_USER_NICKNAME "/service/user/set_nickname"
-#define SET_USER_DESC "/service/user/set_description"
-#define SET_USER_PHONE "/service/user/set_phone"
-#define FRIEND_GET_LIST "/service/friend/get_friend_list"
-#define FRIEND_APPLY "/service/friend/add_friend_apply"
-#define FRIEND_APPLY_PROCESS "/service/friend/add_friend_process"
-#define FRIEND_REMOVE "/service/friend/remove_friend"
-#define FRIEND_SEARCH "/service/friend/search_friend"
-#define FRIEND_GET_PENDING_EV "/service/friend/get_pending_friend_events"
-#define CSS_GET_LIST "/service/friend/get_chat_session_list"
-#define CSS_CREATE "/service/friend/create_chat_session"
-#define CSS_GET_MEMBER "/service/friend/get_chat_session_member"
-#define MSG_GET_RANGE "/service/message_storage/get_history"
-#define MSG_GET_RECENT "/service/message_storage/get_recent"
-#define MSG_KEY_SEARCH "/service/message_storage/search_history"
-#define NEW_MESSAGE "/service/message_transmit/new_message"
-#define FILE_GET_SINGLE "/service/file/get_single_file"
-#define FILE_GET_MULTI "/service/file/get_multi_file"
-#define FILE_PUT_SINGLE "/service/file/put_single_file"
-#define FILE_PUT_MULTI "/service/file/put_multi_file"
-#define SPEECH_RECOGNITION "/service/speech/recognition"
+#define GET_PHONE_VERIFY_CODE "/service/user/get_phone_verify_code" // "user.proto" rpc GetPhoneVerifyCode()
+#define USERNAME_REGISTER "/service/user/username_register"         // "user.proto" rpc UserRegister()
+#define USERNAME_LOGIN "/service/user/username_login"               // "user.proto" rpc UserLogin()
+#define PHONE_REGISTER "/service/user/phone_register"               // "user.proto" rpc PhoneRegister()
+#define PHONE_LOGIN "/service/user/phone_login"                     // "user.proto" rpc PhoneLogin()
+#define GET_USERINFO "/service/user/get_user_info"                  // "user.proto" rpc GetUserInfo()
+#define SET_USER_AVATAR "/service/user/set_avatar"                  // "user.proto" rpc SetUserAvatar()
+#define SET_USER_NICKNAME "/service/user/set_nickname"              // "user.proto" rpc SetUserNickname()
+#define SET_USER_DESC "/service/user/set_description"               // "user.proto" rpc SetUserDescription()
+#define SET_USER_PHONE "/service/user/set_phone"                    // "user.proto" rpc SetUserPhoneNumber()
+#define FRIEND_GET_LIST "/service/friend/get_friend_list"                  // "friend.proto" rpc GetFriendList()
+#define FRIEND_APPLY "/service/friend/add_friend_apply"                    // "friend.proto" rpc FriendAdd()
+#define FRIEND_APPLY_PROCESS "/service/friend/add_friend_process"          // "friend.proto" rpc FriendAddProcess()
+#define FRIEND_REMOVE "/service/friend/remove_friend"                      // "friend.proto" rpc FriendRemove()
+#define FRIEND_SEARCH "/service/friend/search_friend"                      // "friend.proto" rpc FriendSearch()
+#define FRIEND_GET_PENDING_EV "/service/friend/get_pending_friend_events"  // "friend.proto" rpc GetPendingFriendEventList()
+#define CSS_GET_LIST "/service/friend/get_chat_session_list"               // "friend.proto" rpc GetChatSessionList()
+#define CSS_CREATE "/service/friend/create_chat_session"                   // "friend.proto" rpc ChatSessionCreate()
+#define CSS_GET_MEMBER "/service/friend/get_chat_session_member"           // "friend.proto" rpc GetChatSessionMember()
+#define MSG_GET_RANGE "/service/message_storage/get_history"     // "message_storage.proto" rpc GetHistoryMsg()
+#define MSG_GET_RECENT "/service/message_storage/get_recent"     // "message_storage.proto" rpc GetRecentMsg()
+#define MSG_KEY_SEARCH "/service/message_storage/search_history" // "message_storage.proto" rpc MsgSearch()
+#define NEW_MESSAGE "/service/message_transmit/new_message" // "message_transmit.proto" rpc GetTransmitTarget()
+#define FILE_GET_SINGLE "/service/file/get_single_file" // "file.proto" rpc GetSingleFile()
+#define FILE_GET_MULTI "/service/file/get_multi_file"   // "file.proto" rpc GetMultiFile()
+#define FILE_PUT_SINGLE "/service/file/put_single_file" // "file.proto" rpc PutSingleFile()
+#define FILE_PUT_MULTI "/service/file/put_multi_file"   // "file.proto" rpc PutMultiFile()
+#define SPEECH_RECOGNITION "/service/speech/recognition" // "speech_recognition.proto" rpc SpeechRecognition()
     class GatewayServer
     {
     public:

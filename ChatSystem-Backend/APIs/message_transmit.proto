@@ -35,5 +35,5 @@ message GetTransmitTargetRsp {
 }
 
 service MsgTransmitService {
-    rpc GetTransmitTarget(NewMessageReq) returns (GetTransmitTargetRsp);
+    rpc GetTransmitTarget(NewMessageReq) returns (GetTransmitTargetRsp); // http GET "/service/message_transmit/new_message"
 }

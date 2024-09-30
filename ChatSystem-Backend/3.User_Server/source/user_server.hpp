@@ -91,7 +91,7 @@ namespace chen_im
         virtual void UserRegister(::google::protobuf::RpcController *controller,
                                   const ::chen_im::UserRegisterReq *request,
                                   ::chen_im::UserRegisterRsp *response,
-                                  ::google::protobuf::Closure *done) overrequest_ide
+                                  ::google::protobuf::Closure *done) override
         {
             LOG_DEBUG("收到用户注册请求！");
             brpc::ClosureGuard rpc_guard(done); // 把Closure指针管理起来，Closure在释放的时候会调用Run();

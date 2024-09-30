@@ -55,7 +55,7 @@ message MsgSearchRsp {
 }
 
 service MsgStorageService {
-    rpc GetHistoryMsg(GetHistoryMsgReq) returns (GetHistoryMsgRsp);
-    rpc GetRecentMsg(GetRecentMsgReq) returns (GetRecentMsgRsp);
-    rpc MsgSearch(MsgSearchReq) returns (MsgSearchRsp);
+    rpc GetHistoryMsg(GetHistoryMsgReq) returns (GetHistoryMsgRsp); // http GET "/service/message_storage/get_history"
+    rpc GetRecentMsg(GetRecentMsgReq) returns (GetRecentMsgRsp);    // http GET "/service/message_storage/get_recent"
+    rpc MsgSearch(MsgSearchReq) returns (MsgSearchRsp);             // http GET "/service/message_storage/search_history"
 }

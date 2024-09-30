@@ -67,6 +67,7 @@ void init_mysql()
     tb.insert(m5);
 }
 
+// 测试GetHistoryMsg
 void range_test(const std::string &ssid, 
     const boost::posix_time::ptime &stime,
     const boost::posix_time::ptime &etime) 
@@ -87,6 +88,7 @@ void range_test(const std::string &ssid,
     stub.GetHistoryMsg(&cntl, &req, &rsp, nullptr);
     ASSERT_FALSE(cntl.Failed());
     ASSERT_TRUE(rsp.success());
+
     for (int i = 0; i < rsp.msg_list_size(); i++) {
         std::cout << "-----------------------获取区间消息--------------------------\n";
         auto msg = rsp.msg_list(i);
@@ -111,6 +113,7 @@ void range_test(const std::string &ssid,
     }
 }
 
+// 测试GetRecentMsg
 void recent_test(const std::string &ssid, int count) 
 {
     auto channel = sm->get(FLAGS_message_store_service);
@@ -152,7 +155,7 @@ void recent_test(const std::string &ssid, int count)
     }
 }
 
-
+// MsgSearch
 void search_test(const std::string &ssid, const std::string &key) 
 {
     auto channel = sm->get(FLAGS_message_store_service);
@@ -209,14 +212,14 @@ int main(int argc, char *argv[])
     chen_im::Discovery::ptr dclient = std::make_shared<chen_im::Discovery>(FLAGS_etcd_host, FLAGS_base_service, put_cb, del_cb);
     
 
-    init_es();
-    init_mysql();
+    // init_es();
+    // init_mysql();
 
-    // boost::posix_time::ptime stime(boost::posix_time::time_from_string("2024-08-02 00:00:00"));
-    // boost::posix_time::ptime etime(boost::posix_time::time_from_string("2024-08-09 00:00:00"));
-    // range_test("会话ID1", stime, etime);
-    // recent_test("会话ID1", 2);
-    // search_test("会话ID1", "盖浇");
+    boost::posix_time::ptime stime(boost::posix_time::time_from_string("2000-08-02 00:00:00"));
+    boost::posix_time::ptime etime(boost::posix_time::time_from_string("2024-08-09 00:00:00"));
+    range_test("会话ID1", stime, etime);
+    recent_test("会话ID1", 2);
+    search_test("会话ID1", "盖浇");
 
     std::this_thread::sleep_for(std::chrono::seconds(600));
     return 0;

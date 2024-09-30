@@ -65,8 +65,8 @@ message PutMultiFileRsp {
 }
 
 service FileService {
-    rpc GetSingleFile(GetSingleFileReq) returns (GetSingleFileRsp);
-    rpc GetMultiFile(GetMultiFileReq) returns (GetMultiFileRsp);
-    rpc PutSingleFile(PutSingleFileReq) returns (PutSingleFileRsp);
-    rpc PutMultiFile(PutMultiFileReq) returns (PutMultiFileRsp);
+    rpc GetSingleFile(GetSingleFileReq) returns (GetSingleFileRsp); // "/service/file/get_single_file"
+    rpc GetMultiFile(GetMultiFileReq) returns (GetMultiFileRsp);    // "/service/file/get_multi_file"
+    rpc PutSingleFile(PutSingleFileReq) returns (PutSingleFileRsp); // "/service/file/put_single_file"
+    rpc PutMultiFile(PutMultiFileReq) returns (PutMultiFileRsp);    // "/service/file/put_multi_file"
 }

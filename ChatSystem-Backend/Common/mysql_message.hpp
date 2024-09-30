@@ -15,7 +15,7 @@ namespace chen_im
     class MessageTable
     {
     private:
-        std::shared_ptr<odb::mysql::database> _db; // 对数据库的增删查改操作，变成了对这个数据库对象的操作
+        std::shared_ptr<odb::mysql::database> _db; // 对数据库message表的增删查改操作，变成了对这个数据库对象的操作
 
     public:
         using ptr = std::shared_ptr<MessageTable>;
