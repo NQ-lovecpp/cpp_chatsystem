@@ -16,7 +16,7 @@ message ChatSessionInfo {
     //群聊会话不需要设置，单聊会话设置为对方用户ID
     string single_chat_friend_id = 1;
     string chat_session_id = 2; //会话ID
-    string chat_session_name = 3;//会话名称git 
+    string chat_session_name = 3;//会话名称 
     //会话上一条消息，新建的会话没有最新消息
     MessageInfo prev_message = 4;
     //会话头像 --群聊会话不需要，直接由前端固定渲染，单聊就是对方的头像

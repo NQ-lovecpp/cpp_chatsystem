@@ -1,5 +1,5 @@
 #include "etcd.hpp"
-#include "es_user_CRUD.hpp"
+#include "elasticsearch_user.hpp"
 #include "mysql_message.hpp"
 #include "mysql_odb_factory.hpp"
 #include "rpc_service_manager.hpp"

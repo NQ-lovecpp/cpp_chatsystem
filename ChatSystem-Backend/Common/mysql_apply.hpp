@@ -62,8 +62,8 @@ namespace chen_im
             }
             return true;
         }
-        // 获取当前指定用户的 所有好友申请者ID
-        std::vector<std::string> applyUsers(const std::string &uid)
+        // 获取当前指定用户的，所有正在申请添加好友的user_id
+        std::vector<std::string> apply_users(const std::string &uid)
         {
             std::vector<std::string> res;
             try

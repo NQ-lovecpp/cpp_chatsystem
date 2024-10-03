@@ -2,9 +2,9 @@
 #include <brpc/server.h>
 #include <butil/logging.h>
 
-#include "es_user_CRUD.hpp"    // es数据管理客户端封装
+#include "elasticsearch_user.hpp"    // es数据管理客户端封装
 #include "redis_CRUD.hpp"      // redis数据管理客户端封装
-#include "mysql_user_CRUD.hpp" // mysql数据管理客户端封装
+#include "mysql_user.hpp" // mysql数据管理客户端封装
 #include "etcd.hpp"            // 服务注册模块封装
 #include "logger.hpp"          // 日志模块封装
 #include "utility.hpp"         // 基础工具接口

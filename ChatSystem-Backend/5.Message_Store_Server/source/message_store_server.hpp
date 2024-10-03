@@ -3,7 +3,7 @@
 #include <brpc/server.h>
 #include <butil/logging.h>
 
-#include "es_user_CRUD.hpp"         // es数据管理客户端封装
+#include "elasticsearch_user.hpp"         // es数据管理客户端封装
 #include "mysql_message.hpp"        // mysql数据管理客户端封装
 #include "etcd.hpp"                 // 服务注册模块封装
 #include "logger.hpp"               // 日志模块封装
@@ -86,7 +86,7 @@ namespace chen_im
                 file_id_lists.insert(msg.file_id());
             }
             std::unordered_map<std::string, std::string> file_data_lists;
-            bool ret = _GetFile(request_id, file_id_lists, &file_data_lists);
+            bool ret = _get_files(request_id, file_id_lists, &file_data_lists);
             if (ret == false)
             {
                 LOG_ERROR("{} 批量文件数据下载失败！", request_id);
@@ -124,7 +124,7 @@ namespace chen_im
                 user_id_lists.insert(msg.user_id());
             }
             std::unordered_map<std::string, UserInfo> user_lists;
-            ret = _GetUser(request_id, user_id_lists, &user_lists);
+            ret = _get_user_info(request_id, user_id_lists, &user_lists);
             if (ret == false)
             {
                 LOG_ERROR("{} 批量用户数据获取失败！", request_id);
@@ -209,7 +209,7 @@ namespace chen_im
                 file_id_lists.insert(msg.file_id());
             }
             std::unordered_map<std::string, std::string> file_data_lists;
-            bool ret = _GetFile(request_id, file_id_lists, &file_data_lists);
+            bool ret = _get_files(request_id, file_id_lists, &file_data_lists);
             if (ret == false)
             {
                 LOG_ERROR("{} 批量文件数据下载失败！", request_id);
@@ -222,7 +222,7 @@ namespace chen_im
                 user_id_lists.insert(msg.user_id());
             }
             std::unordered_map<std::string, UserInfo> user_lists;
-            ret = _GetUser(request_id, user_id_lists, &user_lists);
+            ret = _get_user_info(request_id, user_id_lists, &user_lists);
             if (ret == false)
             {
                 LOG_ERROR("{} 批量用户数据获取失败！", request_id);
@@ -304,7 +304,7 @@ namespace chen_im
                 user_id_lists.insert(msg.user_id());
             }
             std::unordered_map<std::string, UserInfo> user_lists;
-            bool ret = _GetUser(request_id, user_id_lists, &user_lists);
+            bool ret = _get_user_info(request_id, user_id_lists, &user_lists);
             if (ret == false)
             {
                 LOG_ERROR("{} 批量用户数据获取失败！", request_id);
@@ -423,14 +423,14 @@ namespace chen_im
         /// @param user_id_lists 输入型参数，一批用户id
         /// @param user_lists 输出型参数，一批<用户id, 用户信息>
         /// @return 是否成功
-        bool _GetUser(const std::string &request_id,
+        bool _get_user_info(const std::string &request_id,
                       const std::unordered_set<std::string> &user_id_lists,
                       std::unordered_map<std::string, UserInfo> *user_lists)
         {
             auto channel = _service_manager->get(_user_service_name);
             if (!channel)
             {
-                LOG_ERROR("{} 没有可供访问的用户子服务节点！", _user_service_name);
+                LOG_ERROR("没有可供访问的用户子服务 {} 的节点！", _user_service_name);
                 return false;
             }
 
@@ -462,7 +462,7 @@ namespace chen_im
         /// @param file_id_lists 输入型参数，表示所有想要获取的文件id
         /// @param file_data_lists 输出型参数，一批<文件id, 文件内容>的键值对
         /// @return 是否成功
-        bool _GetFile(const std::string &request_id,
+        bool _get_files(const std::string &request_id,
                       const std::unordered_set<std::string> &file_id_lists,
                       std::unordered_map<std::string, std::string> *file_data_lists)
         {
@@ -511,7 +511,7 @@ namespace chen_im
             auto channel = _service_manager->get(_file_service_name);
             if (!channel)
             {
-                LOG_ERROR("{} 没有可供访问的文件子服务节点！", _file_service_name);
+                LOG_ERROR("没有可供访问的文件子服务 {} 的节点！", _file_service_name);
                 return false;
             }
             FileService_Stub stub(channel.get());

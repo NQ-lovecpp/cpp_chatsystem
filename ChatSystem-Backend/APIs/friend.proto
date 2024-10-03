@@ -43,8 +43,8 @@ message FriendRemoveRsp {
 message FriendAddReq {
     string request_id = 1;
      string session_id = 2;
-     string user_id = 3;//申请人id
-    string respondent_id = 4;//被申请人id
+     string user_id = 3;      //申请人id
+    string respondent_id = 4; //被申请人id
 }
 message FriendAddRsp {
     string request_id = 1;
@@ -56,9 +56,9 @@ message FriendAddRsp {
 //好友申请的处理
 message FriendAddProcessReq {
     string request_id = 1;
-    string notify_event_id = 2;//通知事件id
-    bool agree = 3;//是否同意好友申请
-    string apply_user_id = 4; //申请人的用户id
+    string notify_event_id = 2; //通知事件id
+    bool agree = 3;             //是否同意好友申请
+    string apply_user_id = 4;   //申请人的用户id
      string session_id = 5;
      string user_id = 6;
 }

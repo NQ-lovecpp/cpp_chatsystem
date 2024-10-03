@@ -92,6 +92,8 @@ namespace chen_im
             }
             return res;
         }
+
+        // 获取某个用户的所有单聊会话列表
         std::vector<SingleChatSession> singleChatSession(const std::string &uid)
         {
             std::vector<SingleChatSession> res;
@@ -100,7 +102,16 @@ namespace chen_im
                 odb::transaction trans(_db->begin());
                 typedef odb::query<SingleChatSession> query;
                 typedef odb::result<SingleChatSession> result;
-                // 当前的uid是被申请者的用户ID
+
+                // 对应的sql类似：
+                // SELECT css._chat_session_id, csm2._user_id AS friend_id
+                // FROM chat_session AS css
+                // JOIN chat_session_member AS csm1 ON css._chat_session_id = csm1._session_id
+                // JOIN chat_session_member AS csm2 ON css._chat_session_id = csm2._session_id
+                // WHERE css.chat_session_type = 1 -- SINGLE
+                //   AND csm1.user_id = 'uid_value' -- 替换为实际的 uid
+                //   AND csm2.user_id != csm1.user_id;
+
                 result r(_db->query<SingleChatSession>(
                     query::css::chat_session_type == ChatSessionType::SINGLE &&
                     query::csm1::user_id == uid &&
@@ -117,6 +128,8 @@ namespace chen_im
             }
             return res;
         }
+
+        // 获取某个用户的所有群聊会话列表
         std::vector<GroupChatSession> groupChatSession(const std::string &uid)
         {
             std::vector<GroupChatSession> res;

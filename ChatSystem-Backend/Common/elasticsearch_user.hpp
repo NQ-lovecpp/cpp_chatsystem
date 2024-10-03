@@ -1,4 +1,4 @@
-// ES数据管理：（二次封装一下icsearch.hpp，做用户索引的CRUD，这份头文件更加贴近业务）
+// ES数据管理：（二次封装一下elasticsearch_basic.hpp，做用户索引的CRUD，这份头文件更加贴近业务）
 //     在用户注册成功的时候，将用户的元信息，向ES也进行一份存储，以便于进行用户的搜索
 //     搜索关键字：是一个字符串，可能是一个用户ID,也可能是一个手机号，也可能是一个昵称的一部分
 //                且搜索的时候，不能搜索到自己，以及自己的好友，过滤条件其实就是一组用户ID
@@ -10,7 +10,7 @@
 //          2.新增数据／更新数据
 //          3.搜索用户 (输入一个关键字，以及一组过滤用户ID)
 #pragma once
-#include "icsearch.hpp"
+#include "elasticsearch_basic.hpp"
 #include "user.hxx"
 #include "message.hxx"
 #include "message-odb.hxx"
@@ -77,9 +77,9 @@ namespace chen_im
             return true;
         }
 
-        /// @brief 通过关键词key，找用户手机号、用户
+        /// @brief 通过关键词key，匹配用户ID或手机号或昵称关键字，找到一组用户
         /// @param key 
-        /// @param uid_list 要去除的用户ID（自己、自己的好友）
+        /// @param uid_list 要排除的用户ID（自己、自己的好友）
         std::vector<User> search(const std::string &key, const std::vector<std::string> &uid_list)
         {
             std::vector<User> res;

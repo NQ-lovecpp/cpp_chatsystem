@@ -1,3 +1,10 @@
+// 我们的子服务之间存在相互调用的关系，相互调用的本质是某个子服务需要调用其他子服务提供的rpc接口，
+// 在brpc框架下：
+// 1. 服务的调用者通过一个brpc::Channel来调用提供这个rpc服务的实例，
+//    而提供同一种rpc服务的服务实例会有很多，当然要把这些brpc::Channel管理起来，于是就有了ChannelManager类
+// 2. 服务的调用者可能会调用不止一个子服务，当然要把每个服务的ChannelManager对象都管理起来，
+//    于是就有了ServiceManager，它采用<服务名称, 该服务的信道管理对象>来管理服务
+
 #pragma once
 #include <brpc/channel.h>
 #include <string>

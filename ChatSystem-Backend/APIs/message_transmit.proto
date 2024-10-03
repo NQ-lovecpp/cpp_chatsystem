@@ -11,11 +11,11 @@ import "base.proto";
 
 option cc_generic_services = true;
 
-//这个用于和网关进行通信
+// 这个是由客户端发给网关，然后网关再原封不动发给消息转发子服务的结构体
 message NewMessageReq {
     string request_id = 1;
-     string user_id = 2;
-     string session_id = 3;
+    string user_id = 2;
+    string session_id = 3;
     string chat_session_id = 4;
     MessageContent message = 5;
 }
@@ -25,7 +25,7 @@ message NewMessageRsp {
     string errmsg = 3; 
 }
 
-//这个用于内部的通信,生成完整的消息信息，并获取消息的转发人员列表
+// 这个用于内部的通信（消息转发子服务告知网关 这个消息应该发给谁）
 message GetTransmitTargetRsp {
     string request_id = 1;
     bool success = 2;
@@ -35,5 +35,5 @@ message GetTransmitTargetRsp {
 }
 
 service MsgTransmitService {
-    rpc GetTransmitTarget(NewMessageReq) returns (GetTransmitTargetRsp); // http GET "/service/message_transmit/new_message"
+    rpc GetTransmitTarget(NewMessageReq) returns (GetTransmitTargetRsp); // 内部接口
 }

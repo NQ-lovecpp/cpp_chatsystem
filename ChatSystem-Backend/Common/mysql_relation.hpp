@@ -15,6 +15,7 @@ namespace chen_im
         bool insert(const std::string &uid, const std::string &pid)
         {
             //{1,2} {2,1}
+            // 1的好友是2，2的好友是1
             try
             {
                 Relation r1(uid, pid);
@@ -70,8 +71,9 @@ namespace chen_im
             }
             return flag;
         }
-        // 获取指定用户的好友ID
-        std::vector<std::string> friends(const std::string &uid)
+        
+        // 获取指定用户的所有好友ID
+        std::vector<std::string> get_friends(const std::string &uid)
         {
             std::vector<std::string> res;
             try

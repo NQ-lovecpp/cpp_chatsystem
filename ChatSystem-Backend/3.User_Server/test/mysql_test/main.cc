@@ -1,5 +1,5 @@
 #include "mysql_odb_factory.hpp"
-#include "mysql_user_CRUD.hpp"
+#include "mysql_user.hpp"
 #include "user-odb.hxx"
 #include <gflags/gflags.h>
 

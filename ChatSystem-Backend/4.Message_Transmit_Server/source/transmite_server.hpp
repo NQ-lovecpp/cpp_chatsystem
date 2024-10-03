@@ -1,4 +1,4 @@
-// 实现语音识别子服务
+// 
 #include <brpc/server.h>
 #include <butil/logging.h>
 
@@ -44,6 +44,9 @@ namespace chen_im
               _mq_client(mq_client) 
         {}
         ~TransmiteServiceImpl() {}
+
+        // 获取消息的转发目标，实际上是根据发来的用户id，和chat_session_id来
+        // 向MySQL获取用户所在的聊天会话下的所有成员id
         void GetTransmitTarget(google::protobuf::RpcController *controller,
                                const ::chen_im::NewMessageReq *request,
                                ::chen_im::GetTransmitTargetRsp *response,
@@ -58,51 +61,53 @@ namespace chen_im
                 response->set_errmsg(errmsg);
                 return;
             };
-            // 从请求中获取关键信息：用户ID，所属会话ID，消息内容
+            // 1. 从请求中获取关键信息：用户ID，所属会话ID，消息内容
             std::string request_id = request->request_id();
             std::string uid = request->user_id();
             std::string chat_ssid = request->chat_session_id();
             const MessageContent &content = request->message();
-            // 进行消息组织：发送者-用户子服务获取信息，所属会话，消息内容，产生时间，消息ID
+
+            // 2. 进行消息组织：从用户子服务获取发送者的信息，所属会话，消息内容，产生时间，消息ID
+            // 因为请求体中只提供了用户ID，所以调用用户子服务获取消息发送者的完整信息
             auto channel = _service_manager->get(_user_service_name);
-            if (!channel)
-            {
-                LOG_ERROR("{}-{} 没有可供访问的用户子服务节点！", request_id, _user_service_name);
+            if (!channel) {
+                LOG_ERROR("没有可供访问的用户子服务 {} 的节点！", _user_service_name);
                 return err_response(request_id, "没有可供访问的用户子服务节点！");
             }
+
             UserService_Stub stub(channel.get());
             GetUserInfoReq req;
             GetUserInfoRsp rsp;
             req.set_request_id(request_id);
             req.set_user_id(uid);
             brpc::Controller cntl;
-            stub.GetUserInfo(&cntl, &req, &rsp, nullptr);
-            if (cntl.Failed() == true || rsp.success() == false)
-            {
-                LOG_ERROR("{} - 用户子服务调用失败：{}！", request->request_id(), cntl.ErrorText());
+            stub.GetUserInfo(&cntl, &req, &rsp, nullptr); // 调用
+            if (cntl.Failed() == true || rsp.success() == false) {
+                LOG_ERROR("用户子服务调用失败，原因：{}，request_id: {}！", cntl.ErrorText(), request->request_id());
                 return err_response(request->request_id(), "用户子服务调用失败!");
             }
-            MessageInfo message;
-            message.set_message_id(generate_uuid());
-            message.set_chat_session_id(chat_ssid);
-            message.set_timestamp(time(nullptr));
-            message.mutable_sender()->CopyFrom(rsp.user_info());
-            message.mutable_message()->CopyFrom(content);
-            // 获取消息转发客户端用户列表
-            auto target_list = _mysql_session_member_table->members(chat_ssid);
-            // 将封装完毕的消息，发布到消息队列，待消息存储子服务进行消息持久化
-            bool ret = _mq_client->publish_message(_exchange_name, message.SerializeAsString(), _routing_key);
-            if (ret == false)
-            {
-                LOG_ERROR("{} - 持久化消息发布失败：{}！", request->request_id(), cntl.ErrorText());
-                return err_response(request->request_id(), "持久化消息发布失败：!");
+            MessageInfo message_info;
+            message_info.set_message_id(generate_uuid());
+            message_info.set_chat_session_id(chat_ssid);
+            message_info.set_timestamp(time(nullptr));
+            message_info.mutable_sender()->CopyFrom(rsp.user_info());
+            message_info.mutable_message()->CopyFrom(content);
+
+            // 3. 获取消息转发的用户列表（本质是查询这个聊天会话下除了自己以外的所有成员）
+            auto target_list = _mysql_session_member_table->get_members(chat_ssid);
+            
+            // 4. 将封装完毕的消息，发布到消息队列，待消息存储子服务进行消息持久化
+            bool ret = _mq_client->publish_message(_exchange_name, message_info.SerializeAsString(), _routing_key);
+            if (ret == false) {
+                LOG_ERROR("向消息队列发布消息失败失败，原因：{}，request_id: {}！", cntl.ErrorText(), request->request_id());
+                return err_response(request->request_id(), "无法向消息队列发布一条聊天消息!");
             }
-            // 组织响应
+
+            // 5. 组织响应
             response->set_request_id(request_id);
             response->set_success(true);
-            response->mutable_message()->CopyFrom(message);
-            for (const auto &id : target_list)
-            {
+            response->mutable_message()->CopyFrom(message_info);
+            for (const auto &id : target_list) {
                 response->add_target_id_list(id);
             }
         }
@@ -249,7 +254,7 @@ namespace chen_im
 
     private:
         std::string _user_service_name;
-        ServiceManager::ptr _service_manager;
+        ServiceManager::ptr _service_manager; // Discovery的初识化依赖它，TransmiteServiceImpl也需要它，因为要调用别的rpc服务
         Discovery::ptr _service_discoverer;
 
         std::string _routing_key;
@@ -258,6 +263,6 @@ namespace chen_im
 
         Registry::ptr _registry_client;                      // 服务注册客户端
         std::shared_ptr<odb::mysql::database> _mysql_client; // mysql数据库客户端
-        std::shared_ptr<brpc::Server> _rpc_server;
+        std::shared_ptr<brpc::Server> _rpc_server;           // rpc服务器
     };
 }

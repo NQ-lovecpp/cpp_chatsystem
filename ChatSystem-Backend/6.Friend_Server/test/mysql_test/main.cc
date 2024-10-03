@@ -12,7 +12,7 @@ void r_insert_test(chen_im::RelationTable &tb) {
     tb.insert("用户ID1", "用户ID3");
 }
 void r_select_test(chen_im::RelationTable &tb) {
-    auto res = tb.friends("c4dc-68239a9a-0001");
+    auto res = tb.get_friends("c4dc-68239a9a-0001");
     for (auto &uid:res) {
         std::cout << uid << std::endl;
     }
@@ -44,7 +44,7 @@ void a_select_test(chen_im::FriendApplyTable &tb) {
     // chen_im::FriendApply fa3("uuid3", "用户ID2", "用户ID3");
     // tb.insert(fa3);
 
-    auto res = tb.applyUsers("用户ID2");
+    auto res = tb.apply_users("用户ID2");
     for (auto &uid:res) {
         std::cout << uid << std::endl;
     }
