@@ -65,7 +65,7 @@ namespace chen_im
             _redis_client->del(ssid);
         }
 
-        sw::redis::OptionalString uid(const std::string &ssid)
+        sw::redis::OptionalString get_uid(const std::string &ssid)
         {
             return _redis_client->get(ssid);
         }

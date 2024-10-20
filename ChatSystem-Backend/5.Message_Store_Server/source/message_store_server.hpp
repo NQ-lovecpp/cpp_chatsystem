@@ -3,7 +3,7 @@
 #include <brpc/server.h>
 #include <butil/logging.h>
 
-#include "elasticsearch_user.hpp"         // es数据管理客户端封装
+#include "elasticsearch_user.hpp"   // es数据管理客户端封装
 #include "mysql_message.hpp"        // mysql数据管理客户端封装
 #include "etcd.hpp"                 // 服务注册模块封装
 #include "logger.hpp"               // 日志模块封装
@@ -330,14 +330,44 @@ namespace chen_im
         void when_get_an_message(const char *body, size_t sz)
         {
             LOG_DEBUG("收到新消息，进行存储处理！");
+
+            bool ret;
+            
             // 1. 取出序列化的消息内容，进行反序列化
             chen_im::MessageInfo message;
-            bool ret = message.ParseFromArray(body, sz);
-            if (ret == false)
-            {
-                LOG_ERROR("消息反序列化失败！");
-                return;
-            }
+
+            ret = message.ParseFromArray(body, sz);
+
+
+
+            // std::string pure_message(body, sz);
+            // // 找到最后一个非\0的位置
+            // size_t pos = pure_message.find("�");
+
+            // // 如果找到，截取该位置之后的所有内容，否则表示字符串全是\0
+            // if (pos != std::string::npos) {
+            //     pure_message.erase(pos); // 保留到最后一个非\0的位置
+            // }
+
+            // // 1. 取出序列化的消息内容，进行反序列化
+            // chen_im::MessageInfo message;
+            // try {
+            //     ret = message.ParseFromString(pure_message);
+            //     if (!ret) {
+            //         LOG_ERROR("消息解析失败！pure_message: {}", pure_message);
+
+            //         std::string file_name = "./buglog_consumer_" + std::to_string(time(nullptr)) + ".bin";
+            //         std::ofstream bug(file_name, std::ios::binary | std::ios::app);
+            //         bug.write(body, sz); // 写入二进制数据
+            //         bug.close(); // 关闭文件流
+            //         return;
+            //     }
+            // } catch (const std::exception& e) {
+            //     LOG_ERROR("消息解析过程中出现异常: {}", e.what());
+            //     return;
+            // }
+
+
             // 2. 根据不同的消息类型进行不同的处理
             std::string file_id, file_name, content;
             int64_t file_size;
@@ -684,7 +714,7 @@ namespace chen_im
             }
             
             // 当brpc服务器启动后再设置消息队列客户端的回调函数
-            _mq_client->consume_message(_queue_name, "test-tag", callback);
+            _mq_client->consume_message(_queue_name, "msg_queue", callback);
         }
         // 构造RPC服务器对象
         MessageServer::ptr build()

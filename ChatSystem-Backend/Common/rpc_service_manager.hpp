@@ -116,7 +116,7 @@ public:
         _concern.insert(service_name);
     }
 
-    // 某个服务的某个节点上线的时候被etcd回调的接口，如果这个服务被设置为“关心”，则会被管理起来
+    // 某个服务的某个节点上线的时候被Discovery客户端回调的接口，如果这个服务被设置为“关心”，则会被ServiceManager管理起来
     void when_service_online(const std::string &service_instance_name, const std::string &host)
     {
         std::string service_name = get_service_name(service_instance_name);
@@ -150,7 +150,7 @@ public:
 
 
 
-    // 某个服务的某个节点下线的时候被etcd回调的接口，如果这个服务被设置为“关心”，则会被管理起来
+    // 某个服务的某个节点下线的时候被Discovery客户端回调的接口
     void when_service_offline(const std::string &service_instance_name, const std::string &host)
     {
         std::string service_name = get_service_name(service_instance_name);

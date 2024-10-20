@@ -16,6 +16,7 @@ DEFINE_string(etcd_host, "http://127.0.0.1:2379", "服务注册中心地址");
 DEFINE_string(base_service, "/service", "服务监控根目录");
 DEFINE_string(service_to_call, "/service/echo", "服务监控根目录");
 
+using namespace chen_im;
 
 int main(int argc, char *argv[])
 {

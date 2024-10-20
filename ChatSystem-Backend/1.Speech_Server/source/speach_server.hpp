@@ -22,7 +22,7 @@ namespace chen_im
         virtual void SpeechRecognition(::google::protobuf::RpcController* controller,
                        const ::chen_im::SpeechRecognitionReq* request,
                        ::chen_im::SpeechRecognitionRsp* response,
-                       ::google::protobuf::Closure* done) overrequest_ide
+                       ::google::protobuf::Closure* done) override
         {
             // 把Closure指针管理起来
             brpc::ClosureGuard closure_guard(done);

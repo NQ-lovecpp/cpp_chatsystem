@@ -67,7 +67,7 @@ message FriendAddProcessRsp {
     string request_id = 1;
     bool success = 2;
     string errmsg = 3; 
-     string new_session_id = 4; // 同意后会创建会话，向网关返回会话信息，用于通知双方会话的建立，这个字段客户端不需要关注
+     string new_session_id = 4; // 同意后会创建会话，向网关返回新创建的会话信息，用于通知双方会话的建立，这个字段客户端不需要关注
 }
 //--------------------------------------
 //获取待处理的，申请自己好友的信息列表

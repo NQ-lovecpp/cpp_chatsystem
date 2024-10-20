@@ -4,7 +4,8 @@ option cc_generic_services = true;
 /*
     消息推送使用websocket长连接进行
     websocket长连接转换请求：ws://host:ip/ws
-    长连建立以后，需要客户端给服务器发送一个身份验证信息
+    长连建立以后，需要客户端给服务器发送一个身份验证信息，且仅会在连接建立成功的时候发一次
+    也就是说下面的两个message，一个客户端的登录过程中只会用到一次
 */
 message ClientAuthenticationReq {
     string request_id = 1;

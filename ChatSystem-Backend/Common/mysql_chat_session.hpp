@@ -37,7 +37,7 @@ namespace chen_im
                 _db->erase_query<ChatSession>(query::chat_session_id == ssid);
 
                 typedef odb::query<ChatSessionMember> mquery;
-                _db->erase_query<ChatSessionMember>(mquery::session_id == ssid);
+                _db->erase_query<ChatSessionMember>(mquery::chat_session_id == ssid);
                 trans.commit();
             }
             catch (std::exception &e)
@@ -65,7 +65,7 @@ namespace chen_im
                 _db->erase_query<ChatSession>(cquery::chat_session_id == cssid);
 
                 typedef odb::query<ChatSessionMember> mquery;
-                _db->erase_query<ChatSessionMember>(mquery::session_id == cssid);
+                _db->erase_query<ChatSessionMember>(mquery::chat_session_id == cssid);
                 trans.commit();
             }
             catch (std::exception &e)

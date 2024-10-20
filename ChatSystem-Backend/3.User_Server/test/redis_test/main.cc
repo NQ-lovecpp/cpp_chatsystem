@@ -23,13 +23,13 @@ void session_test(const std::shared_ptr<sw::redis::Redis> &client) {
     ss.remove("会话ID2");
     ss.remove("会话ID3");
 
-    auto res1 = ss.uid("会话ID1");
+    auto res1 = ss.get_uid("会话ID1");
     if (res1) std::cout << *res1 << std::endl;
-    auto res2 = ss.uid("会话ID2");
+    auto res2 = ss.get_uid("会话ID2");
     if (res2) std::cout << *res2 << std::endl;
-    auto res3 = ss.uid("会话ID3");
+    auto res3 = ss.get_uid("会话ID3");
     if (res3) std::cout << *res3 << std::endl;
-    auto res4 = ss.uid("会话ID4");
+    auto res4 = ss.get_uid("会话ID4");
     if (res4) std::cout << *res4 << std::endl;
 }
 

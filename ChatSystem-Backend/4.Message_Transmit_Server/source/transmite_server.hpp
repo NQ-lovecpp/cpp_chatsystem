@@ -1,6 +1,10 @@
-// 
+#pragma once
 #include <brpc/server.h>
 #include <butil/logging.h>
+#include <time.h>
+#include <unistd.h>
+#include <fstream>
+
 
 #include "etcd.hpp"   // 服务注册模块封装
 #include "logger.hpp" // 日志模块封装
@@ -89,7 +93,7 @@ namespace chen_im
             MessageInfo message_info;
             message_info.set_message_id(generate_uuid());
             message_info.set_chat_session_id(chat_ssid);
-            message_info.set_timestamp(time(nullptr));
+            message_info.set_timestamp(::time(nullptr));
             message_info.mutable_sender()->CopyFrom(rsp.user_info());
             message_info.mutable_message()->CopyFrom(content);
 
@@ -97,10 +101,18 @@ namespace chen_im
             auto target_list = _mysql_session_member_table->get_members(chat_ssid);
             
             // 4. 将封装完毕的消息，发布到消息队列，待消息存储子服务进行消息持久化
-            bool ret = _mq_client->publish_message(_exchange_name, message_info.SerializeAsString(), _routing_key);
+            std::string message_info_serialized;
+            message_info.SerializeToString(&message_info_serialized);
+            bool ret = _mq_client->publish_message(_exchange_name, message_info_serialized, _routing_key);
             if (ret == false) {
                 LOG_ERROR("向消息队列发布消息失败失败，原因：{}，request_id: {}！", cntl.ErrorText(), request->request_id());
                 return err_response(request->request_id(), "无法向消息队列发布一条聊天消息!");
+            } else {
+                LOG_DEBUG("向消息队列发布消息成功，将message_info写入文件buglog.bin");
+                std::ofstream bug("./buglog_producer.bin", std::ios::binary);
+                bug << message_info_serialized;
+                bug.flush();
+                bug.close();
             }
 
             // 5. 组织响应

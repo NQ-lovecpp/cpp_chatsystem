@@ -1,4 +1,4 @@
-# 一、聊天室后端服务器摘要
+# 一、聊天室后端服务器设计摘要
 
 项目流程：
 1. 功能需求确定阶段：
@@ -54,10 +54,14 @@
     - 单个文件的下载：在后台用于获取用户头像文件数据，以及客户端用于获取文件/语音/图片消息的文件数据
     - 多个文件的下载：在后台用于大批量获取用户头像数据（比如获取用户列表的时候），以及前端的批量文件下载
 25. 语音消息的文字转换：客户端进行语音消息的文字转换。
-除了以上的与客户端之间交互的功能之外，还包含一些服务器后台内部所需的功能：
-    1. 消息的存储：用于将文本消息进行存储起来，以便于进行消息的搜索，以及离线消息的存储。
-    2. 文件的存储：用于存储用户的头像文件，以及消息中的文件/图片/语音文件数据。
-    3. 各项用户，好友，会话数据的存储管理
+
+
+>除了以上的与客户端之间交互的功能之外，还包含一些服务器后台内部所需的功能：
+
+1.  消息的存储：用于将文本消息进行存储起来，以便于进行消息的搜索，且使得客户端不需要进行消息存储。
+2.  文件的存储：用于存储用户的头像文件，以及消息中的文件/图片/语音文件数据。
+3.  用户信息，好友关系，会话信息，好友申请事件的存储管理
+
 
 ## 框架与微服务拆分设计
 
@@ -80,19 +84,19 @@
 
 
 
-基于微服务的思想，以及聊天室项目的业务功能，将聊天室项目进行服务拆分为以下几个子服务：
+>基于微服务的思想，以及聊天室项目的业务功能，将聊天室项目进行服务拆分为以下**6个子服务**和**1个网关服务**：
 
 ### ① 网关服务
 网关服务，提供与客户端进行直接交互的作用，用于接收客户端的各项不同的请求，进行用户鉴权通过后，将请求分发到各个不同的子服务进行处理，接收到响应后，发送给客户端。
 
-用户鉴权：客户端在登录成功后，后台会为客户端创建登录会话，并向客户端返回一个登录会话ID，往后，客户端发送的所有请求中都必须带有对应的会话ID进行身份识别，否则视为未登录，不予提供除注册/登录/验证码获取以外的所有服务。
+用户鉴权指的是，客户端在登录成功后，后台会为客户端创建登录会话，并向客户端返回一个登录会话ID，往后，客户端发送的所有请求中都必须带有对应的会话ID进行身份识别，否则视为未登录，**不予提供除注册/登录/验证码获取以外的所有服务**。
 
 在网关服务中，基于不同的使用目的，向客户端提供两种不同的通信：
 
 #### HTTP通信：
 在项目的设计中客户端的大部分业务都是基于请求-响应模式进行的，因此基于便于扩展，设计简单的目的，采用HTTP协议作为与客户端进行基础的业务请求的通信协议，在HTTP通信中涵盖了上述所有的功能接口请求。
 #### WEBSOCKET通信：
-在聊天室项目中，不仅仅包含客户端主动请求的业务，还包含了一些需要服务器主动推送的通知，因为HTTP不支持服务器主动推送数据，因此采用Websocket协议进行长连接的通信，向客户端发送通知类型的数据，包括：
+在聊天室项目中，不仅仅包含客户端主动请求的业务，还包含了一些需要服务器主动推送的通知的情况。由于**HTTP不支持服务器主动推送数据**，因此采用Websocket协议保持长连接的通信，向客户端发送通知类型的数据，包括：
 - 好友申请的通知
 - 好友申请处理结果的通知
 - 好友删除的通知
@@ -137,7 +141,7 @@
 - 获取消息转发目标：针对消息内容，根据其中的会话信息，告知网关转发目标。
 
 ### ⑤ 消息存储子服务
-消息存储子服务，主要用于持久化存储消息、查询消息，因此需要提供以下接口：
+消息存储子服务，主要用于持久化存储消息、查询历史消息，因此需要提供以下接口：
 1. 获取消息：
     - 获取最近N条消息：用于登录成功后，点击对方头像打开聊天框时显示最近的消息
     - 获取指定时间段内的消息：用户可以进行聊天消息的按时间搜索
@@ -145,10 +149,10 @@
 
 
 ### ⑥ 文件管理子服务
-文件管理子服务，主要用于管理用户的头像，以及消息中的文件存储，因此需要提供以下接口：
+文件管理子服务，主要用于管理用户的头像，以及文件消息、语音消息的存储，因此需要提供以下接口：
 1. 文件的上传
-    - 单个文件的上传：这个接口基本用于后台部分，收到文件消息后将文件数据转发给文件子服务进行存储
-    - 多个文件的上传：这个接口基本用于后台部分，收到文件消息后将文件数据转发给文件子服务进行存储
+    - 单个文件的上传：收到文件消息、语音消息或用户更新头像后将文件数据转发给文件子服务进行存储
+    - 多个文件的上传：收到文件消息、语音消息或用户更新头像后将文件数据转发给文件子服务进行存储
 2. 文件的下载
     - 单个文件的下载：在后台用于获取用户头像文件数据，以及客户端用于获取文件/语音/图片消息的文件数据
     - 多个文件的下载：在后台用于大批量获取用户头像数据（比如获取用户列表的时候），以及前端的批量文件下载
@@ -243,7 +247,7 @@ Git 是目前最流行的分布式版本控制系统，用于跟踪源代码的�
 
 在开发C++应用程序时，通常会使用一些第三方框架来简化开发工作。以下是一些常用框架的安装步骤。
 **
-### 2.1 gflags 框架**安装
+### 2.1 gflags 框架安装
 
 ```bash
 sudo apt-get install libgflags-dev
@@ -443,7 +447,40 @@ sudo rabbitmq-plugins enable rabbitmq_management
 
 
 # 五、微服务通信接口设计
-因为微服务框架的思想是将业务拆分到不同的节点主机上提供服务，因此主机节点之间的通信就尤为重要，而在进行开发之前，首先要做的就是将通信接口定义出来（用protobuf），这样只要双方遵循约定，即可实现业务往来。
+因为微服务框架的思想是将业务拆分到不同的节点主机上提供服务，因此主机节点之间的通信就尤为重要，而在进行开发之前，首先要做的就是将通信接口（service）以及传输的数据结构定义出来（message），比如：
+```proto
+//用户名注册   
+message UserRegisterReq {
+    string request_id = 1;
+    string nickname = 2;
+    string password = 3;
+}
+message UserRegisterRsp {
+    string request_id = 1;
+    bool success = 2;
+    string errmsg = 3;
+}
+
+service UserService {
+    rpc UserRegister(UserRegisterReq) returns (UserRegisterRsp);                   
+    rpc UserLogin(UserLoginReq) returns (UserLoginRsp);                           
+    rpc GetPhoneVerifyCode(PhoneVerifyCodeReq) returns (PhoneVerifyCodeRsp);       
+    rpc PhoneRegister(PhoneRegisterReq) returns (PhoneRegisterRsp);               
+    rpc PhoneLogin(PhoneLoginReq) returns (PhoneLoginRsp);                        
+    rpc GetUserInfo(GetUserInfoReq) returns (GetUserInfoRsp);                     
+    rpc GetMultiUserInfo(GetMultiUserInfoReq) returns (GetMultiUserInfoRsp);      
+    rpc SetUserAvatar(SetUserAvatarReq) returns (SetUserAvatarRsp);               
+    rpc SetUserNickname(SetUserNicknameReq) returns (SetUserNicknameRsp);         
+    rpc SetUserDescription(SetUserDescriptionReq) returns (SetUserDescriptionRsp);
+    rpc SetUserPhoneNumber(SetUserPhoneNumberReq) returns (SetUserPhoneNumberRsp);
+}
+```
+解释：
+1. `message` 用于定义结构化的数据类型。它类似于类或结构体，包含多个字段，每个字段都有类型和唯一的字段编号。
+2. `service` 用于定义 RPC（远程过程调用）服务，它描述了一组可以被调用的远程方法。每个方法通常具有输入类型和输出类型（都为 message 类型）。
+
+
+这样只要每个要相互通信的子服务之间遵循这份约定，即可实现业务往来。
 
 
 
@@ -500,38 +537,228 @@ message ClientAuthenticationRsp {
 
   以下是HTTP请求的功能与接口路径对应关系：
 
-| 功能描述                           | HTTP路径                                    |
-|-----------------------------------|--------------------------------------------|
-| 获取随机验证码                     | /service/user/get_random_verify_code        |
-| 获取短信验证码                     | /service/user/get_phone_verify_code         |
-| 用户名密码注册                     | /service/user/username_register             |
-| 用户名密码登录                     | /service/user/username_login                |
-| 手机号码注册                       | /service/user/phone_register                |
-| 手机号码登录                       | /service/user/phone_login                   |
-| 获取个人信息                       | /service/user/get_user_info                 |
-| 修改头像                           | /service/user/set_avatar                    |
-| 修改昵称                           | /service/user/set_nickname                  |
-| 修改签名                           | /service/user/set_description               |
-| 修改绑定手机                       | /service/user/set_phone                     |
-| 获取好友列表                       | /service/friend/get_friend_list             |
-| 获取好友信息                       | /service/friend/get_friend_info             |
-| 发送好友申请                       | /service/friend/add_friend_apply            |
-| 好友申请处理                       | /service/friend/add_friend_process          |
-| 删除好友                           | /service/friend/remove_friend               |
-| 搜索用户                           | /service/friend/search_friend               |
-| 获取指定用户的消息会话列表           | /service/friend/get_chat_session_list       |
-| 创建消息会话                       | /service/friend/create_chat_session         |
-| 获取消息会话成员列表                 | /service/friend/get_chat_session_member     |
-| 获取待处理好友申请事件列表           | /service/friend/get_pending_friend_events   |
-| 获取历史消息/离线消息列表            | /service/message_storage/get_history        |
-| 获取最近N条消息列表                 | /service/message_storage/get_recent         |
-| 搜索历史消息                       | /service/message_storage/search_history     |
-| 发送消息                           | /service/message_transmit/new_message       |
-| 获取单个文件数据                    | /service/file/get_single_file               |
-| 获取多个文件数据                    | /service/file/get_multi_file                |
-| 发送单个文件                       | /service/file/put_single_file               |
-| 发送多个文件                       | /service/file/put_multi_file                |
-| 语音转文字                         | /service/speech/recognition                 |
+| 功能描述                           | HTTP路径                                    | 调用的子服务名称            | HTTP请求执行逻辑中实际调用的RPC接口名称           | 是否需要鉴权         |
+|-----------------------------------|--------------------------------------------|----------------------------|---------------------------------------------|--------------------|
+| 获取短信验证码                     | /service/user/get_phone_verify_code         | User_Server                 | GetPhoneVerifyCode                          | 否                 |
+| 用户名密码注册                     | /service/user/username_register             | User_Server                 | UserRegister                                | 否                 |
+| 用户名密码登录                     | /service/user/username_login                | User_Server                 | UserLogin                                   | 否                 |
+| 手机号码注册                       | /service/user/phone_register                | User_Server                 | PhoneRegister                               | 否                 |
+| 手机号码登录                       | /service/user/phone_login                   | User_Server                 | PhoneLogin                                  | 否                 |
+| 获取个人信息                       | /service/user/get_user_info                 | User_Server                 | GetUserInfo                                 | 是                 |
+| 修改头像                           | /service/user/set_avatar                    | User_Server                 | SetUserAvatar                               | 是                 |
+| 修改昵称                           | /service/user/set_nickname                  | User_Server                 | SetUserNickname                             | 是                 |
+| 修改签名                           | /service/user/set_description               | User_Server                 | SetUserDescription                          | 是                 |
+| 修改绑定手机                       | /service/user/set_phone                     | User_Server                 | SetUserPhoneNumber                          | 是                 |
+| 获取好友列表                       | /service/friend/get_friend_list             | Friend_Server               | GetFriendList                               | 是                 |
+| 发送好友申请                       | /service/friend/add_friend_apply            | Friend_Server               | FriendAdd                                   | 是                 |
+| 好友申请处理                       | /service/friend/add_friend_process          | Friend_Server               | FriendAddProcess                            | 是                 |
+| 删除好友                           | /service/friend/remove_friend               | Friend_Server               | FriendRemove                                | 是                 |
+| 搜索用户                           | /service/friend/search_friend               | Friend_Server               | FriendSearch                                | 是                 |
+| 获取指定用户的消息会话列表           | /service/friend/get_chat_session_list       | Friend_Server               | GetChatSessionList                          | 是                 |
+| 创建消息会话                       | /service/friend/create_chat_session         | Friend_Server               | ChatSessionCreate                           | 是                 |
+| 获取消息会话成员列表                 | /service/friend/get_chat_session_member     | Friend_Server               | GetChatSessionMember                        | 是                 |
+| 获取待处理好友申请事件列表           | /service/friend/get_pending_friend_events   | Friend_Server               | GetPendingFriendEventList                   | 是                 |
+| 获取历史消息/离线消息列表            | /service/message_storage/get_history        | Message_Store_Server        | GetHistoryMsg                               | 是                 |
+| 获取最近N条消息列表                 | /service/message_storage/get_recent         | Message_Store_Server        | GetRecentMsg                                | 是                 |
+| 搜索历史消息                       | /service/message_storage/search_history     | Message_Store_Server        | MsgSearch                                   | 是                 |
+| 发送消息                           | /service/message_transmit/new_message       | Message_Transmit_Server     | GetTransmitTarget                           | 是                 |
+| 获取单个文件数据                    | /service/file/get_single_file               | File_Server                 | GetSingleFile                               | 是                 |
+| 获取多个文件数据                    | /service/file/get_multi_file                | File_Server                 | GetMultiFile                                | 是                 |
+| 发送单个文件                       | /service/file/put_single_file               | File_Server                 | PutSingleFile                               | 是                 |
+| 发送多个文件                       | /service/file/put_multi_file                | File_Server                 | PutMultiFile                                | 是                 |
+| 语音转文字                         | /service/speech/recognition                 | Speech_Server               | SpeechRecognition                           | 是                 |
+
+
+html表格：
+
+<table border="1" cellpadding="10">
+  <thead>
+    <tr>
+      <th>功能描述</th>
+      <th>HTTP路径</th>
+      <th>调用的子服务名称</th>
+      <th>HTTP请求执行逻辑中实际调用的RPC接口名称</th>
+      <th>是否需要鉴权</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>获取短信验证码</td>
+      <td>/service/user/get_phone_verify_code</td>
+      <td rowspan="10">User_Server</td>
+      <td>GetPhoneVerifyCode</td>
+      <td>否</td>
+    </tr>
+    <tr>
+      <td>用户名密码注册</td>
+      <td>/service/user/username_register</td>
+      <td>UserRegister</td>
+      <td>否</td>
+    </tr>
+    <tr>
+      <td>用户名密码登录</td>
+      <td>/service/user/username_login</td>
+      <td>UserLogin</td>
+      <td>否</td>
+    </tr>
+    <tr>
+      <td>手机号码注册</td>
+      <td>/service/user/phone_register</td>
+      <td>PhoneRegister</td>
+      <td>否</td>
+    </tr>
+    <tr>
+      <td>手机号码登录</td>
+      <td>/service/user/phone_login</td>
+      <td>PhoneLogin</td>
+      <td>否</td>
+    </tr>
+    <tr>
+      <td>获取个人信息</td>
+      <td>/service/user/get_user_info</td>
+      <td>GetUserInfo</td>
+      <td>是</td>
+    </tr>
+    <tr>
+      <td>修改头像</td>
+      <td>/service/user/set_avatar</td>
+      <td>SetUserAvatar</td>
+      <td>是</td>
+    </tr>
+    <tr>
+      <td>修改昵称</td>
+      <td>/service/user/set_nickname</td>
+      <td>SetUserNickname</td>
+      <td>是</td>
+    </tr>
+    <tr>
+      <td>修改签名</td>
+      <td>/service/user/set_description</td>
+      <td>SetUserDescription</td>
+      <td>是</td>
+    </tr>
+    <tr>
+      <td>修改绑定手机</td>
+      <td>/service/user/set_phone</td>
+      <td>SetUserPhoneNumber</td>
+      <td>是</td>
+    </tr>
+    <tr>
+      <td>获取好友列表</td>
+      <td>/service/friend/get_friend_list</td>
+      <td rowspan="9">Friend_Server</td>
+      <td>GetFriendList</td>
+      <td>是</td>
+    </tr>
+    <tr>
+      <td>发送好友申请</td>
+      <td>/service/friend/add_friend_apply</td>
+      <td>FriendAdd</td>
+      <td>是</td>
+    </tr>
+    <tr>
+      <td>好友申请处理</td>
+      <td>/service/friend/add_friend_process</td>
+      <td>FriendAddProcess</td>
+      <td>是</td>
+    </tr>
+    <tr>
+      <td>删除好友</td>
+      <td>/service/friend/remove_friend</td>
+      <td>FriendRemove</td>
+      <td>是</td>
+    </tr>
+    <tr>
+      <td>搜索用户</td>
+      <td>/service/friend/search_friend</td>
+      <td>FriendSearch</td>
+      <td>是</td>
+    </tr>
+    <tr>
+      <td>获取指定用户的消息会话列表</td>
+      <td>/service/friend/get_chat_session_list</td>
+      <td>GetChatSessionList</td>
+      <td>是</td>
+    </tr>
+    <tr>
+      <td>创建消息会话</td>
+      <td>/service/friend/create_chat_session</td>
+      <td>ChatSessionCreate</td>
+      <td>是</td>
+    </tr>
+    <tr>
+      <td>获取消息会话成员列表</td>
+      <td>/service/friend/get_chat_session_member</td>
+      <td>GetChatSessionMember</td>
+      <td>是</td>
+    </tr>
+    <tr>
+      <td>获取待处理好友申请事件列表</td>
+      <td>/service/friend/get_pending_friend_events</td>
+      <td>GetPendingFriendEventList</td>
+      <td>是</td>
+    </tr>
+    <tr>
+      <td>获取历史消息/离线消息列表</td>
+      <td>/service/message_storage/get_history</td>
+      <td rowspan="3">Message_Store_Server</td>
+      <td>GetHistoryMsg</td>
+      <td>是</td>
+    </tr>
+    <tr>
+      <td>获取最近N条消息列表</td>
+      <td>/service/message_storage/get_recent</td>
+      <td>GetRecentMsg</td>
+      <td>是</td>
+    </tr>
+    <tr>
+      <td>搜索历史消息</td>
+      <td>/service/message_storage/search_history</td>
+      <td>MsgSearch</td>
+      <td>是</td>
+    </tr>
+    <tr>
+      <td>发送消息</td>
+      <td>/service/message_transmit/new_message</td>
+      <td>Message_Transmit_Server</td>
+      <td>GetTransmitTarget</td>
+      <td>是</td>
+    </tr>
+    <tr>
+      <td>获取单个文件数据</td>
+      <td>/service/file/get_single_file</td>
+      <td rowspan="4">File_Server</td>
+      <td>GetSingleFile</td>
+      <td>是</td>
+    </tr>
+    <tr>
+      <td>获取多个文件数据</td>
+      <td>/service/file/get_multi_file</td>
+      <td>GetMultiFile</td>
+      <td>是</td>
+    </tr>
+    <tr>
+      <td>发送单个文件</td>
+      <td>/service/file/put_single_file</td>
+      <td>PutSingleFile</td>
+      <td>是</td>
+    </tr>
+    <tr>
+      <td>发送多个文件</td>
+      <td>/service/file/put_multi_file</td>
+      <td>PutMultiFile</td>
+      <td>是</td>
+    </tr>
+    <tr>
+      <td>语音转文字</td>
+      <td>/service/speech/recognition</td>
+      <td>Speech_Server</td>
+      <td>SpeechRecognition</td>
+      <td>是</td>
+    </tr>
+  </tbody>
+</table>
+
 
 
 
@@ -1872,7 +2099,7 @@ DELETE /user
 
 
 
-# MessageStoreServer设计（done）
+# MessageStoreServer设计
 
 ## 1. 功能设计
 

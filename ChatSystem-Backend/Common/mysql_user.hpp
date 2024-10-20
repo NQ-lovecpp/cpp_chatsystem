@@ -55,7 +55,6 @@ public:
         return true;
     }
 
-
     /// @brief 向mysql中更新用户数据
     /// @param user 需要先查询出user对象，再传入它的智能指针
     bool update(const std::shared_ptr<User> &user)

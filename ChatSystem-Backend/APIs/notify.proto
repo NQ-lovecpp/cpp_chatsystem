@@ -1,3 +1,4 @@
+// 此文件只定义服务器通过websocket向客户端发送的通知消息
 syntax = "proto3";
 package chen_im;
 import "base.proto";
@@ -15,8 +16,8 @@ enum NotifyType {
 message NotifyFriendAddApply {
     UserInfo user_info = 1;  //申请人信息
 }
-message NotifyFriendAddProcess {
-    bool agree = 1;
+message NotifyFriendAddProcess { 
+    bool agree = 1;// 告诉申请人这次好友申请是否被对方同意
     UserInfo user_info = 2;  //处理人信息
 }
 message NotifyFriendRemove {

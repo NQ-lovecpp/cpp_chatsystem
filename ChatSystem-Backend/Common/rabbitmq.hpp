@@ -46,41 +46,47 @@ public:
 
     // 初始化交换机和一个队列，并把队列绑定到交换机上
     void declear_all_components(const std::string &exchange_name, 
-    const std::string &queue_name, 
-    const std::string &routing_key = "routing_key", 
-    AMQP::ExchangeType exchange_type = AMQP::ExchangeType::direct)
+                                const std::string &queue_name, 
+                                const std::string &routing_key = "routing_key", 
+                                AMQP::ExchangeType exchange_type = AMQP::ExchangeType::direct)
     {
+        // 这里本来有个bug，就是在lambda表达式里面想要访问exchange_name这个函数参数
+        // onError、onSuccess只是设置了回调，什么时候调用，不知道的
+        // 有可能调用的时候exchange_name已经销毁了
+        // 再访问exchange_name就变成悬垂引用了，正确的方法是使用
+
         // 声明交换机
         _channel->declareExchange(exchange_name, exchange_type)
-            .onError([&](const char *msg){
+            .onError([=](const char *msg){
                 LOG_ERROR("声明交换机 {} 失败: {}", exchange_name, msg);
                 exit(0);
             })
-            .onSuccess([&](){
+            .onSuccess([=](){
                 LOG_INFO("声明交换机 {} 成功！", exchange_name);
             });
 
         // 声明队列
         _channel->declareQueue(queue_name)
-            .onError([&](const char *msg){
+            .onError([=](const char *msg){
                 LOG_ERROR("声明队列 {} 失败: {}", queue_name, msg);
                 exit(0);
             })
-            .onSuccess([&](){
+            .onSuccess([=](){
                 LOG_INFO("声明队列 {} 成功！", queue_name);
             });
 
         // 交换机和队列进行绑定到信道中
         _channel->bindQueue(exchange_name, queue_name, routing_key)
-            .onError([&](const char *msg){
+            .onError([=](const char *msg){
                 LOG_ERROR("交换机 {} 和队列 {} 绑定失败: {}", exchange_name, queue_name, msg);
                 exit(0);
             })
-            .onSuccess([&](){
+            .onSuccess([=](){
                 LOG_INFO("交换机 {} 和队列 {} 绑定成功!", exchange_name, queue_name);
             });
 
         // 主执行流不阻塞，直接返回
+        LOG_DEBUG("declear all components执行完毕，{}, {}, {}", exchange_name, queue_name, routing_key);
         run();
     }
 
@@ -97,6 +103,9 @@ public:
                          const std::string &msg, 
                          const std::string &routing_key = "routing_key")
     {
+        AMQP::Envelope env(msg.c_str(), msg.size());
+        env.setContentType("application/octet-stream");
+
         bool ret = _channel->publish(exchange_name, routing_key, msg);
         if (ret == false) {
             LOG_ERROR("publish失败!");
