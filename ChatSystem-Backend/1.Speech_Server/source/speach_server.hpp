@@ -24,6 +24,7 @@ namespace chen_im
                        ::chen_im::SpeechRecognitionRsp* response,
                        ::google::protobuf::Closure* done) override
         {
+            LOG_INFO("收到user_id {} 的语音识别请求!", request->user_id());
             // 把Closure指针管理起来
             brpc::ClosureGuard closure_guard(done);
 
@@ -42,8 +43,7 @@ namespace chen_im
                 response->set_errmsg("语音识别失败了");
                 return;
             } else {
-                
-                LOG_INFO("语音识别成功, result:{}, request_id:{}", res, request->request_id());
+                LOG_INFO("语音识别成功, result:{}, request_id:{}, user_id: {}", res, request->request_id(), request->user_id());
                 response->set_request_id(request->request_id());
                 response->set_success(true);
                 response->set_recognition_result(res);

@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>左轮手枪游戏</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            text-align: center;
+            background-color: #f4f4f4;
+            padding: 50px;
+        }
+        #result {
+            font-size: 1.5em;
+            margin-top: 20px;
+        }
+        button {
+            padding: 10px 20px;
+            font-size: 1em;
+            margin: 5px;
+        }
+        table {
+            margin-top: 20px;
+            width: 100%;
+            max-width: 400px;
+            border-collapse: collapse;
+            margin: auto;
+        }
+        th, td {
+            border: 1px solid #ccc;
+            padding: 8px;
+            text-align: left;
+        }
+        th {
+            background-color: #f0f0f0;
+        }
+        #explosion {
+            display: none;
+            width: 100px;
+            margin: 20px auto;
+        }
+    </style>
+</head>
+<body>
+    <h1>左轮手枪游戏</h1>
+    <p>你有六次机会，赌当前是否会开火！</p>
+    <button id="fireButton">开火</button>
+    <button id="resetButton">清除记录</button>
+    <p id="result"></p>
+    <img id="explosion" src="https://media.giphy.com/media/3o6Zt3Xg5dSg7zHkZK/giphy.gif" alt="爆炸效果">
+    
+    <table>
+        <thead>
+            <tr>
+                <th>时间</th>
+                <th>尝试</th>
+            </tr>
+        </thead>
+        <tbody id="history"></tbody>
+    </table>
+
+    <audio id="gunshot" src="https://www.soundjay.com/button/sounds/gunshot.mp3"></audio>
+
+    <script>
+        let attempts = 6;
+        let bulletPosition;
+        const historyList = [];
+
+        function startNewGame() {
+            attempts = 6;
+            bulletPosition = Math.floor(Math.random() * 6); // 随机放置子弹
+            document.getElementById('result').innerText = "";
+            document.getElementById('explosion').style.display = "none"; // 隐藏爆炸效果
+        }
+
+        function updateHistory(shot) {
+            const time = new Date().toLocaleTimeString();
+            const row = `<tr><td>${time}</td><td>${shot} / 6</td></tr>`;
+            historyList.push(row);
+            renderHistory();
+        }
+
+        function renderHistory() {
+            const historyDiv = document.getElementById('history');
+            historyDiv.innerHTML = historyList.join("");
+        }
+
+        function resetGame() {
+            resetHistory();
+            startNewGame();
+        }
+
+        function resetHistory() {
+            historyList.length = 0; // 清空历史记录
+            renderHistory(); // 更新显示
+        }
+
+        document.getElementById('fireButton').onclick = function() {
+            if (attempts > 0) {
+                const currentAttempt = 6 - attempts + 1; // 当前尝试
+                if (currentAttempt === bulletPosition + 1) { // +1 因为尝试从1开始
+                    document.getElementById('result').innerText = "嘭！你中了！";
+                    document.getElementById('explosion').style.display = "block"; // 显示爆炸效果
+                    document.getElementById('gunshot').play(); // 播放音效
+                    updateHistory(currentAttempt); // 记录历史
+                    attempts = 0; // 游戏结束
+                } else {
+                    document.getElementById('result').innerText = `安全！还有 ${--attempts} 次机会。`;
+                    updateHistory(currentAttempt); // 记录历史
+                }
+            } else {
+                document.getElementById('result').innerText = "游戏结束！没有机会了。";
+            }
+        };
+
+        document.getElementById('resetButton').onclick = resetGame;
+
+        // 初始化游戏
+        startNewGame();
+    </script>
+</body>
+</html>

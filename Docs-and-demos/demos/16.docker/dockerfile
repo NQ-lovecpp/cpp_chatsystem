@@ -1,0 +1,14 @@
+# 设定拉取的基础镜像
+FROM ubuntu:20.04
+
+# 将宿主机上的程序放入到当前docker容器中
+WORKDIR /
+COPY ./libgflags.so.2.2 /lib/x86_64-linux-gnu/
+COPY ./ /
+
+# # 安装编译器，对程序进行编译
+# RUN apt update
+
+# 设定容器启动时候的默认操作
+EXPOSE 24355/tcp
+CMD [ "./WebServer" ]

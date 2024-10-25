@@ -9,13 +9,13 @@ RUN mkdir -p /im/conf
 RUN mkdir -p /im/bin
 
 # 将可执行文件拷贝到镜像中
-COPY ./build/friend_server /im/bin
+COPY ./build/file_server /im/bin
 
 # 将配置文件拷贝到镜像中
-COPY ./friend_server.conf /im/conf
+COPY ./file_server.conf /im/conf
 
 # 将可执行程序的依赖拷贝到docker容器中的lib目录中
 COPY ./build/depends /lib/x86_64-linux-gnu/
 
 # 容器启动时直接启动服务进程，带上配置文件
-CMD /im/bin/friend_server -flagfile=/im/conf/friend_server.conf
+CMD /im/bin/file_server -flagfile=/im/conf/file_server.conf

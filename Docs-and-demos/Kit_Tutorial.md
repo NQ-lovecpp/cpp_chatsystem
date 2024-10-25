@@ -4487,6 +4487,348 @@ g++ -o main main.cc -std=c++11 -lcurl -lcrypto -ljsoncpp
 
 
 
+# 服务器部署
+
+## **Docker简介与安装**
+
+### **docker简介**
+
+Docker 是一个用 Go 语言实现的应用容器引擎开源项目，可以让开发者打包他们的应用以及依赖包到一个轻量级、可移植的容器中，然后发布到任何流行的 Linux 机器上，也可以实现虚拟化。其广泛应用于开发、测试和生产环境中，帮助开发者和系统管理员简化应用的部署和管理，实现快速的交付、测试和部署。
+
+### **docker安装**
+
+1. **安装 docker 依赖**
+
+   ```bash
+   sudo apt-get install ca-certificates curl gnupg lsb-release
+   ```
+
+2. **配置加速地址**
+
+   ```bash
+   sudo mkdir -p /etc/docker
+   sudo tee /etc/docker/daemon.json <<-'EOF'
+   {
+       "registry-mirrors": [
+           "https://do.nark.eu.org",
+           "https://dc.j8.work",
+           "https://docker.m.daocloud.io",
+           "https://dockerproxy.com",
+           "https://docker.mirrors.ustc.edu.cn",
+           "https://docker.nju.edu.cn"
+       ]
+   }
+   EOF
+   sudo systemctl daemon-reload
+   ```
+
+3. **添加 Docker 官方 GPG 密钥**
+
+   ```bash
+   curl -fsSL http://mirrors.aliyun.com/docker-ce/linux/ubuntu/gpg | sudo apt-key add -
+   ```
+
+4. **添加 Docker 软件源**
+
+   ```bash
+   sudo add-apt-repository "deb [arch=amd64] http://mirrors.aliyun.com/docker-ce/linux/ubuntu $(lsb_release -cs) stable"
+   ```
+
+5. **安装 Docker**
+
+   ```bash
+   sudo apt-get install docker-ce docker-ce-cli containerd.io
+   ```
+
+6. **安装 docker-compose**
+
+   ```bash
+   sudo curl -L "https://github.com/docker/compose/releases/download/v2.13.0/docker-compose-linux-x86_64" -o /usr/bin/docker-compose
+   sudo chmod +x /usr/bin/docker-compose
+   docker-compose --version
+   ```
+
+7. **配置用户组**
+
+   ```bash
+   sudo groupadd docker
+   sudo gpasswd -a $USER docker
+   newgrp docker
+   ```
+
+8. **测试-查看版本**
+
+   ```bash
+   docker version
+   ```
+
+## **docker常用指令**
+
+### **容器操作**
+
+- 查看容器
+
+   ```bash
+   docker ps -a
+   docker container ls -a
+   ```
+
+   **参数说明：**
+
+   - `-a` 所有容器
+   - `-q` 仅显示容器 ID
+
+- 删除容器
+
+   ```bash
+   docker rm container_id
+   docker container rm container_id
+   docker container rm $(docker container ls -a -q)
+   ```
+
+- 启动容器
+
+   ```bash
+   docker run [options] [image:version]
+   ```
+
+   **选项说明：**
+
+   - `-d` 运行容器于后台，并打印容器 ID
+   - `-e` 设置运行环境变量，例如：`-e DB_USER=myuser`
+   - `-i` 保持 STDIN 打开
+   - `-p` 设置宿主机端口映射，例如：`-p 3306:3306`
+   - `-t` 申请终端
+   - `-v` 设置文件挂载，例如：`-v ./data:/var/lib/mysql：rw`
+
+- 停止容器
+
+   ```bash
+   docker container stop container_id
+   docker container stop $(docker container ls -a -q)
+   ```
+
+### **镜像操作**
+
+- 拉取镜像
+
+   ```bash
+   docker pull image_name:version
+   ```
+
+- 查看镜像
+
+   ```bash
+   docker images
+   docker image ls -a
+   ```
+
+- 创建镜像
+
+   ```bash
+   docker build [options] path
+   ```
+
+   **选项说明：**
+
+   - `-f` 指定 Dockerfile
+   - `-t` 设置镜像名称与版本，例如：`-t myImage:version`
+
+- 删除镜像
+
+   ```bash
+   docker rmi image_id
+   docker image rm image_id
+   ```
+
+- 导入/导出镜像
+
+   ```bash
+   docker save -o myimage.tar myimage:latest
+   docker load -i myimage.tar
+   ```
+
+- 缓存及镜像清理
+
+   ```bash
+   docker system df
+   docker system prune -a
+   ```
+
+### **dockerfile编写规则简介**
+
+**示例：**
+
+```yaml
+FROM ubuntu:22.04
+LABEL MAINTAINER="bitejiuyeke"
+
+ENV REDIS_VERSION=5.0.3
+
+WORKDIR /im
+
+RUN mkdir -p /im/data &&\
+    mkdir -p /im/logs &&\
+    mkdir -p /im/conf &&\
+    mkdir -p /im/bin
+
+COPY build/file_server /im/bin/
+COPY depends/ /usr/lib/x86_64-linux-gnu/
+
+EXPOSE 10001/tcp
+
+CMD "/im/bin/file_server" "-flagfile=/im/conf/server_file.conf"
+```
+
+**注释：**
+
+- `FROM`：所使用的镜像
+- `LABEL`：构建镜像时的键值对
+- `ENV`：设置环境变量
+- `WORKDIR`：工作路径
+- `RUN`：执行命令
+- `COPY`：复制文件
+- `EXPOSE`：暴露端口
+- `CMD`：默认执行命令
+
+### **dockercompose编写规则简介**
+
+**示例：**
+
+```yaml
+version: "3.8"
+
+services:
+  mysql:
+    image: mysql:8.0.39
+    container_name: docker-mysql8-service
+    volumes:  
+      - ./sql/:/docker-entrypoint-initdb.d/
+      - ./middleware/mysql/data:/var/lib/mysql:rw
+      - ./middleware/mysql/logs:/var/log/mysql:rw
+      - ./conf/mysql:/etc/mysql/
+    environment:
+      MYSQL_ROOT_PASSWORD: 123456
+    ports:
+      - 3306:3306
+    restart: always
+    depends_on:
+      - etcd
+```
+
+**注释：**
+
+- `version`：语法版本
+- `services`：服务定义
+- `volumes`：挂载卷
+- `environment`：环境变量
+- `ports`：端口映射
+- `restart`：重启策略
+- `depends_on`：依赖服务
+
+## **项目部署**
+
+### **编写项目配置文件**
+
+```yaml
+#程序的运行模式
+-run_mode=false
+#日志文件
+-log_file=/im/logs/file.log
+#日志等级
+-log_level=0
+
+#服务注册中心地址
+-registry_host=http://10.0.0.235:2379
+#服务监控根目录
+-base_service=/service
+#实例名称
+-instance_name=/file_service/instance
+-access_host=10.0.0.235:10002
+```
+
+### **查询程序依赖**
+
+```bash
+#!/bin/bash
+deplist=$( ldd $1 | awk '{if (match($3,"/")){ print $3}}' )
+cp -Lr $deplist $2
+```
+
+## MySQL的部署
+在Docker上运行MySQL涉及几个关键步骤，包括安装Docker、拉取MySQL镜像、配置并运行MySQL容器。以下是详细的步骤说明：
+
+
+### 二、拉取MySQL镜像
+
+1. **搜索MySQL镜像**：在Docker Hub上搜索MySQL镜像，可以使用以下命令查看可用的MySQL镜像：
+
+```bash
+docker search mysql
+```
+
+2. **拉取镜像**：选择适合的MySQL版本，并使用以下命令拉取镜像到本地：
+
+```bash
+docker pull mysql:latest  # 拉取最新版本，或者指定版本号，如 docker pull mysql:5.7
+```
+
+### 三、配置并运行MySQL容器
+
+1. **创建数据目录**：在宿主机上创建用于存储MySQL数据和日志的目录。
+
+```bash
+mkdir -p /mydata/mysql/data /mydata/mysql/log /mydata/mysql/conf
+```
+
+2. **运行MySQL容器**：使用`docker run`命令创建并运行MySQL容器。在运行时，可以指定多个参数来配置容器，如端口映射、数据卷挂载、环境变量等。
+
+```bash
+docker run -p 3306:3306 --name mysql -v /home/chen/cpp_chatsystem/DeployChatSystem/MySQL_docker/log:/var/log/mysql -v /home/chen/cpp_chatsystem/DeployChatSystem/MySQL_docker/data:/var/lib/mysql -v /home/chen/cpp_chatsystem/DeployChatSystem/MySQL_docker/conf:/etc/mysql -e MYSQL_ROOT_PASSWORD=root -d mysql
+```
+
+参数解释：
+
+* `-p 3306:3306`：将宿主机的3306端口映射到容器的3306端口。
+* `--name mysql`：为容器指定一个名称。
+* `-v /mydata/mysql/log:/var/log/mysql`：将宿主机的日志目录挂载到容器的日志目录。
+* `-v /mydata/mysql/data:/var/lib/mysql`：将宿主机的数据目录挂载到容器的数据目录。
+* `-v /mydata/mysql/conf:/etc/mysql`：将宿主机的配置文件目录挂载到容器的配置文件目录。
+* `-e MYSQL_ROOT_PASSWORD=root`：设置MySQL root用户的密码。
+* `-d`：在后台运行容器。
+
+3. **验证MySQL容器是否运行**：使用`docker ps`命令查看正在运行的容器。
+
+```bash
+docker ps
+```
+
+你应该能看到名为`mysql`的容器正在运行。
+
+### 四、连接MySQL数据库
+
+1. **使用MySQL客户端连接**：你可以使用MySQL客户端工具（如MySQL Workbench、SQLyog等）或命令行工具连接到运行中的MySQL数据库。
+
+```bash
+docker exec -it mysql mysql -uroot -p
+```
+
+然后输入你在运行容器时设置的root用户密码。
+
+2. **远程连接**：如果你需要从远程主机连接到MySQL数据库，需要确保MySQL容器允许远程连接。这可以通过修改MySQL的配置文件（如`my.cnf`）或运行容器时设置环境变量（如`-e MYSQL_ROOT_HOST=%`）来实现。同时，还需要确保宿主机的防火墙允许外部访问3306端口。
+
+### 五、常见问题解决
+
+* **无法连接到MySQL**：检查防火墙设置、MySQL容器的运行状态、端口映射是否正确等。
+* **MySQL容器启动失败**：查看Docker日志以获取错误信息，并根据错误信息进行相应的解决。
+
+通过以上步骤，你应该能够在Docker上成功运行MySQL数据库，并进行基本的连接和操作。
+
+
+
+
+
+
 # 21. CMake简述
 
 ## 设置CMake所需版本号

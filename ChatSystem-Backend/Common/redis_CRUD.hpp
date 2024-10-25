@@ -21,6 +21,28 @@
 
 namespace chen_im
 {
+    class RedisDatabaseUtility
+    {
+    private:
+        std::shared_ptr<sw::redis::Redis> _sw_redis_client;
+    
+    public:
+        using ptr = std::shared_ptr<RedisDatabaseUtility>;
+
+        RedisDatabaseUtility(const std::shared_ptr<sw::redis::Redis> &sw_redis_client)
+            : _sw_redis_client(sw_redis_client)
+        {}
+        ~RedisDatabaseUtility() {}
+
+        // 清理redis所有的缓存
+        bool flush_all_db()
+        {
+            _sw_redis_client->flushall();
+        }
+
+    };
+    
+
     class RedisClientFactory
     {
     public:

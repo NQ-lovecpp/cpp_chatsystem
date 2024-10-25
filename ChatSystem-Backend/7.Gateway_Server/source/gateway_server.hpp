@@ -91,6 +91,7 @@ namespace chen_im
                       const std::string friend_service_name)
             : _redis_session(std::make_shared<Session>(redis_client)),
               _redis_status(std::make_shared<Status>(redis_client)),
+              _redis_uti(std::make_shared<RedisDatabaseUtility>(redis_client)),
               _service_manager(service_managers),
               _service_discoverer(service_discoverer),
               _user_service_name(user_service_name),
@@ -148,6 +149,27 @@ namespace chen_im
         void start()
         {
             _ws_server.run();
+        }
+
+        enum exit_mode
+        {
+            KILLED_BY_SIGNAL = 1, // 被信号所杀
+            NORMAL_EXIT = 2       // 自己退出
+        };
+        // 意外退出或被信号所杀时，清理redis缓存
+        void when_server_exit(exit_mode mode)
+        {
+            switch(mode)
+            {
+                case exit_mode::KILLED_BY_SIGNAL:
+                {
+                    _redis_uti->flush_all_db();
+                }
+                case exit_mode::NORMAL_EXIT:
+                {
+                    _redis_uti->flush_all_db();
+                }
+            }
         }
 
     private:
@@ -1597,8 +1619,9 @@ namespace chen_im
         }
 
     private:
-        Session::ptr _redis_session; // redis的
-        Status::ptr _redis_status;
+        Session::ptr _redis_session; // session库
+        Status::ptr _redis_status;   // status库
+        RedisDatabaseUtility::ptr _redis_uti; // 用于操作整个redis数据库
 
         // 子服务的完整名称
         std::string _user_service_name;

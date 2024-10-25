@@ -11,3 +11,5 @@ api_builds/
 **/build/
 **/odb_builds/
 **/api_builds/
+**/bin/
+**/docker_image_data/

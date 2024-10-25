@@ -1,10 +1,14 @@
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR})
+set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR})
+set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR})
+
 # 1. 添加cmake版本说明
 cmake_minimum_required(VERSION 3.1.3)
 # 2. 声明工程名称
 project(transmite_server)
 set(CMAKE_CXX_STANDARD 17)
 
-set(target "transmite_server")
+set(target "message_transmit_server")
 
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g")
 

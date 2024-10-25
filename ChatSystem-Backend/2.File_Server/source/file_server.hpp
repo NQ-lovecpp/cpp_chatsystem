@@ -33,6 +33,8 @@ namespace chen_im
                            ::chen_im::GetSingleFileRsp *response,
                            ::google::protobuf::Closure *done)
         {
+            LOG_INFO("用户 {} 请求获取单个文件...", request->user_id());
+
             brpc::ClosureGuard closure_guard(done);
             response->set_request_id(request->request_id());
             // 1. 取出请求中的文件ID（起始就是文件名）
@@ -52,6 +54,8 @@ namespace chen_im
             response->set_success(true);
             response->mutable_file_data()->set_file_id(fid);
             response->mutable_file_data()->set_file_content(body);
+
+            LOG_INFO("用户 {} 请求单个文件成功", request->user_id());
         }
 
         void GetMultiFile(google::protobuf::RpcController *controller,
@@ -59,6 +63,8 @@ namespace chen_im
                           ::chen_im::GetMultiFileRsp *response,
                           ::google::protobuf::Closure *done)
         {
+            LOG_INFO("用户 {} 请求获取多个文件...", request->user_id());
+
             brpc::ClosureGuard closure_guard(done);
             response->set_request_id(request->request_id());
 
@@ -82,6 +88,8 @@ namespace chen_im
                 response->mutable_file_data()->insert({fid, data});
             }
             response->set_success(true);
+
+            LOG_INFO("用户 {} 请求多个文件成功", request->user_id());
         }
 
         void PutSingleFile(google::protobuf::RpcController *controller,
@@ -89,6 +97,8 @@ namespace chen_im
                            ::chen_im::PutSingleFileRsp *response,
                            ::google::protobuf::Closure *done)
         {
+            LOG_INFO("用户 {} 上传单个文件...", request->user_id());
+
             brpc::ClosureGuard closure_guard(done);
             response->set_request_id(request->request_id());
 
@@ -111,6 +121,8 @@ namespace chen_im
             response->mutable_file_info()->set_file_id(fid);
             response->mutable_file_info()->set_file_size(request->file_data().file_size());
             response->mutable_file_info()->set_file_name(request->file_data().file_name());
+
+            LOG_INFO("用户 {} 上传单个文件成功", request->user_id());
         }
 
         void PutMultiFile(google::protobuf::RpcController *controller,
@@ -118,6 +130,8 @@ namespace chen_im
                           ::chen_im::PutMultiFileRsp *response,
                           ::google::protobuf::Closure *done)
         {
+            LOG_INFO("用户 {} 上传多个文件...", request->user_id());
+
             brpc::ClosureGuard closure_guard(done);
             response->set_request_id(request->request_id());
             for (int i = 0; i < request->file_data_size(); i++)
@@ -138,6 +152,8 @@ namespace chen_im
                 info->set_file_name(request->file_data(i).file_name());
             }
             response->set_success(true);
+
+            LOG_INFO("用户 {} 上传单个文件成功", request->user_id());
         }
 
     };
