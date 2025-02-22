@@ -13,4 +13,3 @@ CREATE TABLE `chat_session` (
 
 CREATE UNIQUE INDEX `chat_session_id_i`
   ON `chat_session` (`chat_session_id`);
-

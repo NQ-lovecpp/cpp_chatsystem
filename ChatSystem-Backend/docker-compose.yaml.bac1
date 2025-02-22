@@ -1,0 +1,231 @@
+version: "3.8"
+
+services:
+  etcd:
+    image: quay.io/coreos/etcd:v3.3.25
+    container_name: etcd-service
+    environment:
+      - ETCD_NAME=etcd-s1
+      - ETCD_DATA_DIR=/var/lib/etcd
+      - ETCD_LISTEN_CLIENT_URLS=http://0.0.0.0:2379
+      - ETCD_ADVERTISE_CLIENT_URLS=http://0.0.0.0:2379
+    volumes:
+      # 1. 希望容器内的程序能够访问宿主机上的文件
+      # 2. 希望容器内程序运行所产生的数据文件能落在宿主机上
+      - ./docker_image_data/etcd:/var/lib/etcd:rw
+    ports:
+      - 2379:2379
+    restart: always
+
+  mysql:
+    image: mysql:8.0.39
+    container_name: mysql-service
+    environment:
+      MYSQL_ROOT_PASSWORD: Cydia4384!
+    volumes:
+      # 1. 希望容器内的程序能够访问宿主机上的文件
+      # 2. 希望容器内程序运行所产生的数据文件能落在宿主机上
+      - ./SQL_Code:/docker-entrypoint-initdb.d/:rw
+      - ./docker_image_data/mysql:/var/lib/mysql:rw
+    ports:
+      - 3306:3306
+    restart: always
+
+  redis:
+    image: redis:6.0.16
+    container_name: redis-service
+    volumes:
+      # 1. 希望容器内的程序能够访问宿主机上的文件
+      # 2. 希望容器内程序运行所产生的数据文件能落在宿主机上
+      - ./docker_image_data/redis:/var/lib/redis:rw
+    ports:
+      - 6379:6379
+    restart: always
+
+  elasticsearch:
+    image: elasticsearch:7.17.21
+    container_name: elasticsearch-service
+    environment:
+      - "discovery.type=single-node"
+    volumes:
+      # 1. 希望容器内的程序能够访问宿主机上的文件
+      # 2. 希望容器内程序运行所产生的数据文件能落在宿主机上
+      - ./docker_image_data/elasticsearch:/data:rw
+    ports:
+      - 9200:9200
+      - 9300:9300
+    restart: always
+
+  rabbitmq:
+    image: rabbitmq:3.9.13
+    container_name: rabbitmq-service
+    environment:
+      RABBITMQ_DEFAULT_USER: root
+      RABBITMQ_DEFAULT_PASS: czhuowen
+    volumes:
+      # 1. 希望容器内的程序能够访问宿主机上的文件
+      # 2. 希望容器内程序运行所产生的数据文件能落在宿主机上
+      - ./docker_image_data/rabbitmq:/var/lib/rabbitmq:rw
+    ports:
+      - 5672:5672
+    restart: always
+
+  file_server:
+    build: ./2.File_Server
+    image: user_server:v1
+    container_name: file_server-service
+    volumes:
+      # 1. 希望容器内的程序能够访问宿主机上的文件
+      # 2. 希望容器内程序运行所产生的数据文件能落在宿主机上
+      # 挂载的信息： entrypoint.sh文件 数据目录(im/logs, im/data), 配置文件
+      - ./Configs/file_server.conf:/im/conf/file_server.conf
+      - ./docker_image_data/logs:/im/logs:rw
+      - ./docker_image_data/data:/im/data:rw
+      - ./entrypoint.sh:/im/bin/entrypoint.sh
+    ports:
+      - 10002:10002
+    restart: always
+    entrypoint:
+      # 跟dockerfile中的cmd比较类似，都是容器启动后的默认操作--替代dockerfile中的cmd
+      /im/bin/entrypoint.sh -h 172.16.0.3 -p 2379 -c "/im/bin/file_server -flagfile=/im/conf/file_server.conf"
+    depends_on:
+      - etcd
+
+  friend_server:
+    build: ./2.File_Server
+    image: file_server:v1
+    container_name: friend_server-service
+    volumes:
+      # 1. 希望容器内的程序能够访问宿主机上的文件
+      # 2. 希望容器内程序运行所产生的数据文件能落在宿主机上
+      # 挂载的信息： entrypoint.sh文件 数据目录(im/logs, im/data), 配置文件
+      - ./Configs/friend_server.conf:/im/conf/friend_server.conf
+      - ./docker_image_data/logs:/im/logs:rw
+      - ./docker_image_data/data:/im/data:rw
+      - ./entrypoint.sh:/im/bin/entrypoint.sh
+    ports:
+      - 10006:10006
+    restart: always
+    depends_on:
+      - etcd
+      - mysql
+      - elasticsearch
+    entrypoint:
+      # 跟dockerfile中的cmd比较类似，都是容器启动后的默认操作--替代dockerfile中的cmd
+      /im/bin/entrypoint.sh -h 172.16.0.3 -p 2379,3306,9200 -c "/im/bin/friend_server -flagfile=/im/conf/friend_server.conf"
+  
+  gateway_server:
+    build: ./7.Gateway_Server
+    image: gateway_server:v1
+    container_name: gateway_server-service
+    volumes:
+      # 1. 希望容器内的程序能够访问宿主机上的文件
+      # 2. 希望容器内程序运行所产生的数据文件能落在宿主机上
+      # 挂载的信息： entrypoint.sh文件 数据目录(im/logs, im/data), 配置文件
+      - ./Configs/gateway_server.conf:/im/conf/gateway_server.conf
+      - ./docker_image_data/logs:/im/logs:rw
+      - ./docker_image_data/data:/im/data:rw
+      - ./entrypoint.sh:/im/bin/entrypoint.sh
+    ports:
+      - 9000:9000
+      - 9001:9001
+    restart: always
+    depends_on:
+      - etcd
+      - redis
+    entrypoint:
+      # 跟dockerfile中的cmd比较类似，都是容器启动后的默认操作--替代dockerfile中的cmd
+      /im/bin/entrypoint.sh -h 172.16.0.3 -p 2379,6379 -c "/im/bin/gateway_server -flagfile=/im/conf/gateway_server.conf"
+  
+  message_store_server:
+    build: ./5.Message_Store_Server
+    image: message_store_server:v1
+    container_name: message_store_server-service
+    volumes:
+      # 1. 希望容器内的程序能够访问宿主机上的文件
+      # 2. 希望容器内程序运行所产生的数据文件能落在宿主机上
+      # 挂载的信息： entrypoint.sh文件 数据目录(im/logs, im/data), 配置文件
+      - ./Configs/message_store_server.conf:/im/conf/message_store_server.conf
+      - ./docker_image_data/logs:/im/logs:rw
+      - ./docker_image_data/data:/im/data:rw
+      - ./entrypoint.sh:/im/bin/entrypoint.sh
+    ports:
+      - 10005:10005
+    restart: always
+    depends_on:
+      - etcd
+      - mysql
+      - elasticsearch
+      - rabbitmq
+    entrypoint:
+      # 跟dockerfile中的cmd比较类似，都是容器启动后的默认操作--替代dockerfile中的cmd
+      /im/bin/entrypoint.sh -h 172.16.0.3 -p 2379,3306,9200,5672 -c "/im/bin/message_store_server -flagfile=/im/conf/message_store_server.conf"
+  
+  speech_server:
+    build: ./1.Speech_Server
+    image: speech_server:v1
+    container_name: speech_server-service
+    volumes:
+      # 1. 希望容器内的程序能够访问宿主机上的文件
+      # 2. 希望容器内程序运行所产生的数据文件能落在宿主机上
+      # 挂载的信息： entrypoint.sh文件 数据目录(im/logs, im/data), 配置文件
+      - ./Configs/speech_server.conf:/im/conf/speech_server.conf
+      - ./docker_image_data/logs:/im/logs:rw
+      - ./docker_image_data/data:/im/data:rw
+      - ./entrypoint.sh:/im/bin/entrypoint.sh
+    ports:
+      - 10001:10001
+    restart: always
+    depends_on:
+      - etcd
+    entrypoint:
+      # 跟dockerfile中的cmd比较类似，都是容器启动后的默认操作--替代dockerfile中的cmd
+      /im/bin/entrypoint.sh -h 172.16.0.3 -p 2379 -c "/im/bin/speech_server -flagfile=/im/conf/speech_server.conf"
+  
+  message_transmit_server:
+    build: ./4.Message_Transmit_Server
+    image: message_transmit_server:v1
+    container_name: message_transmit_server-service
+    volumes:
+      # 1. 希望容器内的程序能够访问宿主机上的文件
+      # 2. 希望容器内程序运行所产生的数据文件能落在宿主机上
+      # 挂载的信息： entrypoint.sh文件 数据目录(im/logs, im/data), 配置文件
+      - ./Configs/message_transmit_server.conf:/im/conf/message_transmit_server.conf
+      - ./docker_image_data/logs:/im/logs:rw
+      - ./docker_image_data/data:/im/data:rw
+      - ./entrypoint.sh:/im/bin/entrypoint.sh
+    ports:
+      - 10004:10004
+    restart: always
+    depends_on:
+      - etcd
+      - mysql
+      - rabbitmq
+    entrypoint:
+      # 跟dockerfile中的cmd比较类似，都是容器启动后的默认操作--替代dockerfile中的cmd
+      /im/bin/entrypoint.sh -h 172.16.0.3 -p 2379,3306,5672 -c "/im/bin/message_transmit_server -flagfile=/im/conf/message_transmit_server.conf"
+  
+  user_server:
+    build: ./3.User_Server
+    image: user_server:v1
+    container_name: user_server-service
+    volumes:
+      # 1. 希望容器内的程序能够访问宿主机上的文件
+      # 2. 希望容器内程序运行所产生的数据文件能落在宿主机上
+      # 挂载的信息： entrypoint.sh文件 数据目录(im/logs, im/data), 配置文件
+      - ./Configs/user_server.conf:/im/conf/user_server.conf
+      - ./docker_image_data/logs:/im/logs:rw
+      - ./docker_image_data/data:/im/data:rw
+      - ./entrypoint.sh:/im/bin/entrypoint.sh
+    ports:
+      - 10003:10003
+    restart: always
+    depends_on:
+      - etcd
+      - mysql
+      - redis
+      - elasticsearch
+    entrypoint:
+      # 跟dockerfile中的cmd比较类似，都是容器启动后的默认操作--替代dockerfile中的cmd
+      /im/bin/entrypoint.sh -h 172.16.0.3 -p 2379,3306,5672,9200 -c "/im/bin/user_server -flagfile=/im/conf/user_server.conf"
+  

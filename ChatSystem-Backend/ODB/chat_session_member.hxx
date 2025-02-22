@@ -11,7 +11,8 @@ namespace chen_im
     {
     public:
         ChatSessionMember() {}
-        ChatSessionMember(const std::string &ssid, const std::string &uid) : _chat_session_id(ssid), _user_id(uid) {}
+        ChatSessionMember(const std::string &ssid, const std::string &uid) 
+            : _chat_session_id(ssid), _user_id(uid) {}
         ~ChatSessionMember() {}
 
         std::string chat_session_id() const { return _chat_session_id; }
@@ -30,3 +31,4 @@ namespace chen_im
         std::string _user_id;
     };
 }
+

@@ -7,11 +7,11 @@
 #### **1.1 设置主节点 (Master)**
 1. **修改主节点的配置文件** `my.cnf`，启用二进制日志并设置服务器 ID（每个节点的 `server-id` 必须唯一）。
 
-```ini
-[mysqld]
-log-bin=mysql-bin      # 启用二进制日志
-server-id=1            # 主节点的唯一ID
-```
+   ```ini
+   [mysqld]
+   log-bin=mysql-bin      # 启用二进制日志
+   server-id=1            # 主节点的唯一ID
+   ```
 
 2. **重启 MySQL 服务** 以应用配置。
 

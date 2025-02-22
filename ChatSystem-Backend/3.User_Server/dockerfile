@@ -19,3 +19,7 @@ COPY ./build/depends /lib/x86_64-linux-gnu/
 
 # 容器启动时直接启动服务进程，带上配置文件
 CMD /im/bin/user_server -flagfile=/im/conf/user_server.conf
+
+ENV LD_LIBRARY_PATH=/lib/x86_64-linux-gnu:$LD_LIBRARY_PATH
+RUN ln -s /lib/x86_64-linux-gnu/libcurl.so.4 /lib/x86_64-linux-gnu/libcurl.so
+

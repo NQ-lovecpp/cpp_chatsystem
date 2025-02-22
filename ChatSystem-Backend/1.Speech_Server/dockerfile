@@ -18,4 +18,4 @@ COPY ./speech_server.conf /im/conf/
 COPY ./build/depends /lib/x86_64-linux-gnu/
 
 # 容器启动时直接启动服务进程，带上配置文件
-CMD /im/bin/speech_server -flagfile=/im/conf/file_server.conf
+CMD /im/bin/speech_server -flagfile=/im/conf/speech_server.conf

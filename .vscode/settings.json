@@ -77,5 +77,6 @@
         "*.txx": "cpp"
     },
     "markdown-image.local.path": "/Pics",
-    "markdown-image.local.referencePath": "../Pics/"
+    "markdown-image.local.referencePath": "../Pics/",
+    "cmake.sourceDirectory": "/home/chen/cpp_chatsystem/ChatSystem-Backend/2.File_Server"
 }

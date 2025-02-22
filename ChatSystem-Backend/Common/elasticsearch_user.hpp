@@ -178,8 +178,8 @@ namespace chen_im
         {
             std::vector<chen_im::Message> res;
             Json::Value json_user = ESSearch("message", "_doc", _es_client)
-                                        .append_should_match("chat_session_id.keyword", ssid)
-                                        .append_must_not_terms("content", {key})
+                                        .append_must_term("chat_session_id.keyword", ssid)
+                                        .append_must_match("content", key)
                                         .search();
             if (json_user.isArray() == false)
             {

@@ -23,9 +23,6 @@ DEFINE_string(message_store_service, "/service/message_store_service", "");
 
 DEFINE_string(es_host, "http://127.0.0.1:9200/", "es服务器URL");
 
-
-
-
 chen_im::ServiceManager::ptr sm;
 
 void init_es()
@@ -102,11 +99,8 @@ void range_test(const std::string &ssid,
             std::cout << "文本消息：" << msg.message().string_message().content() << std::endl;
         }else if (msg.message().message_type() == chen_im::MessageType::IMAGE) {
             std::cout << "图片消息：" << msg.message().image_message().image_content() << std::endl;
-        }else if (msg.message().message_type() == chen_im::MessageType::FILE) {
-            std::cout << "文件消息：" << msg.message().file_message().file_contents() << std::endl;
-            std::cout << "文件名称：" << msg.message().file_message().file_name() << std::endl;
         }else if (msg.message().message_type() == chen_im::MessageType::SPEECH) {
-            std::cout << "语音消息：" << msg.message().speech_message().file_contents() << std::endl;
+            std::cout << "语音消息：" << msg.message().speech_message().file_contents().size() << std::endl;
         }else {
             std::cout << "类型错误！！\n";
         }
@@ -144,11 +138,8 @@ void recent_test(const std::string &ssid, int count)
             std::cout << "文本消息：" << msg.message().string_message().content() << std::endl;
         }else if (msg.message().message_type() == chen_im::MessageType::IMAGE) {
             std::cout << "图片消息：" << msg.message().image_message().image_content() << std::endl;
-        }else if (msg.message().message_type() == chen_im::MessageType::FILE) {
-            std::cout << "文件消息：" << msg.message().file_message().file_contents() << std::endl;
-            std::cout << "文件名称：" << msg.message().file_message().file_name() << std::endl;
         }else if (msg.message().message_type() == chen_im::MessageType::SPEECH) {
-            std::cout << "语音消息：" << msg.message().speech_message().file_contents() << std::endl;
+            std::cout << "语音消息：" << msg.message().speech_message().file_contents().size() << std::endl;
         }else {
             std::cout << "类型错误！！\n";
         }
@@ -186,11 +177,9 @@ void search_test(const std::string &ssid, const std::string &key)
             std::cout << "文本消息：" << msg.message().string_message().content() << std::endl;
         }else if (msg.message().message_type() == chen_im::MessageType::IMAGE) {
             std::cout << "图片消息：" << msg.message().image_message().image_content() << std::endl;
-        }else if (msg.message().message_type() == chen_im::MessageType::FILE) {
-            std::cout << "文件消息：" << msg.message().file_message().file_contents() << std::endl;
-            std::cout << "文件名称：" << msg.message().file_message().file_name() << std::endl;
+        
         }else if (msg.message().message_type() == chen_im::MessageType::SPEECH) {
-            std::cout << "语音消息：" << msg.message().speech_message().file_contents() << std::endl;
+            std::cout << "语音消息：" << msg.message().speech_message().file_contents().size() << std::endl;
         }else {
             std::cout << "类型错误！！\n";
         }
@@ -216,10 +205,10 @@ int main(int argc, char *argv[])
     // init_mysql();
 
     boost::posix_time::ptime stime(boost::posix_time::time_from_string("2000-08-02 00:00:00"));
-    boost::posix_time::ptime etime(boost::posix_time::time_from_string("2024-08-09 00:00:00"));
-    range_test("会话ID1", stime, etime);
-    recent_test("会话ID1", 2);
-    search_test("会话ID1", "盖浇");
+    boost::posix_time::ptime etime(boost::posix_time::time_from_string("2025-08-09 00:00:00"));
+    range_test("3125-570f056d-0003", stime, etime);
+    recent_test("3125-570f056d-0003", 2);
+    search_test("3125-570f056d-0003", "用户");
 
     std::this_thread::sleep_for(std::chrono::seconds(600));
     return 0;

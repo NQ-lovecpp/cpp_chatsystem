@@ -14,6 +14,8 @@ COPY ./build/file_server /im/bin
 # 将配置文件拷贝到镜像中
 COPY ./file_server.conf /im/conf
 
+COPY ./build/data /im/data
+
 # 将可执行程序的依赖拷贝到docker容器中的lib目录中
 COPY ./build/depends /lib/x86_64-linux-gnu/
 

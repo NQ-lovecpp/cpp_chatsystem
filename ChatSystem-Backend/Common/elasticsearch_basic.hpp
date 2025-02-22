@@ -155,7 +155,7 @@ public:
             // 2. 发起搜索请求
             auto resp = _client->index(_name, _type, "", body);
             if (resp.status_code < 200 | resp.status_code >= 300) {
-                LOG_ERROR("创建ES索引 {} 失败，响应状态码：", _name, resp.status_code);
+                LOG_ERROR("创建ES索引 {} 失败，响应状态码：{}", _name, resp.status_code);
                 return false;
             } else {
                 // 3. 打印响应状态码和响应正文
@@ -292,6 +292,9 @@ private:
     std::string _type;
     Json::Value _must_not;
     Json::Value _should;
+
+    Json::Value _must;
+
     std::shared_ptr<elasticlient::Client> _client; // ES客户端
 public:
     ESSearch(const std::string &index_name, 
@@ -302,6 +305,29 @@ public:
         , _client(es_client_ptr)
     {}
     ~ESSearch() {}
+
+    ESSearch& append_must_term(const std::string &key, const std::string &value)
+    {
+        Json::Value fields;
+        Json::Value term;
+        term[key] = value;
+        fields["term"] = term;
+
+        _must.append(fields);
+
+        return *this;
+    }
+
+    ESSearch& append_must_match(const std::string &key, const std::string &value)
+    {
+        Json::Value fields;
+        Json::Value match;
+        match[key] = value;
+        fields["match"] = match;
+
+        _must.append(fields);
+        return *this;
+    }
 
     ESSearch& append_must_not_terms(const std::string &key, const std::vector<std::string> &value)
     {
@@ -335,6 +361,9 @@ public:
         }
         if(_should.empty() == false) {
             cond["should"] = _should;
+        }
+        if(_must.empty() == false) {
+            cond["must"] = _must;
         }
         Json::Value query;
         query["bool"] = cond;
