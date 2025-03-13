@@ -1,0 +1,82 @@
+syntax = "proto3";
+package chen_im;
+option cc_generic_services = true;
+/*
+    消息推送使用websocket长连接进行
+    websocket长连接转换请求：ws://host:ip/ws
+    长连建立以后，需要客户端给服务器发送一个身份验证信息，且仅会在连接建立成功的时候发一次
+    也就是说下面的两个message，一个客户端的登录过程中只会用到一次
+*/
+message ClientAuthenticationReq {
+    string request_id = 1;
+    string session_id = 2;
+}
+message ClientAuthenticationRsp {
+    string request_id = 1;
+    bool success = 2;
+    string errmsg = 3;
+}
+
+//通信接口统一采用POST请求实现,正文采用protobuf协议进行组织
+/*  
+    HTTP HEADER：
+    POST /service/xxxxx
+    Content-Type: application/x-protobuf
+    Content-Length: 123
+
+    xxxxxx
+
+    -------------------------------------------------------
+
+    HTTP/1.1 200 OK 
+    Content-Type: application/x-protobuf
+    Content-Length: 123
+
+    xxxxxxxxxx
+*/
+
+
+//在客户端与网关服务器的通信中，使用HTTP协议进行通信
+//  通信时采用POST请求作为请求方法
+//  通信时，正文采用protobuf作为正文协议格式，具体内容字段以前边各个文件中定义的字段格式为准
+/*  以下是HTTP请求的功能与接口路径对应关系：
+    SERVICE HTTP PATH:
+    {
+        获取随机验证码                  /service/user/get_random_verify_code
+        获取短信验证码                  /service/user/get_phone_verify_code
+        用户名密码注册                  /service/user/username_register
+        用户名密码登录                  /service/user/username_login
+        手机号码注册                    /service/user/phone_register
+        手机号码登录                    /service/user/phone_login
+        获取个人信息                    /service/user/get_user_info
+        修改头像                        /service/user/set_avatar
+        修改昵称                        /service/user/set_nickname
+        修改签名                        /service/user/set_description
+        修改绑定手机                    /service/user/set_phone
+
+        获取好友列表                    /service/friend/get_friend_list
+        获取好友信息                    /service/friend/get_friend_info
+        发送好友申请                    /service/friend/add_friend_apply
+        好友申请处理                    /service/friend/add_friend_process
+        删除好友                        /service/friend/remove_friend
+        搜索用户                        /service/friend/search_friend
+        获取指定用户的消息会话列表       /service/friend/get_chat_session_list
+        创建消息会话                    /service/friend/create_chat_session
+        获取消息会话成员列表             /service/friend/get_chat_session_member
+        获取待处理好友申请事件列表       /service/friend/get_pending_friend_events
+
+        获取历史消息/离线消息列表        /service/message_storage/get_history
+        获取最近N条消息列表             /service/message_storage/get_recent
+        搜索历史消息                    /service/message_storage/search_history
+        
+        发送消息                        /service/message_transmit/new_message
+
+        获取单个文件数据                /service/file/get_single_file
+        获取多个文件数据                /service/file/get_multi_file
+        发送单个文件                    /service/file/put_single_file
+        发送多个文件                    /service/file/put_multi_file
+
+        语音转文字                     /service/speech/recognition
+    }
+    
+*/

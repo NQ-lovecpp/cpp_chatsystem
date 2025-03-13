@@ -1,0 +1,3047 @@
+--- FILE: ./index.html ---
+内容:
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" href="/favicon.ico" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Vue Chat Room</title>
+  </head>
+  <body>
+    <div id="app"></div>
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>
+
+--- FILE: ./.eslintrc.js ---
+内容:
+module.exports = {
+    root: true,
+    env: {
+      node: true,
+      'vue/setup-compiler-macros': true
+    },
+    extends: [
+      'plugin:vue/vue3-essential',
+      'eslint:recommended'
+    ],
+    parserOptions: {
+      parser: '@babel/eslint-parser'
+    },
+    rules: {
+      'no-console': process.env.NODE_ENV === 'production' ? 'warn' : 'off',
+      'no-debugger': process.env.NODE_ENV === 'production' ? 'warn' : 'off'
+    }
+  }
+
+--- FILE: ./vite.config.js ---
+内容:
+import { defineConfig } from 'vite'
+import vue from '@vitejs/plugin-vue'
+import path from 'path'
+
+export default defineConfig({
+  base: '/', // 添加这行
+  plugins: [vue()],
+  resolve: {
+    alias: {
+      '@': path.resolve(__dirname, 'src'),
+    },
+  },
+  server: {
+    host: '0.0.0.0',
+    port: 8080,
+    proxy: {
+      '/api': {
+        target: 'http://localhost:3000',
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/api/, '')
+      }
+    }
+  },
+  preview: {
+    port: 4173,
+    host: '0.0.0.0'
+  }
+})
+
+--- FILE: ./all_extracted_code.txt ---
+内容:
+
+
+
+
+--- FILE: ./.prettierrc ---
+内容:
+{
+  "semi": true,
+  "singleQuote": true,
+  "tabWidth": 2,
+  "trailingComma": "es5",
+  "printWidth": 100
+}
+
+--- FILE: ./run.md ---
+内容:
+npm run build
+npm run serve
+
+--- FILE: ./0_extract_content.py ---
+内容:
+import os
+
+def is_image_dir(path):
+    return os.path.basename(os.path.normpath(path)) == "image"
+
+def process_source_file(filepath):
+    try:
+        with open(filepath, 'r', encoding='utf-8') as f:
+            return f.read()
+    except Exception as e:
+        return f"【无法读取文件内容，可能是二进制文件或编码问题：{e}】"
+
+def main():
+    output_filename = "all_extracted_code.txt"
+    with open(output_filename, 'w', encoding='utf-8') as out_file:
+        # 从当前目录开始递归遍历
+        for root, dirs, files in os.walk('.'):
+            # 排除名为 build 的目录
+            if 'node_modules' in dirs:
+                dirs.remove('node_modules')
+            if 'dist' in dirs:
+                dirs.remove('dist')
+            if 'font' in dirs:
+                dirs.remove('font')
+
+            relative_root = os.path.relpath(root, '.')
+            # 判断当前目录是否为 image 目录
+            if is_image_dir(root):
+                for filename in files:
+                    rel_path = os.path.join(relative_root, filename)
+                    out_file.write(f"--- IMAGE FILE: {rel_path} ---\n")
+                    out_file.write(f"文件名: {filename}\n\n")
+            else:
+                for filename in files:
+                    rel_path = os.path.join(relative_root, filename)
+                    out_file.write(f"--- FILE: {rel_path} ---\n")
+                    content = process_source_file(os.path.join(root, filename))
+                    out_file.write("内容:\n")
+                    out_file.write(content + "\n\n")
+
+if __name__ == '__main__':
+    main()
+
+
+--- FILE: ./package.json ---
+内容:
+{
+    "name": "vue-chat-room",
+    "version": "0.1.0",
+    "private": true,
+    "scripts": {
+        "dev": "vite",
+        "build": "vite build",
+        "serve": "vite preview --host 0.0.0.0",
+        "lint": "eslint --ext .js,.vue src"
+    },
+    "dependencies": {
+        "axios": "^0.21.1",
+        "date-fns": "^2.23.0",
+        "element-plus": "^2.2.0",
+        "pinia": "^2.0.14",
+        "protobufjs": "^6.11.2",
+        "vue": "^3.2.31",
+        "vue-router": "^4.0.12"
+    },
+    "devDependencies": {
+        "@babel/core": "^7.14.6",
+        "@babel/eslint-parser": "^7.14.7",
+        "@vitejs/plugin-vue": "^2.2.0",
+        "eslint": "^7.32.0",
+        "eslint-plugin-vue": "^8.0.3",
+        "sass": "^1.32.7",
+        "vite": "^2.8.0"
+    }
+}
+
+--- FILE: src/App.vue ---
+内容:
+<template>
+  <div class="app-container">
+    <router-view />
+  </div>
+</template>
+
+<style>
+body {
+  margin: 0;
+  padding: 0;
+  font-family: Arial, sans-serif;
+}
+
+.app-container {
+  height: 100vh;
+  width: 100%;
+}
+</style>
+
+
+--- FILE: src/main.js ---
+内容:
+import { createApp } from 'vue'
+import { createPinia } from 'pinia'
+import App from './App.vue'
+import router from './router'
+import ElementPlus from 'element-plus'
+import 'element-plus/dist/index.css'
+
+const app = createApp(App)
+
+app.use(createPinia())
+app.use(router)
+app.use(ElementPlus)
+
+app.mount('#app')
+
+
+--- FILE: src/components/user/UserProfileDialog.vue ---
+内容:
+<template>
+    <v-dialog v-model="dialog" max-width="290">
+        <v-card>
+            <v-card-title>
+                <span class="headline">Session Detail</span>
+            </v-card-title>
+            <v-card-text>
+                <v-text-field v-model="sessionName" label="Session Name"></v-text-field>
+                <v-text-field v-model="sessionDescription" label="Session Description"></v-text-field>
+            </v-card-text>
+            <v-card-actions>
+                <v-spacer></v-spacer>
+                <v-btn color="blue darken-1" text @click="dialog = false">Cancel</v-btn>
+                <v-btn color="blue darken-1" text @click="updateSession">Update</v-btn>
+            </v-card-actions>
+        </v-card>
+    </v-dialog>
+</template>
+
+--- FILE: src/components/friend/AddFriendDialog.vue ---
+内容:
+<template>
+    <v-dialog v-model="dialog" max-width="290">
+        <v-card>
+            <v-card-title>
+                <span class="headline">Add Friend</span>
+            </v-card-title>
+            <v-card-text>
+                <v-text-field v-model="friendUsername" label="Friend Username"></v-text-field>
+            </v-card-text>
+            <v-card-actions>
+                <v-spacer></v-spacer>
+                <v-btn color="blue darken-1" text @click="dialog = false">Cancel</v-btn>
+                <v-btn color="blue darken-1" text @click="addFriend">Add</v-btn>
+            </v-card-actions>
+        </v-card>
+    </v-dialog>
+</template>
+
+--- FILE: src/components/friend/CreateGroupDialog.vue ---
+内容:
+<template>  
+    <div>
+        <h1>User Profile</h1>
+        <p>Username: {{ user.username }}</p>
+        <p>Email: {{ user.email }}</p>
+        <p>First Name: {{ user.first_name }}</p>
+        <p>Last Name: {{ user.last_name }}</p>
+        <p>Friends:</p>
+        <div v-for="friend in user.friends" :key="friend.id">
+            <p>{{ friend.username }}</p>
+        </div>
+    </div>
+</template>
+
+--- FILE: src/components/friend/FriendList.vue ---
+内容:
+<template>
+    <div class="friend-list">
+      <div class="search-bar">
+        <el-input 
+          v-model="searchText" 
+          placeholder="搜索好友" 
+          prefix-icon="el-icon-search"
+          clearable
+        ></el-input>
+      </div>
+      
+      <!-- 好友请求通知 -->
+      <div v-if="pendingRequests.length > 0" class="friend-requests" @click="openFriendRequests">
+        <i class="el-icon-bell"></i>
+        <span>好友请求 ({{ pendingRequests.length }})</span>
+        <i class="el-icon-right"></i>
+      </div>
+      
+      <!-- 好友分组 -->
+      <el-collapse v-model="activeGroups">
+        <el-collapse-item title="我的好友" name="my-friends">
+          <div 
+            v-for="friend in filteredFriends" 
+            :key="friend.userId" 
+            class="friend-item"
+            @click="selectFriend(friend.userId)"
+          >
+            <el-avatar :size="40" :src="friend.avatar || defaultAvatar"></el-avatar>
+            <div class="friend-info">
+              <div class="friend-name">{{ friend.nickname }}</div>
+              <div class="friend-signature">{{ friend.description || '这个人很懒，什么都没写' }}</div>
+            </div>
+          </div>
+          
+          <div v-if="filteredFriends.length === 0" class="empty-list">
+            {{ friends.length === 0 ? '还没有好友' : '没有匹配的好友' }}
+          </div>
+        </el-collapse-item>
+      </el-collapse>
+    </div>
+  </template>
+  
+  <script setup>
+  import { ref, computed } from 'vue';
+  import { ElMessageBox } from 'element-plus';
+  import { useDataCenter } from '@/store/dataCenter';
+  
+  const props = defineProps({
+    friends: {
+      type: Array,
+      default: () => []
+    }
+  });
+  
+  const emit = defineEmits(['selectFriend', 'addFriend']);
+  
+  const dataCenter = useDataCenter();
+  const searchText = ref('');
+  const activeGroups = ref(['my-friends']);
+  const defaultAvatar = '/assets/default-avatar.png';
+  
+  // 计算属性：获取待处理的好友请求
+  const pendingRequests = computed(() => dataCenter.pendingFriendEvents);
+  
+  // 计算属性：筛选好友
+  const filteredFriends = computed(() => {
+    if (!searchText.value) return props.friends;
+    
+    return props.friends.filter(friend => 
+      friend.nickname.toLowerCase().includes(searchText.value.toLowerCase()) ||
+      friend.username.toLowerCase().includes(searchText.value.toLowerCase())
+    );
+  });
+  
+  // 选择好友
+  const selectFriend = (friendId) => {
+    emit('selectFriend', friendId);
+  };
+  
+  // 打开好友请求列表
+  const openFriendRequests = () => {
+    ElMessageBox.confirm(
+      '您有未处理的好友请求，是否现在处理？',
+      '好友请求',
+      {
+        confirmButtonText: '去处理',
+        cancelButtonText: '稍后',
+        type: 'info'
+      }
+    ).then(() => {
+      // 跳转到好友请求页面
+      // 实现方式取决于你的路由设计
+    }).catch(() => {
+      // 取消操作
+    });
+  };
+  </script>
+  
+  <style lang="scss" scoped>
+  .friend-list {
+    height: 100%;
+    overflow-y: auto;
+    
+    .search-bar {
+      padding: 10px 16px;
+      
+      .el-input {
+        margin-bottom: 10px;
+      }
+    }
+    
+    .friend-requests {
+      display: flex;
+      align-items: center;
+      padding: 12px 16px;
+      margin-bottom: 10px;
+      background-color: #f5f7fa;
+      border-radius: 4px;
+      cursor: pointer;
+      
+      i.el-icon-bell {
+        font-size: 18px;
+        color: #409EFF;
+        margin-right: 10px;
+      }
+      
+      span {
+        flex: 1;
+        font-size: 14px;
+      }
+    }
+    
+    :deep(.el-collapse) {
+      border: none;
+      
+      .el-collapse-item__header {
+        font-size: 15px;
+        font-weight: 500;
+        height: 40px;
+        line-height: 40px;
+        background-color: #f5f7fa;
+        padding-left: 16px;
+      }
+      
+      .el-collapse-item__wrap {
+        border: none;
+      }
+      
+      .el-collapse-item__content {
+        padding: 0;
+      }
+    }
+    
+    .friend-item {
+      display: flex;
+      align-items: center;
+      padding: 12px 16px;
+      cursor: pointer;
+      
+      &:hover {
+        background-color: #f5f7fa;
+      }
+      
+      .friend-info {
+        margin-left: 12px;
+        
+        .friend-name {
+          font-size: 15px;
+          color: #333;
+          margin-bottom: 4px;
+        }
+        
+        .friend-signature {
+          font-size: 13px;
+          color: #999;
+        }
+      }
+    }
+    
+    .empty-list {
+      padding: 20px;
+      text-align: center;
+      color: #909399;
+      font-size: 14px;
+    }
+  }
+  </style>
+
+--- FILE: src/components/chat/MessageEditor.vue ---
+内容:
+<template>
+    <div class="message-editor">
+      <div class="toolbar">
+        <el-tooltip content="表情" placement="top">
+          <el-button icon="el-icon-smile" circle plain @click="showEmoji = !showEmoji"></el-button>
+        </el-tooltip>
+        
+        <el-tooltip content="图片" placement="top">
+          <el-button icon="el-icon-picture" circle plain @click="selectImage"></el-button>
+        </el-tooltip>
+        
+        <el-tooltip content="文件" placement="top">
+          <el-button icon="el-icon-folder" circle plain @click="selectFile"></el-button>
+        </el-tooltip>
+        
+        <el-tooltip content="录音" placement="top">
+          <el-button 
+            icon="el-icon-microphone" 
+            circle 
+            plain 
+            :class="{ 'recording': isRecording }"
+            @mousedown="startRecording" 
+            @mouseup="stopRecording"
+            @mouseleave="cancelRecording"
+          ></el-button>
+        </el-tooltip>
+        
+        <input 
+          type="file" 
+          ref="imageInput" 
+          accept="image/*" 
+          style="display: none" 
+          @change="handleImageSelected"
+        />
+        
+        <input 
+          type="file" 
+          ref="fileInput" 
+          style="display: none" 
+          @change="handleFileSelected"
+        />
+      </div>
+      
+      <!-- 表情面板 -->
+      <div v-if="showEmoji" class="emoji-panel">
+        <div 
+          v-for="emoji in emojiList" 
+          :key="emoji" 
+          class="emoji-item"
+          @click="insertEmoji(emoji)"
+        >
+          {{ emoji }}
+        </div>
+      </div>
+      
+      <div class="input-area">
+        <el-input
+          v-model="content"
+          type="textarea"
+          :rows="3"
+          placeholder="输入消息..."
+          resize="none"
+          @keydown.enter.exact.prevent="sendTextMessage"
+        ></el-input>
+      </div>
+      
+      <div class="send-area">
+        <span v-if="isRecording" class="recording-tip">
+          正在录音... {{ recordingDuration }}s
+        </span>
+        <span v-else class="shortcut-tip">
+          按 Enter 发送，Shift + Enter 换行
+        </span>
+        
+        <el-button type="primary" @click="sendTextMessage" :disabled="!content.trim()">
+          发送
+        </el-button>
+      </div>
+    </div>
+  </template>
+  
+  <script setup>
+  import { ref, onBeforeUnmount } from 'vue';
+  import { ElMessage } from 'element-plus';
+  
+  const emit = defineEmits(['send']);
+  
+  // 状态变量
+  const content = ref('');
+  const showEmoji = ref(false);
+  const isRecording = ref(false);
+  const recordingDuration = ref(0);
+  const recordingTimer = ref(null);
+  const mediaRecorder = ref(null);
+  const audioChunks = ref([]);
+  const imageInput = ref(null);
+  const fileInput = ref(null);
+  
+  // 表情列表
+  const emojiList = [
+    '😀', '😃', '😄', '😁', '😆', '😅', '😂', '🤣', '😊', 
+    '😇', '🙂', '🙃', '😉', '😌', '😍', '🥰', '😘', '😗', 
+    '😙', '😚', '😋', '😛', '😝', '😜', '🤪', '🤨', '🧐', 
+    '🤓', '😎', '🤩', '🥳', '😏', '😒', '😞', '😔', '😟'
+  ];
+  
+  // 方法
+  const sendTextMessage = () => {
+    if (!content.value.trim()) return;
+    
+    emit('send', content.value, 'text');
+    content.value = '';
+    showEmoji.value = false;
+  };
+  
+  const insertEmoji = (emoji) => {
+    content.value += emoji;
+  };
+  
+  const selectImage = () => {
+    imageInput.value.click();
+  };
+  
+  const handleImageSelected = async (event) => {
+    const file = event.target.files[0];
+    if (!file) return;
+    
+    if (!file.type.includes('image/')) {
+      ElMessage.error('请选择图片文件');
+      return;
+    }
+    
+    // 限制文件大小
+    if (file.size > 10 * 1024 * 1024) {
+      ElMessage.error('图片大小不能超过10MB');
+      return;
+    }
+    
+    try {
+      // 在实际应用中，这里可能需要先上传图片，然后获取图片URL
+      // const formData = new FormData();
+      // formData.append('file', file);
+      // const response = await fileApi.uploadImage(formData);
+      // emit('send', response.fileUrl, 'image');
+      
+      // 临时使用本地预览
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        emit('send', e.target.result, 'image');
+      };
+      reader.readAsDataURL(file);
+    } catch (error) {
+      console.error('上传图片失败:', error);
+      ElMessage.error('上传图片失败');
+    } finally {
+      // 清空输入框，以便下次选择同一文件时仍能触发change事件
+      event.target.value = '';
+    }
+  };
+  
+  const selectFile = () => {
+    fileInput.value.click();
+  };
+  
+  const handleFileSelected = async (event) => {
+    const file = event.target.files[0];
+    if (!file) return;
+    
+    // 限制文件大小
+    if (file.size > 100 * 1024 * 1024) {
+      ElMessage.error('文件大小不能超过100MB');
+      return;
+    }
+    
+    try {
+      // 在实际应用中，这里需要先上传文件，然后获取文件URL
+      // const formData = new FormData();
+      // formData.append('file', file);
+      // const response = await fileApi.uploadFile(formData);
+      // emit('send', response.fileUrl, 'file');
+      
+      // 临时模拟
+      ElMessage.success('文件上传成功');
+      emit('send', file.name, 'file');
+    } catch (error) {
+      console.error('上传文件失败:', error);
+      ElMessage.error('上传文件失败');
+    } finally {
+      event.target.value = '';
+    }
+  };
+  
+  const startRecording = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      
+      mediaRecorder.value = new MediaRecorder(stream);
+      audioChunks.value = [];
+      
+      mediaRecorder.value.ondataavailable = (event) => {
+        if (event.data.size > 0) {
+          audioChunks.value.push(event.data);
+        }
+      };
+      
+      mediaRecorder.value.onstop = async () => {
+        if (audioChunks.value.length === 0) return;
+        
+        const audioBlob = new Blob(audioChunks.value, { type: 'audio/wav' });
+        
+        // 在实际应用中，这里需要上传语音文件
+        // const formData = new FormData();
+        // formData.append('file', audioBlob);
+        // const response = await fileApi.uploadVoice(formData);
+        // emit('send', response.fileUrl, 'voice');
+        
+        // 临时使用本地URL
+        const audioUrl = URL.createObjectURL(audioBlob);
+        emit('send', audioUrl, 'voice');
+        
+        // 关闭麦克风
+        stopMediaTracks(mediaRecorder.value.stream);
+      };
+      
+      mediaRecorder.value.start();
+      isRecording.value = true;
+      
+      // 开始计时
+      recordingDuration.value = 0;
+      recordingTimer.value = setInterval(() => {
+        recordingDuration.value++;
+        
+        // 限制录音时长（60秒）
+        if (recordingDuration.value >= 60) {
+          stopRecording();
+        }
+      }, 1000);
+    } catch (error) {
+      console.error('录音失败:', error);
+      ElMessage.error('无法获取麦克风权限');
+      isRecording.value = false;
+    }
+  };
+  
+  const stopRecording = () => {
+    if (!isRecording.value || !mediaRecorder.value) return;
+    
+    clearInterval(recordingTimer.value);
+    mediaRecorder.value.stop();
+    isRecording.value = false;
+  };
+  
+  const cancelRecording = () => {
+    if (!isRecording.value) return;
+    
+    clearInterval(recordingTimer.value);
+    mediaRecorder.value.stop();
+    isRecording.value = false;
+    
+    // 清空录音数据
+    audioChunks.value = [];
+    
+    // 关闭麦克风
+    if (mediaRecorder.value && mediaRecorder.value.stream) {
+      stopMediaTracks(mediaRecorder.value.stream);
+    }
+  };
+  
+  const stopMediaTracks = (stream) => {
+    if (!stream) return;
+    
+    stream.getTracks().forEach(track => {
+      track.stop();
+    });
+  };
+  
+  // 组件销毁前清理资源
+  onBeforeUnmount(() => {
+    if (recordingTimer.value) {
+      clearInterval(recordingTimer.value);
+    }
+    
+    if (mediaRecorder.value && mediaRecorder.value.stream) {
+      stopMediaTracks(mediaRecorder.value.stream);
+    }
+  });
+  </script>
+  
+  <style lang="scss" scoped>
+  .message-editor {
+    border-top: 1px solid #eaeaea;
+    background-color: #fff;
+    
+    .toolbar {
+      display: flex;
+      padding: 10px 20px;
+      gap: 10px;
+      
+      .el-button.recording {
+        background-color: #f56c6c;
+        color: white;
+      }
+    }
+    
+    .emoji-panel {
+      display: flex;
+      flex-wrap: wrap;
+      padding: 10px;
+      background-color: #f5f5f5;
+      border-radius: 4px;
+      margin: 0 20px;
+      
+      .emoji-item {
+        width: 30px;
+        height: 30px;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        font-size: 20px;
+        cursor: pointer;
+        
+        &:hover {
+          background-color: #e0e0e0;
+          border-radius: 4px;
+        }
+      }
+    }
+    
+    .input-area {
+      padding: 0 20px;
+      
+      .el-textarea {
+        :deep(.el-textarea__inner) {
+          resize: none;
+          border: none;
+          padding: 10px 0;
+          font-size: 15px;
+          line-height: 1.5;
+          
+          &:focus {
+            box-shadow: none;
+          }
+        }
+      }
+    }
+    
+    .send-area {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 10px 20px;
+      
+      .shortcut-tip, .recording-tip {
+        font-size: 13px;
+        color: #999;
+      }
+      
+      .recording-tip {
+        color: #f56c6c;
+        animation: blink 1s infinite;
+      }
+    }
+  }
+  
+  @keyframes blink {
+    0% { opacity: 1; }
+    50% { opacity: 0.5; }
+    100% { opacity: 1; }
+  }
+  </style>
+
+--- FILE: src/components/chat/SessionList.vue ---
+内容:
+<template>
+    <div class="session-list">
+      <div 
+        v-for="session in sessions" 
+        :key="session.chatSessionId" 
+        class="session-item"
+        :class="{ 'active': session.chatSessionId === currentSessionId }"
+        @click="selectSession(session.chatSessionId)"
+      >
+        <el-avatar :size="40" :src="session.avatar || defaultAvatar"></el-avatar>
+        
+        <div class="session-info">
+          <div class="session-header">
+            <span class="session-name">{{ session.chatSessionName }}</span>
+            <span class="session-time">{{ formatTime(session.lastMessage?.sendTime) }}</span>
+          </div>
+          
+          <div class="session-content">
+            <div class="session-msg">
+              {{ formatLastMessage(session.lastMessage) }}
+            </div>
+            
+            <div v-if="session.unreadCount > 0" class="unread-badge">
+              {{ session.unreadCount > 99 ? '99+' : session.unreadCount }}
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      <div v-if="sessions.length === 0" class="empty-list">
+        <el-empty description="没有会话" :image-size="64"></el-empty>
+      </div>
+    </div>
+  </template>
+  
+  <script setup>
+  import { defineProps, defineEmits } from 'vue';
+  import { format } from 'date-fns';
+  
+  const props = defineProps({
+    sessions: {
+      type: Array,
+      default: () => []
+    },
+    currentSessionId: {
+      type: String,
+      default: ''
+    }
+  });
+  
+  const emit = defineEmits(['selectSession']);
+  
+  const defaultAvatar = '/assets/default-avatar.png';
+  
+  // 选择会话
+  const selectSession = (sessionId) => {
+    emit('selectSession', sessionId);
+  };
+  
+  // 格式化时间
+  const formatTime = (timestamp) => {
+    if (!timestamp) return '';
+    
+    const msgDate = new Date(parseInt(timestamp));
+    const today = new Date();
+    
+    if (msgDate.toDateString() === today.toDateString()) {
+      return format(msgDate, 'HH:mm');
+    } else {
+      const yesterday = new Date(today);
+      yesterday.setDate(yesterday.getDate() - 1);
+      
+      if (msgDate.toDateString() === yesterday.toDateString()) {
+        return '昨天';
+      } else {
+        return format(msgDate, 'MM/dd');
+      }
+    }
+  };
+  
+  // 格式化最后一条消息
+  const formatLastMessage = (message) => {
+    if (!message) return '';
+    
+    switch (message.msgType) {
+      case 'text':
+        return message.content;
+      case 'image':
+        return '[图片]';
+      case 'file':
+        return '[文件]';
+      case 'voice':
+        return '[语音]';
+      default:
+        return '[未知消息类型]';
+    }
+  };
+  </script>
+  
+  <style lang="scss" scoped>
+  .session-list {
+    height: 100%;
+    overflow-y: auto;
+    
+    .session-item {
+      display: flex;
+      align-items: center;
+      padding: 12px 16px;
+      cursor: pointer;
+      transition: background-color 0.2s;
+      
+      &:hover {
+        background-color: #f5f7fa;
+      }
+      
+      &.active {
+        background-color: #ecf5ff;
+      }
+      
+      .session-info {
+        flex: 1;
+        margin-left: 12px;
+        overflow: hidden;
+        
+        .session-header {
+          display: flex;
+          justify-content: space-between;
+          margin-bottom: 4px;
+          
+          .session-name {
+            font-size: 15px;
+            font-weight: 500;
+            color: #333;
+          }
+          
+          .session-time {
+            font-size: 12px;
+            color: #999;
+          }
+        }
+        
+        .session-content {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          
+          .session-msg {
+            flex: 1;
+            font-size: 13px;
+            color: #666;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+          }
+          
+          .unread-badge {
+            min-width: 18px;
+            height: 18px;
+            border-radius: 9px;
+            font-size: 12px;
+            background-color: #f56c6c;
+            color: #fff;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 0 5px;
+          }
+        }
+      }
+    }
+    
+    .empty-list {
+      height: 100%;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      color: #909399;
+    }
+  }
+  </style>
+
+--- FILE: src/components/chat/MessageDisplay.vue ---
+内容:
+<template>
+    <div class="message-container" ref="messageContainer">
+      <div class="message-list">
+        <div v-if="isLoading" class="loading-more">
+          <el-spinner type="primary" size="small"></el-spinner>
+          <span>加载历史消息中...</span>
+        </div>
+  
+        <div v-if="showLoadMore" class="load-more" @click="loadMoreMessages">
+          <span>加载更多消息</span>
+        </div>
+        
+        <template v-for="(message, index) in messages" :key="message.msgId">
+          <!-- 日期分隔线 -->
+          <div v-if="shouldShowDateDivider(message, index)" class="date-divider">
+            <span>{{ formatDate(message.sendTime) }}</span>
+          </div>
+          
+          <!-- 消息项 -->
+          <div 
+            class="message-item" 
+            :class="{ 'self-message': message.senderId === currentUserId }"
+          >
+            <el-avatar 
+              :size="36" 
+              :src="getUserAvatar(message.senderId)" 
+              class="avatar"
+            ></el-avatar>
+            
+            <div class="message-content">
+              <div class="sender-name" v-if="message.senderId !== currentUserId">
+                {{ getUserName(message.senderId) }}
+              </div>
+              
+              <div class="message-bubble">
+                <!-- 文本消息 -->
+                <div v-if="message.msgType === 'text'" class="text-message">
+                  {{ message.content }}
+                </div>
+                
+                <!-- 图片消息 -->
+                <div v-else-if="message.msgType === 'image'" class="image-message">
+                  <el-image 
+                    :src="message.content" 
+                    :preview-src-list="[message.content]"
+                    fit="cover"
+                  ></el-image>
+                </div>
+                
+                <!-- 文件消息 -->
+                <div v-else-if="message.msgType === 'file'" class="file-message">
+                  <div class="file-icon">
+                    <i class="el-icon-document"></i>
+                  </div>
+                  <div class="file-info">
+                    <div class="file-name">{{ getFileName(message.content) }}</div>
+                    <div class="file-size">{{ getFileSize(message.fileSize) }}</div>
+                  </div>
+                  <el-button 
+                    size="small" 
+                    type="primary" 
+                    icon="el-icon-download" 
+                    circle
+                    @click="downloadFile(message.content, message.fileName)"
+                  ></el-button>
+                </div>
+                
+                <!-- 语音消息 -->
+                <div v-else-if="message.msgType === 'voice'" class="voice-message">
+                  <div class="voice-icon" @click="playVoice(message.content)">
+                    <i class="el-icon-microphone"></i>
+                  </div>
+                  <div class="voice-duration">{{ message.duration }}″</div>
+                </div>
+              </div>
+              
+              <div class="message-time">
+                {{ formatTime(message.sendTime) }}
+              </div>
+            </div>
+          </div>
+        </template>
+      </div>
+    </div>
+  </template>
+  
+  <script setup>
+  import { ref, computed, onMounted, nextTick, watch } from 'vue';
+  import { useDataCenter } from '@/store/dataCenter';
+  import { format } from 'date-fns';
+  import { ElMessage } from 'element-plus';
+  
+  const props = defineProps({
+    messages: {
+      type: Array,
+      default: () => []
+    },
+    currentUserId: {
+      type: String,
+      required: true
+    }
+  });
+  
+  const dataCenter = useDataCenter();
+  const messageContainer = ref(null);
+  const isLoading = ref(false);
+  const showLoadMore = ref(true);
+  const currentAudio = ref(null);
+  
+  // 获取用户头像
+  const getUserAvatar = (userId) => {
+    if (userId === props.currentUserId) {
+      return dataCenter.currentUser?.avatar || '/assets/default-avatar.png';
+    }
+    
+    const friend = dataCenter.friendList.find(f => f.userId === userId);
+    return friend?.avatar || '/assets/default-avatar.png';
+  };
+  
+  // 获取用户名称
+  const getUserName = (userId) => {
+    const friend = dataCenter.friendList.find(f => f.userId === userId);
+    return friend?.nickname || userId;
+  };
+  
+  // 格式化日期
+  const formatDate = (timestamp) => {
+    const date = new Date(parseInt(timestamp));
+    const today = new Date();
+    const yesterday = new Date(today);
+    yesterday.setDate(yesterday.getDate() - 1);
+    
+    if (date.toDateString() === today.toDateString()) {
+      return '今天';
+    } else if (date.toDateString() === yesterday.toDateString()) {
+      return '昨天';
+    } else {
+      return format(date, 'yyyy年MM月dd日');
+    }
+  };
+  
+  // 格式化时间
+  const formatTime = (timestamp) => {
+    return format(new Date(parseInt(timestamp)), 'HH:mm');
+  };
+  
+  // 是否显示日期分隔线
+  const shouldShowDateDivider = (message, index) => {
+    if (index === 0) return true;
+    
+    const currentDate = new Date(parseInt(message.sendTime));
+    const prevDate = new Date(parseInt(props.messages[index - 1].sendTime));
+    
+    return currentDate.toDateString() !== prevDate.toDateString();
+  };
+  
+  // 获取文件名
+  const getFileName = (fileUrl) => {
+    const parts = fileUrl.split('/');
+    return parts[parts.length - 1];
+  };
+  
+  // 格式化文件大小
+  const getFileSize = (sizeInBytes) => {
+    if (!sizeInBytes) return '';
+    
+    const kb = sizeInBytes / 1024;
+    if (kb < 1024) {
+      return `${kb.toFixed(2)} KB`;
+    } else {
+      return `${(kb / 1024).toFixed(2)} MB`;
+    }
+  };
+  
+  // 下载文件
+  const downloadFile = async (fileUrl, fileName) => {
+    try {
+      ElMessage.info('正在下载文件...');
+      // 实际应用中，需要调用API获取文件
+      // const response = await fileApi.downloadFile(fileUrl);
+      // const url = window.URL.createObjectURL(new Blob([response.data]));
+      // const link = document.createElement('a');
+      // link.href = url;
+      // link.setAttribute('download', fileName || getFileName(fileUrl));
+      // document.body.appendChild(link);
+      // link.click();
+      // document.body.removeChild(link);
+      
+      ElMessage.success('文件下载完成');
+    } catch (error) {
+      console.error('下载文件失败:', error);
+      ElMessage.error('下载文件失败');
+    }
+  };
+  
+  // 播放语音
+  const playVoice = (voiceUrl) => {
+    // 停止当前正在播放的语音
+    if (currentAudio.value) {
+      currentAudio.value.pause();
+      currentAudio.value.currentTime = 0;
+    }
+    
+    // 播放新语音
+    const audio = new Audio(voiceUrl);
+    audio.onended = () => {
+      currentAudio.value = null;
+    };
+    audio.play();
+    currentAudio.value = audio;
+  };
+  
+  // 加载更多历史消息
+  const loadMoreMessages = async () => {
+    if (isLoading.value || !props.messages.length) return;
+    
+    try {
+      isLoading.value = true;
+      
+      const sessionId = dataCenter.currentSessionId;
+      const oldestMsgId = props.messages[0]?.msgId;
+      
+      const success = await dataCenter.getHistoryMessages(sessionId, oldestMsgId, 20);
+      
+      if (!success || dataCenter.currentMessages.length <= props.messages.length) {
+        showLoadMore.value = false;
+      }
+    } catch (error) {
+      console.error('加载历史消息失败:', error);
+      ElMessage.error('加载历史消息失败');
+    } finally {
+      isLoading.value = false;
+    }
+  };
+  
+  // 自动滚动到底部
+  const scrollToBottom = () => {
+    nextTick(() => {
+      if (messageContainer.value) {
+        messageContainer.value.scrollTop = messageContainer.value.scrollHeight;
+      }
+    });
+  };
+  
+  // 监听消息变化，自动滚动到底部
+  watch(() => props.messages.length, (newVal, oldVal) => {
+    if (newVal > oldVal) {
+      scrollToBottom();
+    }
+  });
+  
+  // 组件挂载完成，滚动到底部
+  onMounted(() => {
+    scrollToBottom();
+  });
+  </script>
+  
+  <style lang="scss" scoped>
+  .message-container {
+    flex: 1;
+    overflow-y: auto;
+    padding: 20px;
+    
+    .message-list {
+      display: flex;
+      flex-direction: column;
+      
+      .loading-more, .load-more {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        padding: 10px 0;
+        color: #999;
+        font-size: 14px;
+        
+        span {
+          margin-left: 8px;
+        }
+      }
+      
+      .load-more {
+        cursor: pointer;
+        
+        &:hover {
+          color: #409EFF;
+        }
+      }
+      
+      .date-divider {
+        display: flex;
+        justify-content: center;
+        margin: 16px 0;
+        
+        span {
+          padding: 4px 12px;
+          background-color: #f1f1f1;
+          border-radius: 16px;
+          font-size: 12px;
+          color: #999;
+        }
+      }
+      
+      .message-item {
+        display: flex;
+        margin-bottom: 16px;
+        
+        .avatar {
+          margin-right: 12px;
+        }
+        
+        .message-content {
+          max-width: 60%;
+          
+          .sender-name {
+            font-size: 13px;
+            color: #999;
+            margin-bottom: 4px;
+          }
+          
+          .message-bubble {
+            padding: 10px 12px;
+            background-color: #fff;
+            border-radius: 8px;
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+            
+            .text-message {
+              font-size: 15px;
+              line-height: 1.5;
+              word-break: break-word;
+            }
+            
+            .image-message {
+              img {
+                max-width: 300px;
+                max-height: 300px;
+                border-radius: 4px;
+              }
+            }
+            
+            .file-message {
+              display: flex;
+              align-items: center;
+              
+              .file-icon {
+                font-size: 24px;
+                color: #409EFF;
+                margin-right: 12px;
+              }
+              
+              .file-info {
+                flex: 1;
+                
+                .file-name {
+                  font-size: 14px;
+                  margin-bottom: 4px;
+                  word-break: break-word;
+                }
+                
+                .file-size {
+                  font-size: 12px;
+                  color: #999;
+                }
+              }
+            }
+            
+            .voice-message {
+              display: flex;
+              align-items: center;
+              
+              .voice-icon {
+                width: 36px;
+                height: 36px;
+                border-radius: 50%;
+                background-color: #409EFF;
+                color: #fff;
+                display: flex;
+                justify-content: center;
+                align-items: center;
+                cursor: pointer;
+                margin-right: 12px;
+              }
+              
+              .voice-duration {
+                font-size: 14px;
+                color: #666;
+              }
+            }
+          }
+          
+          .message-time {
+            font-size: 12px;
+            color: #999;
+            margin-top: 4px;
+            text-align: left;
+          }
+        }
+        
+        &.self-message {
+          flex-direction: row-reverse;
+          
+          .avatar {
+            margin-right: 0;
+            margin-left: 12px;
+          }
+          
+          .message-content {
+            .message-bubble {
+              background-color: #e1f3fb;
+            }
+            
+            .message-time {
+              text-align: right;
+            }
+          }
+        }
+      }
+    }
+  }
+  </style>
+
+--- FILE: src/components/chat/SessionDetailDialog.vue ---
+内容:
+<template>
+    <v-dialog v-model="dialog" max-width="290">
+        <v-card>
+            <v-card-title>
+                <span class="headline">Session Detail</span>
+            </v-card-title>
+            <v-card-text>
+                <v-text-field v-model="sessionName" label="Session Name"></v-text-field>
+                <v-text-field v-model="sessionDescription" label="Session Description"></v-text-field>
+            </v-card-text>
+            <v-card-actions>
+                <v-spacer></v-spacer>
+                <v-btn color="blue darken-1" text @click="dialog = false">Cancel</v-btn>
+                <v-btn color="blue darken-1" text @click="updateSession">Update</v-btn>
+            </v-card-actions>
+        </v-card>
+    </v-dialog>
+</template>
+
+--- FILE: src/store/dataCenter.js ---
+内容:
+import { defineStore } from 'pinia';
+import { userApi, friendApi, messageApi, sessionApi } from '@/network/api';
+
+export const useDataCenter = defineStore('dataCenter', {
+  state: () => ({
+    currentUser: null,
+    friendList: [],
+    chatSessions: [],
+    currentSessionId: null,
+    currentMessages: [],
+    pendingFriendEvents: [],
+    searchUserResults: [],
+  }),
+  
+  getters: {
+    isLoggedIn: (state) => !!state.currentUser,
+    currentSession: (state) => 
+      state.chatSessions.find(s => s.chatSessionId === state.currentSessionId),
+    sessionById: (state) => (id) => 
+      state.chatSessions.find(s => s.chatSessionId === id),
+  },
+  
+  actions: {
+    // 用户登录
+    async login(phoneNumber, password) {
+      const response = await userApi.login(phoneNumber, password);
+      if (response.success) {
+        this.currentUser = response.userInfo;
+        localStorage.setItem('sessionId', response.sessionId);
+        // 初始化WebSocket连接
+        return true;
+      }
+      return false;
+    },
+    
+    // 获取好友列表
+    async getFriendList() {
+      const response = await friendApi.getFriendList();
+      if (response.success) {
+        this.friendList = response.friendList;
+      }
+      return response.success;
+    },
+    
+    // 搜索用户
+    async searchUserAsync(keyword) {
+      const response = await friendApi.searchUser(keyword);
+      if (response.success) {
+        this.searchUserResults = response.userInfoList;
+      }
+      return response.success;
+    },
+    
+    // 获取会话列表
+    async getChatSessionList() {
+      const response = await sessionApi.getChatSessionList();
+      if (response.success) {
+        this.chatSessions = response.chatSessionInfoList;
+      }
+      return response.success;
+    },
+    
+    // 获取消息历史
+    async getHistoryMessages(sessionId, maxMessageId, count) {
+      const response = await messageApi.getHistoryMsg(sessionId, maxMessageId, count);
+      if (response.success) {
+        if (sessionId === this.currentSessionId) {
+          // 合并历史消息并按时间排序
+          const allMessages = [...this.currentMessages, ...response.msgList];
+          this.currentMessages = allMessages.sort((a, b) => a.msgId - b.msgId);
+        }
+      }
+      return response.success;
+    },
+    
+    // 添加好友申请
+    async addFriendApplyAsync(userId) {
+      return await friendApi.addFriendApply(userId);
+    },
+    
+    // 创建群聊会话
+    async createGroupChatSessionAsync(memberIdList) {
+      const response = await sessionApi.createGroupChatSession(memberIdList);
+      if (response.success) {
+        // 更新会话列表
+        this.getChatSessionList();
+      }
+      return response.success;
+    },
+    
+    // 接收新消息
+    receiveNewMessage(message) {
+      // 处理会话和消息更新逻辑
+      const sessionId = message.chatSessionId;
+      
+      // 更新会话的最新消息
+      const sessionIndex = this.chatSessions.findIndex(s => s.chatSessionId === sessionId);
+      if (sessionIndex !== -1) {
+        const session = this.chatSessions[sessionIndex];
+        session.lastMessage = message;
+        session.unreadCount = sessionId === this.currentSessionId ? 0 : (session.unreadCount || 0) + 1;
+        
+        // 将当前会话移到顶部
+        this.chatSessions.splice(sessionIndex, 1);
+        this.chatSessions.unshift(session);
+      }
+      
+      // 如果是当前会话，添加到消息列表
+      if (sessionId === this.currentSessionId) {
+        this.currentMessages.push(message);
+      }
+    },
+    
+    // 切换当前会话
+    async switchSession(sessionId) {
+      this.currentSessionId = sessionId;
+      this.currentMessages = [];
+      
+      // 加载最近消息
+      await this.getRecentMessages(sessionId);
+      
+      // 重置未读计数
+      const sessionIndex = this.chatSessions.findIndex(s => s.chatSessionId === sessionId);
+      if (sessionIndex !== -1) {
+        this.chatSessions[sessionIndex].unreadCount = 0;
+      }
+    },
+    
+    // 获取最近消息
+    async getRecentMessages(sessionId) {
+      const response = await messageApi.getRecentMsg(sessionId, 20);
+      if (response.success) {
+        this.currentMessages = response.msgList.sort((a, b) => a.msgId - b.msgId);
+      }
+      return response.success;
+    },
+    
+    // 发送消息
+    async sendMessage(sessionId, content, type = 'text') {
+      const message = {
+        chatSessionId: sessionId,
+        msgType: type,
+        content: content,
+        sendTime: Date.now(),
+      };
+      
+      const response = await messageApi.sendNewMessage(message);
+      if (response.success) {
+        // 添加到本地消息列表
+        message.msgId = response.msgId;
+        message.senderId = this.currentUser.userId;
+        this.currentMessages.push(message);
+        
+        // 更新会话的最新消息
+        const sessionIndex = this.chatSessions.findIndex(s => s.chatSessionId === sessionId);
+        if (sessionIndex !== -1) {
+          const session = { ...this.chatSessions[sessionIndex] };
+          session.lastMessage = message;
+          
+          // 将当前会话移到顶部
+          this.chatSessions.splice(sessionIndex, 1);
+          this.chatSessions.unshift(session);
+        }
+      }
+      return response.success;
+    },
+  }
+});
+
+--- FILE: src/router/index.js ---
+内容:
+import { createRouter, createWebHistory } from 'vue-router';
+import { useDataCenter } from '@/store/dataCenter';
+
+const routes = [
+  {
+    path: '/',
+    name: 'Main',
+    component: () => import('@/views/MainView.vue'),
+    meta: { requiresAuth: true }
+  },
+  {
+    path: '/login',
+    name: 'Login',
+    component: () => import('@/views/LoginView.vue'),
+    meta: { guest: true }
+  },
+  {
+    path: '/register',
+    name: 'Register',
+    component: () => import('@/views/RegisterView.vue'),
+    meta: { guest: true }
+  },
+  {
+    path: '/friend-requests',
+    name: 'FriendRequests',
+    component: () => import('@/views/FriendRequestsView.vue'),
+    meta: { requiresAuth: true }
+  },
+  {
+    path: '/user-profile',
+    name: 'UserProfile',
+    component: () => import('@/views/UserProfileView.vue'),
+    meta: { requiresAuth: true }
+  }
+];
+
+const router = createRouter({
+  history: createWebHistory(),
+  routes
+});
+
+// 导航守卫
+router.beforeEach((to, from, next) => {
+  const dataCenter = useDataCenter();
+  const isLoggedIn = !!localStorage.getItem('sessionId');
+  
+  // 需要登录的路由
+  if (to.matched.some(record => record.meta.requiresAuth)) {
+    if (!isLoggedIn) {
+      next({ name: 'Login' });
+    } else {
+      // 如果已登录但没有当前用户信息，则获取用户信息
+      if (!dataCenter.currentUser) {
+        dataCenter.getUserInfo();
+      }
+      next();
+    }
+  } 
+  // 游客路由（已登录用户不应访问）
+  else if (to.matched.some(record => record.meta.guest)) {
+    if (isLoggedIn) {
+      next({ name: 'Main' });
+    } else {
+      next();
+    }
+  } else {
+    next();
+  }
+});
+
+export default router;
+
+--- FILE: src/views/RegisterView.vue ---
+内容:
+<template>
+    <div class="register">
+      <el-card class="register-card">
+        <h2>注册</h2>
+        <el-form :model="registerForm" :rules="rules" ref="registerForm">
+          <el-form-item prop="username">
+            <el-input v-model="registerForm.username" placeholder="用户名"></el-input>
+          </el-form-item>
+          <el-form-item prop="password">
+            <el-input v-model="registerForm.password" type="password" placeholder="密码"></el-input>
+          </el-form-item>
+          <el-form-item prop="confirmPassword">
+            <el-input v-model="registerForm.confirmPassword" type="password" placeholder="确认密码"></el-input>
+          </el-form-item>
+          <el-form-item>
+            <el-button type="primary" @click="handleRegister">注册</el-button>
+          </el-form-item>
+        </el-form>
+        <div class="login-link">
+          已有账号？<router-link to="/login">立即登录</router-link>
+        </div>
+      </el-card>
+    </div>
+  </template>
+  
+  <script>
+  export default {
+    name: 'RegisterView',
+    data() {
+      return {
+        registerForm: {
+          username: '',
+          password: '',
+          confirmPassword: ''
+        },
+        rules: {
+          username: [
+            { required: true, message: '请输入用户名', trigger: 'blur' },
+            { min: 3, max: 20, message: '长度在 3 到 20 个字符', trigger: 'blur' }
+          ],
+          password: [
+            { required: true, message: '请输入密码', trigger: 'blur' },
+            { min: 6, message: '密码长度至少为 6 个字符', trigger: 'blur' }
+          ],
+          confirmPassword: [
+            { required: true, message: '请确认密码', trigger: 'blur' }
+          ]
+        }
+      }
+    },
+    methods: {
+      handleRegister() {
+        this.$refs.registerForm.validate((valid) => {
+          if (valid) {
+            // 这里添加注册逻辑
+            console.log('注册表单:', this.registerForm)
+          }
+        })
+      }
+    }
+  }
+  </script>
+  
+  <style scoped>
+  .register {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+    background-color: #f5f5f5;
+  }
+  
+  .register-card {
+    width: 400px;
+    padding: 20px;
+  }
+  
+  .login-link {
+    text-align: center;
+    margin-top: 15px;
+  }
+  </style>
+
+--- FILE: src/views/MainView.vue ---
+内容:
+<template>
+    <div class="main-container">
+      <!-- 左侧边栏 - 会话列表 -->
+      <div class="sidebar">
+        <div class="user-profile" @click="openUserProfile">
+          <el-avatar :size="45" :src="currentUser?.avatar || defaultAvatar"></el-avatar>
+          <span class="username">{{ currentUser?.nickname || '用户名' }}</span>
+        </div>
+        
+        <div class="menu-tabs">
+          <el-tabs v-model="activeTab" @tab-click="handleTabClick">
+            <el-tab-pane label="会话" name="sessions">
+              <session-list 
+                :sessions="chatSessions" 
+                :current-session-id="currentSessionId"
+                @select-session="handleSelectSession"
+              />
+            </el-tab-pane>
+            <el-tab-pane label="好友" name="friends">
+              <friend-list 
+                :friends="friendList" 
+                @select-friend="handleSelectFriend"
+                @add-friend="openAddFriendDialog"
+              />
+            </el-tab-pane>
+          </el-tabs>
+        </div>
+        
+        <div class="action-buttons">
+          <el-button type="primary" icon="el-icon-plus" circle @click="openAddFriendDialog"></el-button>
+          <el-button type="success" icon="el-icon-user-solid" circle @click="openCreateGroupDialog"></el-button>
+        </div>
+      </div>
+      
+      <!-- 右侧聊天区域 -->
+      <div class="chat-area" v-if="currentSessionId">
+        <div class="chat-header">
+          <div class="chat-title">
+            <span>{{ currentSession?.chatSessionName || '聊天' }}</span>
+            <el-button icon="el-icon-more" circle plain @click="openSessionDetail"></el-button>
+          </div>
+        </div>
+        
+        <message-display 
+          :messages="currentMessages" 
+          :current-user-id="currentUser?.userId"
+        />
+        
+        <message-editor @send="handleSendMessage" />
+      </div>
+      
+      <div class="empty-chat" v-else>
+        <el-empty description="选择会话或开始新对话"></el-empty>
+      </div>
+    </div>
+    
+    <!-- 对话框组件 -->
+    <add-friend-dialog v-if="showAddFriendDialog" @close="showAddFriendDialog = false" />
+    <create-group-dialog v-if="showGroupDialog" @close="showGroupDialog = false" />
+    <session-detail-dialog 
+      v-if="showSessionDetail" 
+      :session-id="currentSessionId"
+      @close="showSessionDetail = false" 
+    />
+    <user-profile-dialog 
+      v-if="showUserProfile" 
+      :user="currentUser" 
+      @close="showUserProfile = false" 
+    />
+  </template>
+  
+  <script setup>
+  import { ref, computed, onMounted, watchEffect } from 'vue';
+  import { useDataCenter } from '@/store/dataCenter';
+  import { useRouter } from 'vue-router';
+  import { ElMessage } from 'element-plus';
+  
+  // 导入组件
+  import SessionList from '@/components/chat/SessionList.vue';
+  import FriendList from '@/components/friend/FriendList.vue';
+  import MessageDisplay from '@/components/chat/MessageDisplay.vue';
+  import MessageEditor from '@/components/chat/MessageEditor.vue';
+  import AddFriendDialog from '@/components/friend/AddFriendDialog.vue';
+  import CreateGroupDialog from '@/components/friend/CreateGroupDialog.vue';
+  import SessionDetailDialog from '@/components/chat/SessionDetailDialog.vue';
+  import UserProfileDialog from '@/components/user/UserProfileDialog.vue';
+  
+  const dataCenter = useDataCenter();
+  const router = useRouter();
+  
+  // 状态变量
+  const activeTab = ref('sessions');
+  const showAddFriendDialog = ref(false);
+  const showGroupDialog = ref(false);
+  const showSessionDetail = ref(false);
+  const showUserProfile = ref(false);
+  const defaultAvatar = '/assets/default-avatar.png';
+  
+  // 计算属性
+  const currentUser = computed(() => dataCenter.currentUser);
+  const friendList = computed(() => dataCenter.friendList);
+  const chatSessions = computed(() => dataCenter.chatSessions);
+  const currentSessionId = computed(() => dataCenter.currentSessionId);
+  const currentSession = computed(() => dataCenter.currentSession);
+  const currentMessages = computed(() => dataCenter.currentMessages);
+  
+  // 生命周期钩子
+  onMounted(async () => {
+    if (!dataCenter.isLoggedIn) {
+      router.push('/login');
+      return;
+    }
+    
+    // 加载基础数据
+    try {
+      await Promise.all([
+        dataCenter.getFriendList(),
+        dataCenter.getChatSessionList()
+      ]);
+    } catch (error) {
+      ElMessage.error('加载数据失败，请重试');
+      console.error('加载数据失败:', error);
+    }
+  });
+  
+  // 监听当前会话变化，自动加载消息
+  watchEffect(async () => {
+    const sessionId = currentSessionId.value;
+    if (sessionId) {
+      try {
+        await dataCenter.getRecentMessages(sessionId);
+      } catch (error) {
+        console.error('加载消息失败:', error);
+      }
+    }
+  });
+  
+  // 方法
+  const handleTabClick = (tab) => {
+    // 处理标签页切换逻辑
+  };
+  
+  const handleSelectSession = (sessionId) => {
+    dataCenter.switchSession(sessionId);
+  };
+  
+  const handleSelectFriend = (friendId) => {
+    // 获取或创建与该好友的会话
+    const session = chatSessions.value.find(s => 
+      s.sessionType === 'single' && s.friendId === friendId
+    );
+    
+    if (session) {
+      dataCenter.switchSession(session.chatSessionId);
+    } else {
+      // 创建新会话
+      // 实际应用中可能需要向后端请求创建会话
+      ElMessage.info('正在创建与该好友的会话...');
+    }
+  };
+  
+  const handleSendMessage = async (content, type = 'text') => {
+    if (!currentSessionId.value) {
+      ElMessage.warning('请先选择会话');
+      return;
+    }
+    
+    try {
+      await dataCenter.sendMessage(currentSessionId.value, content, type);
+    } catch (error) {
+      ElMessage.error('发送消息失败');
+      console.error('发送消息失败:', error);
+    }
+  };
+  
+  const openAddFriendDialog = () => {
+    showAddFriendDialog.value = true;
+  };
+  
+  const openCreateGroupDialog = () => {
+    showGroupDialog.value = true;
+  };
+  
+  const openSessionDetail = () => {
+    showSessionDetail.value = true;
+  };
+  
+  const openUserProfile = () => {
+    showUserProfile.value = true;
+  };
+  </script>
+  
+  <style lang="scss" scoped>
+  .main-container {
+    display: flex;
+    height: 100vh;
+    overflow: hidden;
+    background-color: #f0f2f5;
+    
+    .sidebar {
+      width: 280px;
+      display: flex;
+      flex-direction: column;
+      background-color: #fff;
+      border-right: 1px solid #eaeaea;
+      
+      .user-profile {
+        display: flex;
+        align-items: center;
+        padding: 16px;
+        cursor: pointer;
+        
+        .username {
+          margin-left: 12px;
+          font-weight: 500;
+        }
+      }
+      
+      .menu-tabs {
+        flex: 1;
+        overflow: hidden;
+        
+        :deep(.el-tabs__header) {
+          padding: 0 16px;
+          margin: 0;
+        }
+        
+        :deep(.el-tabs__content) {
+          height: calc(100% - 40px);
+          overflow: hidden;
+        }
+        
+        :deep(.el-tab-pane) {
+          height: 100%;
+          overflow-y: auto;
+        }
+      }
+      
+      .action-buttons {
+        display: flex;
+        justify-content: space-around;
+        padding: 12px 16px;
+        border-top: 1px solid #eaeaea;
+      }
+    }
+    
+    .chat-area {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      background-color: #f5f5f5;
+      
+      .chat-header {
+        padding: 12px 20px;
+        background-color: #fff;
+        border-bottom: 1px solid #eaeaea;
+        
+        .chat-title {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          
+          span {
+            font-size: 16px;
+            font-weight: 500;
+          }
+        }
+      }
+    }
+    
+    .empty-chat {
+      flex: 1;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      background-color: #fff;
+    }
+  }
+  </style>
+
+--- FILE: src/views/UserProfileView.vue ---
+内容:
+<template>  
+    <div>
+        <h1>User Profile</h1>
+        <p>Username: {{ user.username }}</p>
+        <p>Email: {{ user.email }}</p>
+        <p>First Name: {{ user.first_name }}</p>
+        <p>Last Name: {{ user.last_name }}</p>
+        <p>Friends:</p>
+        <div v-for="friend in user.friends" :key="friend.id">
+            <p>{{ friend.username }}</p>
+        </div>
+    </div>
+</template>
+
+--- FILE: src/views/FriendRequestsView.vue ---
+内容:
+<template>  
+    <div>
+        <h1>User Profile</h1>
+        <p>Username: {{ user.username }}</p>
+        <p>Email: {{ user.email }}</p>
+        <p>First Name: {{ user.first_name }}</p>
+        <p>Last Name: {{ user.last_name }}</p>
+        <p>Friends:</p>
+        <div v-for="friend in user.friends" :key="friend.id">
+            <p>{{ friend.username }}</p>
+        </div>
+    </div>
+</template>
+
+--- FILE: src/views/LoginView.vue ---
+内容:
+<template>
+    <div class="login-container">
+      <div class="login-box">
+        <div class="logo">
+          <img src="@/assets/logo.png" alt="Logo">
+          <h1>Vue聊天室</h1>
+        </div>
+        
+        <el-tabs v-model="activeTab" class="login-tabs">
+          <el-tab-pane label="账号密码登录" name="password">
+            <el-form ref="loginForm" :model="loginForm" :rules="loginRules" label-width="0">
+              <el-form-item prop="phoneNumber">
+                <el-input 
+                  v-model="loginForm.phoneNumber" 
+                  placeholder="手机号" 
+                  prefix-icon="el-icon-mobile-phone"
+                />
+              </el-form-item>
+              
+              <el-form-item prop="password">
+                <el-input 
+                  v-model="loginForm.password" 
+                  type="password" 
+                  placeholder="密码" 
+                  prefix-icon="el-icon-lock"
+                  @keyup.enter="handleLogin"
+                />
+              </el-form-item>
+              
+              <el-form-item>
+                <el-button 
+                  type="primary" 
+                  class="login-button" 
+                  :loading="loading" 
+                  @click="handleLogin"
+                >
+                  登录
+                </el-button>
+              </el-form-item>
+            </el-form>
+          </el-tab-pane>
+          
+          <el-tab-pane label="短信验证码登录" name="sms">
+            <el-form ref="smsForm" :model="smsForm" :rules="smsRules" label-width="0">
+              <el-form-item prop="phoneNumber">
+                <el-input 
+                  v-model="smsForm.phoneNumber" 
+                  placeholder="手机号" 
+                  prefix-icon="el-icon-mobile-phone"
+                />
+              </el-form-item>
+              
+              <el-form-item prop="verifyCode">
+                <div class="verify-code">
+                  <el-input 
+                    v-model="smsForm.verifyCode" 
+                    placeholder="验证码" 
+                    prefix-icon="el-icon-key"
+                  />
+                  <el-button 
+                    :disabled="cooldown > 0" 
+                    @click="sendVerifyCode"
+                  >
+                    {{ cooldown > 0 ? `${cooldown}s` : '获取验证码' }}
+                  </el-button>
+                </div>
+              </el-form-item>
+              
+              <el-form-item>
+                <el-button 
+                  type="primary" 
+                  class="login-button" 
+                  :loading="loading" 
+                  @click="handleSmsLogin"
+                >
+                  登录
+                </el-button>
+              </el-form-item>
+            </el-form>
+          </el-tab-pane>
+        </el-tabs>
+        
+        <div class="register-link">
+          <span>还没有账号？</span>
+          <router-link to="/register">立即注册</router-link>
+        </div>
+      </div>
+    </div>
+  </template>
+  
+  <script setup>
+  import { ref, reactive } from 'vue';
+  import { useRouter } from 'vue-router';
+  import { ElMessage } from 'element-plus';
+  import { useDataCenter } from '@/store/dataCenter';
+  import { userApi } from '@/network/api';
+  import { setupWebSocket } from '@/network/websocket';
+  
+  const router = useRouter();
+  const dataCenter = useDataCenter();
+  
+  // 状态变量
+  const activeTab = ref('password');
+  const loading = ref(false);
+  const cooldown = ref(0);
+  
+  // 表单数据
+  const loginForm = reactive({
+    phoneNumber: '',
+    password: ''
+  });
+  
+  const smsForm = reactive({
+    phoneNumber: '',
+    verifyCode: ''
+  });
+  
+  // 表单验证规则
+  const loginRules = {
+    phoneNumber: [
+      { required: true, message: '请输入手机号', trigger: 'blur' },
+      { pattern: /^1[3-9]\d{9}$/, message: '手机号格式不正确', trigger: 'blur' }
+    ],
+    password: [
+      { required: true, message: '请输入密码', trigger: 'blur' },
+      { min: 6, message: '密码长度不能少于6位', trigger: 'blur' }
+    ]
+  };
+  
+  const smsRules = {
+    phoneNumber: [
+      { required: true, message: '请输入手机号', trigger: 'blur' },
+      { pattern: /^1[3-9]\d{9}$/, message: '手机号格式不正确', trigger: 'blur' }
+    ],
+    verifyCode: [
+      { required: true, message: '请输入验证码', trigger: 'blur' },
+      { pattern: /^\d{6}$/, message: '验证码格式不正确', trigger: 'blur' }
+    ]
+  };
+  
+  // 方法
+  const handleLogin = async () => {
+    try {
+      loading.value = true;
+      
+      // 登录请求
+      const success = await dataCenter.login(loginForm.phoneNumber, loginForm.password);
+      
+      if (success) {
+        // 建立WebSocket连接
+        setupWebSocket(localStorage.getItem('sessionId'));
+        
+        // 登录成功，跳转到首页
+        router.push('/');
+        ElMessage.success('登录成功');
+      } else {
+        ElMessage.error('用户名或密码错误');
+      }
+    } catch (error) {
+      console.error('登录失败:', error);
+      ElMessage.error('登录失败，请重试');
+    } finally {
+      loading.value = false;
+    }
+  };
+  
+  const handleSmsLogin = async () => {
+    try {
+      loading.value = true;
+      
+      // 短信验证码登录
+      const response = await userApi.smsLogin(smsForm.phoneNumber, smsForm.verifyCode);
+      
+      if (response.success) {
+        // 更新用户信息
+        dataCenter.currentUser = response.userInfo;
+        localStorage.setItem('sessionId', response.sessionId);
+        
+        // 建立WebSocket连接
+        setupWebSocket(response.sessionId);
+        
+        // 登录成功，跳转到首页
+        router.push('/');
+        ElMessage.success('登录成功');
+      } else {
+        ElMessage.error(response.errmsg || '验证码错误');
+      }
+    } catch (error) {
+      console.error('登录失败:', error);
+      ElMessage.error('登录失败，请重试');
+    } finally {
+      loading.value = false;
+    }
+  };
+  
+  const sendVerifyCode = async () => {
+    try {
+      // 验证手机号格式
+      if (!/^1[3-9]\d{9}$/.test(smsForm.phoneNumber)) {
+        ElMessage.warning('请输入正确的手机号');
+        return;
+      }
+      
+      // 发送验证码
+      const response = await userApi.sendVerifyCode(smsForm.phoneNumber);
+      
+      if (response.success) {
+        ElMessage.success('验证码已发送');
+        
+        // 倒计时
+        cooldown.value = 60;
+        const timer = setInterval(() => {
+          cooldown.value--;
+          if (cooldown.value <= 0) {
+            clearInterval(timer);
+          }
+        }, 1000);
+      } else {
+        ElMessage.error(response.errmsg || '发送验证码失败');
+      }
+    } catch (error) {
+      console.error('发送验证码失败:', error);
+      ElMessage.error('发送验证码失败，请重试');
+    }
+  };
+  </script>
+  
+  <style lang="scss" scoped>
+  .login-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+    background-color: #f5f5f5;
+    
+    .login-box {
+      width: 380px;
+      padding: 30px;
+      background-color: #fff;
+      border-radius: 8px;
+      box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.1);
+      
+      .logo {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        margin-bottom: 30px;
+        
+        img {
+          width: 80px;
+          height: 80px;
+        }
+        
+        h1 {
+          margin-top: 16px;
+          font-size: 24px;
+          color: #333;
+        }
+      }
+      
+      .login-tabs {
+        margin-bottom: 20px;
+      }
+      
+      .login-button {
+        width: 100%;
+        height: 40px;
+        font-size: 16px;
+      }
+      
+      .verify-code {
+        display: flex;
+        
+        .el-input {
+          flex: 1;
+          margin-right: 10px;
+        }
+        
+        .el-button {
+          width: 120px;
+        }
+      }
+      
+      .register-link {
+      text-align: center;
+      margin-top: 20px;
+      font-size: 14px;
+      
+      span {
+        color: #666;
+      }
+      
+      a {
+        color: #409EFF;
+        text-decoration: none;
+        margin-left: 5px;
+      }
+    }
+  }
+}
+</style>
+
+--- FILE: src/network/index.js ---
+内容:
+import axios from 'axios';
+import { setupWebSocket } from './websocket';
+import { loadProtobufs } from './protobuf';
+
+// 创建axios实例
+const httpClient = axios.create({
+  baseURL: import.meta.env.VITE_API_BASE_URL,
+  timeout: 10000,
+  headers: {
+    'Content-Type': 'application/x-protobuf'
+  }
+});
+
+// 请求拦截器 - 添加会话ID等身份信息
+httpClient.interceptors.request.use(
+  config => {
+    const sessionId = localStorage.getItem('sessionId');
+    if (sessionId) {
+      config.headers['Session-Id'] = sessionId;
+    }
+    return config;
+  },
+  error => Promise.reject(error)
+);
+
+// 响应拦截器 - 处理protobuf响应
+httpClient.interceptors.response.use(
+  response => {
+    // 处理二进制响应
+    return response;
+  },
+  error => Promise.reject(error)
+);
+
+export const initNetwork = async () => {
+  // 加载protobuf定义
+  await loadProtobufs();
+  
+  // 初始化WebSocket连接
+  const sessionId = localStorage.getItem('sessionId');
+  if (sessionId) {
+    setupWebSocket(sessionId);
+  }
+  
+  return {
+    httpClient
+  };
+};
+
+export default httpClient;
+
+--- FILE: src/network/api/index.js ---
+内容:
+import httpClient from '../index';
+import { encodeRequest, decodeResponse } from '../protobuf';
+
+// 用户相关API
+export const userApi = {
+  // 获取短信验证码
+  async sendVerifyCode(phoneNumber) {
+    const payload = {
+      request_id: Date.now().toString(),
+      phone_number: phoneNumber
+    };
+    
+    const encodedRequest = encodeRequest('PhoneVerifyCodeReq', payload);
+    const response = await httpClient.post('/phone_verify_code', encodedRequest, {
+      responseType: 'arraybuffer'
+    });
+    
+    return decodeResponse('PhoneVerifyCodeRsp', response.data);
+  },
+  
+  // 用户名密码登录
+  async login(username, password) {
+    const payload = {
+      request_id: Date.now().toString(),
+      username,
+      password
+    };
+    
+    const encodedRequest = encodeRequest('UserLoginReq', payload);
+    const response = await httpClient.post('/user_login', encodedRequest, {
+      responseType: 'arraybuffer'
+    });
+    
+    return decodeResponse('UserLoginRsp', response.data);
+  },
+  
+  // 手机号验证码登录
+  async smsLogin(phoneNumber, verifyCode) {
+    const payload = {
+      request_id: Date.now().toString(),
+      phone_number: phoneNumber,
+      verify_code: verifyCode
+    };
+    
+    const encodedRequest = encodeRequest('PhoneLoginReq', payload);
+    const response = await httpClient.post('/phone_login', encodedRequest, {
+      responseType: 'arraybuffer'
+    });
+    
+    return decodeResponse('PhoneLoginRsp', response.data);
+  },
+  
+  // 用户注册
+  async register(username, password, nickname) {
+    const payload = {
+      request_id: Date.now().toString(),
+      username,
+      password,
+      nickname
+    };
+    
+    const encodedRequest = encodeRequest('UserRegisterReq', payload);
+    const response = await httpClient.post('/user_register', encodedRequest, {
+      responseType: 'arraybuffer'
+    });
+    
+    return decodeResponse('UserRegisterRsp', response.data);
+  },
+  
+  // 获取用户信息
+  async getUserInfo(sessionId) {
+    const payload = {
+      request_id: Date.now().toString(),
+      session_id: sessionId
+    };
+    
+    const encodedRequest = encodeRequest('GetUserInfoReq', payload);
+    const response = await httpClient.post('/get_user_info', encodedRequest, {
+      responseType: 'arraybuffer'
+    });
+    
+    return decodeResponse('GetUserInfoRsp', response.data);
+  },
+  
+  // 设置用户头像
+  async setUserAvatar(sessionId, avatarData) {
+    const payload = {
+      request_id: Date.now().toString(),
+      session_id: sessionId,
+      avatar: avatarData
+    };
+    
+    const encodedRequest = encodeRequest('SetUserAvatarReq', payload);
+    const response = await httpClient.post('/set_user_avatar', encodedRequest, {
+      responseType: 'arraybuffer'
+    });
+    
+    return decodeResponse('SetUserAvatarRsp', response.data);
+  }
+};
+
+// 好友相关API
+export const friendApi = {
+  // 获取好友列表
+  async getFriendList() {
+    const payload = {
+      request_id: Date.now().toString(),
+      session_id: localStorage.getItem('sessionId')
+    };
+    
+    const encodedRequest = encodeRequest('GetFriendListReq', payload);
+    const response = await httpClient.post('/get_friend_list', encodedRequest, {
+      responseType: 'arraybuffer'
+    });
+    
+    return decodeResponse('GetFriendListRsp', response.data);
+  },
+  
+  // 搜索用户
+  async searchUser(keyword) {
+    const payload = {
+      request_id: Date.now().toString(),
+      session_id: localStorage.getItem('sessionId'),
+      search_text: keyword
+    };
+    
+    const encodedRequest = encodeRequest('FriendSearchReq', payload);
+    const response = await httpClient.post('/friend_search', encodedRequest, {
+      responseType: 'arraybuffer'
+    });
+    
+    return decodeResponse('FriendSearchRsp', response.data);
+  },
+  
+  // 添加好友申请
+  async addFriendApply(respondentId) {
+    const payload = {
+      request_id: Date.now().toString(),
+      session_id: localStorage.getItem('sessionId'),
+      respondent_id: respondentId
+    };
+    
+    const encodedRequest = encodeRequest('FriendAddReq', payload);
+    const response = await httpClient.post('/friend_add', encodedRequest, {
+      responseType: 'arraybuffer'
+    });
+    
+    return decodeResponse('FriendAddRsp', response.data);
+  },
+  
+  // 处理好友申请
+  async processFriendApply(applyUserId, agree) {
+    const payload = {
+      request_id: Date.now().toString(),
+      session_id: localStorage.getItem('sessionId'),
+      apply_user_id: applyUserId,
+      agree
+    };
+    
+    const encodedRequest = encodeRequest('FriendAddProcessReq', payload);
+    const response = await httpClient.post('/friend_add_process', encodedRequest, {
+      responseType: 'arraybuffer'
+    });
+    
+    return decodeResponse('FriendAddProcessRsp', response.data);
+  },
+  
+  // 删除好友
+  async removeFriend(peerId) {
+    const payload = {
+      request_id: Date.now().toString(),
+      session_id: localStorage.getItem('sessionId'),
+      peer_id: peerId
+    };
+    
+    const encodedRequest = encodeRequest('FriendRemoveReq', payload);
+    const response = await httpClient.post('/friend_remove', encodedRequest, {
+      responseType: 'arraybuffer'
+    });
+    
+    return decodeResponse('FriendRemoveRsp', response.data);
+  },
+  
+  // 获取待处理好友申请
+  async getPendingFriendEvents() {
+    const payload = {
+      request_id: Date.now().toString(),
+      session_id: localStorage.getItem('sessionId')
+    };
+    
+    const encodedRequest = encodeRequest('GetPendingFriendEventListReq', payload);
+    const response = await httpClient.post('/get_pending_friend_event_list', encodedRequest, {
+      responseType: 'arraybuffer'
+    });
+    
+    return decodeResponse('GetPendingFriendEventListRsp', response.data);
+  }
+};
+
+// 会话相关API
+export const sessionApi = {
+  // 获取会话列表
+  async getChatSessionList() {
+    const payload = {
+      request_id: Date.now().toString(),
+      session_id: localStorage.getItem('sessionId')
+    };
+    
+    const encodedRequest = encodeRequest('GetChatSessionListReq', payload);
+    const response = await httpClient.post('/get_chat_session_list', encodedRequest, {
+      responseType: 'arraybuffer'
+    });
+    
+    return decodeResponse('GetChatSessionListRsp', response.data);
+  },
+  
+  // 创建群聊会话
+  async createGroupChatSession(memberIdList, sessionName) {
+    const payload = {
+      request_id: Date.now().toString(),
+      session_id: localStorage.getItem('sessionId'),
+      member_id_list: memberIdList,
+      chat_session_name: sessionName
+    };
+    
+    const encodedRequest = encodeRequest('ChatSessionCreateReq', payload);
+    const response = await httpClient.post('/chat_session_create', encodedRequest, {
+      responseType: 'arraybuffer'
+    });
+    
+    return decodeResponse('ChatSessionCreateRsp', response.data);
+  },
+  
+  // 获取会话成员
+  async getChatSessionMember(chatSessionId) {
+    const payload = {
+      request_id: Date.now().toString(),
+      session_id: localStorage.getItem('sessionId'),
+      chat_session_id: chatSessionId
+    };
+    
+    const encodedRequest = encodeRequest('GetChatSessionMemberReq', payload);
+    const response = await httpClient.post('/get_chat_session_member', encodedRequest, {
+      responseType: 'arraybuffer'
+    });
+    
+    return decodeResponse('GetChatSessionMemberRsp', response.data);
+  }
+};
+
+// 消息相关API
+export const messageApi = {
+  // 获取历史消息
+  async getHistoryMsg(chatSessionId, maxMsgId, count) {
+    const payload = {
+      request_id: Date.now().toString(),
+      session_id: localStorage.getItem('sessionId'),
+      chat_session_id: chatSessionId,
+      max_msg_id: maxMsgId || '0',
+      msg_count: count || 20
+    };
+    
+    const encodedRequest = encodeRequest('GetHistoryMsgReq', payload);
+    const response = await httpClient.post('/get_history_msg', encodedRequest, {
+      responseType: 'arraybuffer'
+    });
+    
+    return decodeResponse('GetHistoryMsgRsp', response.data);
+  },
+  
+  // 获取最近消息
+  async getRecentMsg(chatSessionId, count) {
+    const payload = {
+      request_id: Date.now().toString(),
+      session_id: localStorage.getItem('sessionId'),
+      chat_session_id: chatSessionId,
+      msg_count: count || 20
+    };
+    
+    const encodedRequest = encodeRequest('GetRecentMsgReq', payload);
+    const response = await httpClient.post('/get_recent_msg', encodedRequest, {
+      responseType: 'arraybuffer'
+    });
+    
+    return decodeResponse('GetRecentMsgRsp', response.data);
+  },
+  
+  // 发送新消息
+  async sendNewMessage(message) {
+    const payload = {
+      request_id: Date.now().toString(),
+      session_id: localStorage.getItem('sessionId'),
+      chat_session_id: message.chatSessionId,
+      msg_type: message.msgType,
+      content: message.content
+    };
+    
+    const encodedRequest = encodeRequest('NewMessageReq', payload);
+    const response = await httpClient.post('/new_message', encodedRequest, {
+      responseType: 'arraybuffer'
+    });
+    
+    return decodeResponse('NewMessageRsp', response.data);
+  },
+  
+  // 搜索消息
+  async searchMessage(keyword, chatSessionId) {
+    const payload = {
+      request_id: Date.now().toString(),
+      session_id: localStorage.getItem('sessionId'),
+      chat_session_id: chatSessionId,
+      search_text: keyword
+    };
+    
+    const encodedRequest = encodeRequest('MsgSearchReq', payload);
+    const response = await httpClient.post('/msg_search', encodedRequest, {
+      responseType: 'arraybuffer'
+    });
+    
+    return decodeResponse('MsgSearchRsp', response.data);
+  }
+};
+
+// 文件相关API
+export const fileApi = {
+  // 上传单个文件
+  async uploadSingleFile(file) {
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('session_id', localStorage.getItem('sessionId'));
+    
+    const response = await httpClient.post('/file_put_single', formData);
+    return response.data;
+  },
+  
+  // 下载单个文件
+  async downloadSingleFile(fileId) {
+    const payload = {
+      request_id: Date.now().toString(),
+      session_id: localStorage.getItem('sessionId'),
+      file_id: fileId
+    };
+    
+    const encodedRequest = encodeRequest('GetSingleFileReq', payload);
+    const response = await httpClient.post('/file_get_single', encodedRequest, {
+      responseType: 'blob'
+    });
+    
+    return response.data;
+  }
+};
+
+// 语音识别API
+export const speechApi = {
+  // 语音转文字
+  async speechRecognition(audioData) {
+    const payload = {
+      request_id: Date.now().toString(),
+      session_id: localStorage.getItem('sessionId'),
+      audio_data: audioData
+    };
+    
+    const encodedRequest = encodeRequest('SpeechRecognitionReq', payload);
+    const response = await httpClient.post('/speech_recognition', encodedRequest, {
+      responseType: 'arraybuffer'
+    });
+    
+    return decodeResponse('SpeechRecognitionRsp', response.data);
+  }
+};
+
+--- FILE: src/network/websocket/index.js ---
+内容:
+import { useDataCenter } from '@/store/dataCenter';
+import { decodeNotifyMessage } from '../protobuf';
+
+let websocket = null;
+
+export const setupWebSocket = (sessionId) => {
+  const wsUrl = `${import.meta.env.VITE_WS_URL}?sessionId=${sessionId}`;
+  
+  if (websocket) {
+    websocket.close();
+  }
+  
+  websocket = new WebSocket(wsUrl);
+  
+  websocket.binaryType = 'arraybuffer';
+  
+  websocket.onopen = () => {
+    console.log('WebSocket连接已建立');
+    // 发送心跳
+    startHeartbeat();
+  };
+  
+  websocket.onmessage = (event) => {
+    const data = event.data;
+    if (typeof data === 'string') {
+      // 处理文本消息，可能是心跳响应
+      console.log('收到文本消息:', data);
+    } else {
+      // 处理二进制消息，使用protobuf解码
+      handleBinaryMessage(data);
+    }
+  };
+  
+  websocket.onclose = () => {
+    console.log('WebSocket连接已关闭');
+    stopHeartbeat();
+    
+    // 尝试重新连接
+    setTimeout(() => {
+      if (localStorage.getItem('sessionId')) {
+        setupWebSocket(localStorage.getItem('sessionId'));
+      }
+    }, 3000);
+  };
+  
+  websocket.onerror = (error) => {
+    console.error('WebSocket错误:', error);
+  };
+  
+  return websocket;
+};
+
+// 心跳定时器
+let heartbeatTimer = null;
+
+function startHeartbeat() {
+  heartbeatTimer = setInterval(() => {
+    if (websocket && websocket.readyState === WebSocket.OPEN) {
+      websocket.send('ping');
+    }
+  }, 30000); // 30秒发送一次心跳
+}
+
+function stopHeartbeat() {
+  if (heartbeatTimer) {
+    clearInterval(heartbeatTimer);
+    heartbeatTimer = null;
+  }
+}
+
+// 处理二进制消息
+async function handleBinaryMessage(data) {
+  try {
+    const notify = await decodeNotifyMessage(data);
+    const dataCenter = useDataCenter();
+    
+    // 根据通知类型进行处理
+    switch (notify.notifyType) {
+      case 'CHAT_MESSAGE_NOTIFY':
+        // 新消息通知
+        dataCenter.receiveNewMessage(notify.newMessageInfo.messageInfo);
+        break;
+        
+      case 'FRIEND_APPLY_NOTIFY':
+        // 好友申请通知
+        dataCenter.pendingFriendEvents.unshift(notify.friendApply);
+        break;
+        
+      case 'FRIEND_APPLY_PROCESSED_NOTIFY':
+        // 好友申请处理结果通知
+        // 刷新好友列表
+        dataCenter.getFriendList();
+        break;
+        
+      case 'CHAT_SESSION_CREATE_NOTIFY':
+        // 新会话创建通知
+        dataCenter.getChatSessionList();
+        break;
+        
+      case 'FRIEND_REMOVE_NOTIFY':
+        // 好友删除通知
+        dataCenter.getFriendList();
+        break;
+        
+      default:
+        console.log('未处理的通知类型:', notify.notifyType);
+    }
+  } catch (error) {
+    console.error('处理二进制消息失败:', error);
+  }
+}
+
+export const sendWebSocketMessage = (message) => {
+  if (websocket && websocket.readyState === WebSocket.OPEN) {
+    websocket.send(message);
+    return true;
+  }
+  return false;
+};
+
+export const closeWebSocket = () => {
+  if (websocket) {
+    websocket.close();
+    websocket = null;
+    stopHeartbeat();
+  }
+};
+
+--- FILE: src/network/protobuf/index.js ---
+内容:
+import protobuf from 'protobufjs';
+
+let root = null;
+let protoTypes = {};
+
+export const loadProtobufs = async () => {
+  try {
+    // 加载proto定义文件
+    root = await protobuf.load([
+      '/proto/base.proto',
+      '/proto/user.proto',
+      '/proto/friend.proto',
+      '/proto/message_transmit.proto',
+      '/proto/message_storage.proto',
+      '/proto/notify.proto',
+      '/proto/file.proto',
+      '/proto/gateway.proto',
+      '/proto/speech_recognition.proto'
+    ]);
+    
+    // 预先查找常用消息类型
+    protoTypes.UserLoginReq = root.lookupType('UserLoginReq');
+    protoTypes.UserLoginRsp = root.lookupType('UserLoginRsp');
+    protoTypes.FriendSearchReq = root.lookupType('FriendSearchReq');
+    protoTypes.FriendSearchRsp = root.lookupType('FriendSearchRsp');
+    protoTypes.GetHistoryMsgReq = root.lookupType('GetHistoryMsgReq');
+    protoTypes.GetHistoryMsgRsp = root.lookupType('GetHistoryMsgRsp');
+    protoTypes.NewMessageReq = root.lookupType('NewMessageReq');
+    protoTypes.NewMessageRsp = root.lookupType('NewMessageRsp');
+    protoTypes.NotifyMessage = root.lookupType('NotifyMessage');
+    
+    console.log('Protobuf definitions loaded successfully');
+    return true;
+  } catch (error) {
+    console.error('Failed to load protobuf definitions:', error);
+    return false;
+  }
+};
+
+// 编码请求消息
+export const encodeRequest = (messageType, payload) => {
+  try {
+    const MessageType = protoTypes[messageType] || root.lookupType(messageType);
+    const errMsg = MessageType.verify(payload);
+    if (errMsg) {
+      throw new Error(errMsg);
+    }
+    
+    const message = MessageType.create(payload);
+    return MessageType.encode(message).finish();
+  } catch (error) {
+    console.error(`Failed to encode ${messageType}:`, error);
+    throw error;
+  }
+};
+
+// 解码响应消息
+export const decodeResponse = (messageType, buffer) => {
+  try {
+    const MessageType = protoTypes[messageType] || root.lookupType(messageType);
+    const message = MessageType.decode(new Uint8Array(buffer));
+    return MessageType.toObject(message, {
+      longs: String,
+      enums: String,
+      bytes: String,
+    });
+  } catch (error) {
+    console.error(`Failed to decode ${messageType}:`, error);
+    throw error;
+  }
+};
+
+// 专门用于解码通知消息
+export const decodeNotifyMessage = async (buffer) => {
+  try {
+    const NotifyMessage = protoTypes.NotifyMessage || root.lookupType('NotifyMessage');
+    const message = NotifyMessage.decode(new Uint8Array(buffer));
+    return NotifyMessage.toObject(message, {
+      longs: String,
+      enums: String,
+      bytes: String,
+    });
+  } catch (error) {
+    console.error('Failed to decode notify message:', error);
+    throw error;
+  }
+};
+

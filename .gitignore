@@ -13,3 +13,7 @@ api_builds/
 **/api_builds/
 **/bin/
 **/docker_image_data/
+
+# 过滤assets
+assets/
+node_modules/

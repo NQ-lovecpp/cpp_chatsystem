@@ -1,0 +1,44 @@
+// 此文件只定义服务器通过websocket向客户端发送的通知消息
+syntax = "proto3";
+package chen_im;
+import "base.proto";
+
+option cc_generic_services = true;
+
+enum NotifyType {
+    FRIEND_ADD_APPLY_NOTIFY = 0;
+    FRIEND_ADD_PROCESS_NOTIFY = 1;
+    CHAT_SESSION_CREATE_NOTIFY = 2;
+    CHAT_MESSAGE_NOTIFY = 3;
+    FRIEND_REMOVE_NOTIFY = 4;
+}
+
+message NotifyFriendAddApply {
+    UserInfo user_info = 1;  //申请人信息
+}
+message NotifyFriendAddProcess { 
+    bool agree = 1;// 告诉申请人这次好友申请是否被对方同意
+    UserInfo user_info = 2;  //处理人信息
+}
+message NotifyFriendRemove {
+    string user_id = 1; //删除自己的用户ID
+}
+message NotifyNewChatSession {
+    ChatSessionInfo chat_session_info = 1; //新建会话信息
+}
+message NotifyNewMessage {
+    MessageInfo message_info = 1; //新消息
+}
+
+
+message NotifyMessage {
+    string notify_event_id = 1;//通知事件操作id（有则填无则忽略）
+    NotifyType notify_type = 2;//通知事件类型
+    oneof notify_remarks {      //事件备注信息
+        NotifyFriendAddApply friend_add_apply = 3;
+        NotifyFriendAddProcess friend_process_result = 4;
+        NotifyFriendRemove friend_remove = 7;
+        NotifyNewChatSession new_chat_session_info = 5;//会话信息
+        NotifyNewMessage new_message_info = 6;//消息信息
+    }
+}
