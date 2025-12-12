@@ -436,6 +436,36 @@ sudo rabbitmq-plugins enable rabbitmq_management
 
 访问 Web UI 界面，默认端口为 `15672`。
 
+### 2.10 RabbitMQ 安装
+```bash
+# 安装librabbitmq-dev（基础C客户端库）
+sudo apt install -y librabbitmq-dev
+# 安装libev（异步事件库，AMQP-CPP依赖）
+sudo apt install -y libev-dev
+# 安装gflags（示例中用于命令行参数解析，可选）
+sudo apt install -y libgflags-dev
+
+# 克隆AMQP-CPP仓库
+git clone https://github.com/CopernicaMarketingSoftware/AMQP-CPP.git
+cd AMQP-CPP/
+# 编译（默认生成动态库和静态库）
+make
+# 安装到系统目录（/usr/include和/usr/lib）
+sudo make install
+
+若编译 AMQP-CPP 时出现类似以下 SSL 错误：
+/usr/include/openssl/macros.h:147:4: error: #error "OPENSSL_API_COMPAT expresses an impossible API compatibility level"
+
+原因是系统中 SSL 库版本不兼容，解决方案：
+# 强制卸载冲突的SSL相关包
+sudo dpkg -P --force-all libevent-openssl-2.1-7 openssl libssl-dev
+# 修复依赖并重新安装
+sudo apt --fix-broken install
+# 重新编译AMQP-CPP
+make clean && make && sudo make install
+```
+
+
 
 
 
