@@ -1,9 +1,0 @@
-{
-    "extends": ["//"],
-    "tasks": {
-        "build": {
-            "dependsOn": ["^build"],
-            "outputs": ["client/**", "definition/**", "deno-runtime/**", "lib/**", "scripts/**", "server/**", ".deno-cache/**"]
-        }
-    }
-}

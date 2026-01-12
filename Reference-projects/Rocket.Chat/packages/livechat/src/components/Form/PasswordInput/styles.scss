@@ -1,5 +1,0 @@
-@use '../mixins';
-
-.password-input {
-	@include mixins.form__input-box;
-}
