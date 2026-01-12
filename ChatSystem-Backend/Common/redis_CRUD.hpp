@@ -38,6 +38,7 @@ namespace chen_im
         bool flush_all_db()
         {
             _sw_redis_client->flushall();
+            return true;
         }
 
     };

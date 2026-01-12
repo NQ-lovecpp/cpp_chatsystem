@@ -141,8 +141,29 @@ namespace chen_im
             _http_server.Post(FILE_PUT_SINGLE, (httplib::Server::Handler)std::bind(&GatewayServer::PutSingleFile, this, std::placeholders::_1, std::placeholders::_2));
             _http_server.Post(FILE_PUT_MULTI, (httplib::Server::Handler)std::bind(&GatewayServer::PutMultiFile, this, std::placeholders::_1, std::placeholders::_2));
             _http_server.Post(SPEECH_RECOGNITION, (httplib::Server::Handler)std::bind(&GatewayServer::SpeechRecognition, this, std::placeholders::_1, std::placeholders::_2));
-            _http_thread = std::thread([this, http_port]()
-                                       { _http_server.listen("0.0.0.0", http_port); });
+            _http_thread = std::thread([this, http_port]() { 
+                                            _http_server.Options(".*", [](const httplib::Request &req, httplib::Response &res) {
+                                                res.status = 200;
+                                                res.set_header("Access-Control-Allow-Origin", "*");
+                                                res.set_header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
+                                                res.set_header("Access-Control-Allow-Headers", "Content-Type, Authorization");
+                                                res.set_content("", "text/plain");
+                                            });
+
+                                            _http_server.set_error_handler([](const httplib::Request&, httplib::Response &res) {
+                                                res.set_header("Access-Control-Allow-Origin", "*");
+                                                // ... 其他 CORS 头
+                                                res.status = 400; // 或别的错误码
+                                                res.set_content("Bad Request", "text/plain");
+                                            });
+
+                                            // _http_server.set_default_headers({
+                                            //     {"Access-Control-Allow-Origin", "*"},
+                                            //     {"Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS"},
+                                            //     {"Access-Control-Allow-Headers", "Content-Type, Authorization"}
+                                            // });
+                                            LOG_INFO("http server listening on port: {}", http_port);
+                                            _http_server.listen("0.0.0.0", http_port); });
             _http_thread.detach(); // http线程与主执行流分离，退出时自动释放资源
         }
 
@@ -271,7 +292,7 @@ namespace chen_im
             {
                 rsp.set_success(false);
                 rsp.set_errmsg(errmsg);
-                response.set_content(rsp.SerializeAsString(), "application/x-protbuf");
+                response.set_content(rsp.SerializeAsString(), "application/x-protobuf");
             };
 
             bool ret = req.ParseFromString(request.body);
@@ -297,7 +318,7 @@ namespace chen_im
             }
 
             // 3. 得到用户子服务的响应后，将响应内容进行序列化作为http响应正文
-            response.set_content(rsp.SerializeAsString(), "application/x-protbuf");
+            response.set_content(rsp.SerializeAsString(), "application/x-protobuf");
         }
 
         void UserRegister(const httplib::Request &request, httplib::Response &response)
@@ -309,7 +330,7 @@ namespace chen_im
             {
                 rsp.set_success(false);
                 rsp.set_errmsg(errmsg);
-                response.set_content(rsp.SerializeAsString(), "application/x-protbuf");
+                response.set_content(rsp.SerializeAsString(), "application/x-protobuf");
             };
             bool ret = req.ParseFromString(request.body);
             if (ret == false)
@@ -333,11 +354,18 @@ namespace chen_im
                 return err_response("用户子服务调用失败！");
             }
             // 3. 得到用户子服务的响应后，将响应内容进行序列化作为http响应正文
-            response.set_content(rsp.SerializeAsString(), "application/x-protbuf");
+            response.set_content(rsp.SerializeAsString(), "application/x-protobuf");
         }
 
         void UserLogin(const httplib::Request &request, httplib::Response &response)
         {
+            // 直接打印http请求的正文
+            LOG_DEBUG("http 请求体：{}", request.body);
+            // 加上跨域请求头
+            response.set_header("Access-Control-Allow-Origin", "*");
+            response.set_header("Access-Control-Allow-Methods", "POST, OPTIONS");
+            response.set_header("Access-Control-Allow-Headers", "Content-Type");
+            
             // 1. 取出http请求正文，将正文进行反序列化
             UserLoginReq req;
             UserLoginRsp rsp;
@@ -345,7 +373,7 @@ namespace chen_im
             {
                 rsp.set_success(false);
                 rsp.set_errmsg(errmsg);
-                response.set_content(rsp.SerializeAsString(), "application/x-protbuf");
+                response.set_content(rsp.SerializeAsString(), "application/x-protobuf");
             };
             bool ret = req.ParseFromString(request.body);
             if (ret == false)
@@ -353,6 +381,7 @@ namespace chen_im
                 LOG_ERROR("用户登录请求正文反序列化失败！");
                 return err_response("用户登录请求正文反序列化失败！");
             }
+
             // 2. 将请求转发给用户子服务进行业务处理
             auto channel = _service_manager->get(_user_service_name);
             if (!channel)
@@ -369,7 +398,7 @@ namespace chen_im
                 return err_response("用户子服务调用失败！");
             }
             // 3. 得到用户子服务的响应后，将响应内容进行序列化作为http响应正文
-            response.set_content(rsp.SerializeAsString(), "application/x-protbuf");
+            response.set_content(rsp.SerializeAsString(), "application/x-protobuf");
         }
 
         void PhoneRegister(const httplib::Request &request, httplib::Response &response)
@@ -381,7 +410,7 @@ namespace chen_im
             {
                 rsp.set_success(false);
                 rsp.set_errmsg(errmsg);
-                response.set_content(rsp.SerializeAsString(), "application/x-protbuf");
+                response.set_content(rsp.SerializeAsString(), "application/x-protobuf");
             };
             bool ret = req.ParseFromString(request.body);
             if (ret == false)
@@ -405,7 +434,7 @@ namespace chen_im
                 return err_response("用户子服务调用失败！");
             }
             // 3. 得到用户子服务的响应后，将响应内容进行序列化作为http响应正文
-            response.set_content(rsp.SerializeAsString(), "application/x-protbuf");
+            response.set_content(rsp.SerializeAsString(), "application/x-protobuf");
         }
 
         void PhoneLogin(const httplib::Request &request, httplib::Response &response)
@@ -417,7 +446,7 @@ namespace chen_im
             {
                 rsp.set_success(false);
                 rsp.set_errmsg(errmsg);
-                response.set_content(rsp.SerializeAsString(), "application/x-protbuf");
+                response.set_content(rsp.SerializeAsString(), "application/x-protobuf");
             };
             bool ret = req.ParseFromString(request.body);
             if (ret == false)
@@ -441,7 +470,7 @@ namespace chen_im
                 return err_response("用户子服务调用失败！");
             }
             // 3. 得到用户子服务的响应后，将响应内容进行序列化作为http响应正文
-            response.set_content(rsp.SerializeAsString(), "application/x-protbuf");
+            response.set_content(rsp.SerializeAsString(), "application/x-protobuf");
         }
 
         void GetUserInfo(const httplib::Request &request, httplib::Response &response)
@@ -453,7 +482,7 @@ namespace chen_im
             {
                 rsp.set_success(false);
                 rsp.set_errmsg(errmsg);
-                response.set_content(rsp.SerializeAsString(), "application/x-protbuf");
+                response.set_content(rsp.SerializeAsString(), "application/x-protobuf");
             };
             bool ret = req.ParseFromString(request.body);
             if (ret == false)
@@ -486,7 +515,7 @@ namespace chen_im
                 return err_response("用户子服务调用失败！");
             }
             // 3. 得到用户子服务的响应后，将响应内容进行序列化作为http响应正文
-            response.set_content(rsp.SerializeAsString(), "application/x-protbuf");
+            response.set_content(rsp.SerializeAsString(), "application/x-protobuf");
         }
 
         void SetUserAvatar(const httplib::Request &request, httplib::Response &response)
@@ -498,7 +527,7 @@ namespace chen_im
             {
                 rsp.set_success(false);
                 rsp.set_errmsg(errmsg);
-                response.set_content(rsp.SerializeAsString(), "application/x-protbuf");
+                response.set_content(rsp.SerializeAsString(), "application/x-protobuf");
             };
             bool ret = req.ParseFromString(request.body);
             if (ret == false)
@@ -531,7 +560,7 @@ namespace chen_im
                 return err_response("用户子服务调用失败！");
             }
             // 3. 得到用户子服务的响应后，将响应内容进行序列化作为http响应正文
-            response.set_content(rsp.SerializeAsString(), "application/x-protbuf");
+            response.set_content(rsp.SerializeAsString(), "application/x-protobuf");
         }
 
         void SetUserNickname(const httplib::Request &request, httplib::Response &response)
@@ -543,7 +572,7 @@ namespace chen_im
             {
                 rsp.set_success(false);
                 rsp.set_errmsg(errmsg);
-                response.set_content(rsp.SerializeAsString(), "application/x-protbuf");
+                response.set_content(rsp.SerializeAsString(), "application/x-protobuf");
             };
             bool ret = req.ParseFromString(request.body);
             if (ret == false)
@@ -576,7 +605,7 @@ namespace chen_im
                 return err_response("用户子服务调用失败！");
             }
             // 3. 得到用户子服务的响应后，将响应内容进行序列化作为http响应正文
-            response.set_content(rsp.SerializeAsString(), "application/x-protbuf");
+            response.set_content(rsp.SerializeAsString(), "application/x-protobuf");
         }
 
         void SetUserDescription(const httplib::Request &request, httplib::Response &response)
@@ -588,7 +617,7 @@ namespace chen_im
             {
                 rsp.set_success(false);
                 rsp.set_errmsg(errmsg);
-                response.set_content(rsp.SerializeAsString(), "application/x-protbuf");
+                response.set_content(rsp.SerializeAsString(), "application/x-protobuf");
             };
             bool ret = req.ParseFromString(request.body);
             if (ret == false)
@@ -621,7 +650,7 @@ namespace chen_im
                 return err_response("用户子服务调用失败！");
             }
             // 3. 得到用户子服务的响应后，将响应内容进行序列化作为http响应正文
-            response.set_content(rsp.SerializeAsString(), "application/x-protbuf");
+            response.set_content(rsp.SerializeAsString(), "application/x-protobuf");
         }
 
         void SetUserPhoneNumber(const httplib::Request &request, httplib::Response &response)
@@ -633,7 +662,7 @@ namespace chen_im
             {
                 rsp.set_success(false);
                 rsp.set_errmsg(errmsg);
-                response.set_content(rsp.SerializeAsString(), "application/x-protbuf");
+                response.set_content(rsp.SerializeAsString(), "application/x-protobuf");
             };
             bool ret = req.ParseFromString(request.body);
             if (ret == false)
@@ -666,7 +695,7 @@ namespace chen_im
                 return err_response("用户子服务调用失败！");
             }
             // 3. 得到用户子服务的响应后，将响应内容进行序列化作为http响应正文
-            response.set_content(rsp.SerializeAsString(), "application/x-protbuf");
+            response.set_content(rsp.SerializeAsString(), "application/x-protobuf");
         }
 
         void GetFriendList(const httplib::Request &request, httplib::Response &response)
@@ -678,7 +707,7 @@ namespace chen_im
             {
                 rsp.set_success(false);
                 rsp.set_errmsg(errmsg);
-                response.set_content(rsp.SerializeAsString(), "application/x-protbuf");
+                response.set_content(rsp.SerializeAsString(), "application/x-protobuf");
             };
             bool ret = req.ParseFromString(request.body);
             if (ret == false)
@@ -711,7 +740,7 @@ namespace chen_im
                 return err_response("好友子服务调用失败！");
             }
             // 3. 得到用户子服务的响应后，将响应内容进行序列化作为http响应正文
-            response.set_content(rsp.SerializeAsString(), "application/x-protbuf");
+            response.set_content(rsp.SerializeAsString(), "application/x-protobuf");
         }
 
         std::shared_ptr<GetUserInfoRsp> _GetUserInfo(const std::string &request_id, const std::string &uid)
@@ -749,7 +778,7 @@ namespace chen_im
             {
                 rsp.set_success(false);
                 rsp.set_errmsg(errmsg);
-                response.set_content(rsp.SerializeAsString(), "application/x-protbuf");
+                response.set_content(rsp.SerializeAsString(), "application/x-protobuf");
             };
             bool ret = req.ParseFromString(request.body);
             if (ret == false)
@@ -799,7 +828,7 @@ namespace chen_im
                 conn->send(notify.SerializeAsString(), websocketpp::frame::opcode::value::binary);
             }
             // 5. 向客户端进行响应
-            response.set_content(rsp.SerializeAsString(), "application/x-protbuf");
+            response.set_content(rsp.SerializeAsString(), "application/x-protobuf");
         }
 
         void FriendAddProcess(const httplib::Request &request, httplib::Response &response)
@@ -811,7 +840,7 @@ namespace chen_im
             {
                 rsp.set_success(false);
                 rsp.set_errmsg(errmsg);
-                response.set_content(rsp.SerializeAsString(), "application/x-protbuf");
+                response.set_content(rsp.SerializeAsString(), "application/x-protobuf");
             };
             bool ret = req.ParseFromString(request.body);
             if (ret == false)
@@ -908,7 +937,7 @@ namespace chen_im
                 }
             }
             // 6. 对客户端进行响应
-            response.set_content(rsp.SerializeAsString(), "application/x-protbuf");
+            response.set_content(rsp.SerializeAsString(), "application/x-protobuf");
         }
 
         void FriendRemove(const httplib::Request &request, httplib::Response &response)
@@ -920,7 +949,7 @@ namespace chen_im
             {
                 rsp.set_success(false);
                 rsp.set_errmsg(errmsg);
-                response.set_content(rsp.SerializeAsString(), "application/x-protbuf");
+                response.set_content(rsp.SerializeAsString(), "application/x-protobuf");
             };
             bool ret = req.ParseFromString(request.body);
             if (ret == false)
@@ -963,7 +992,7 @@ namespace chen_im
                 conn->send(notify.SerializeAsString(), websocketpp::frame::opcode::value::binary);
             }
             // 5. 向客户端进行响应
-            response.set_content(rsp.SerializeAsString(), "application/x-protbuf");
+            response.set_content(rsp.SerializeAsString(), "application/x-protobuf");
         }
 
         void FriendSearch(const httplib::Request &request, httplib::Response &response)
@@ -974,7 +1003,7 @@ namespace chen_im
             {
                 rsp.set_success(false);
                 rsp.set_errmsg(errmsg);
-                response.set_content(rsp.SerializeAsString(), "application/x-protbuf");
+                response.set_content(rsp.SerializeAsString(), "application/x-protobuf");
             };
             bool ret = req.ParseFromString(request.body);
             if (ret == false)
@@ -1007,7 +1036,7 @@ namespace chen_im
                 return err_response("好友子服务调用失败！");
             }
             // 5. 向客户端进行响应
-            response.set_content(rsp.SerializeAsString(), "application/x-protbuf");
+            response.set_content(rsp.SerializeAsString(), "application/x-protobuf");
         }
 
         void GetPendingFriendEventList(const httplib::Request &request, httplib::Response &response)
@@ -1018,7 +1047,7 @@ namespace chen_im
             {
                 rsp.set_success(false);
                 rsp.set_errmsg(errmsg);
-                response.set_content(rsp.SerializeAsString(), "application/x-protbuf");
+                response.set_content(rsp.SerializeAsString(), "application/x-protobuf");
             };
             bool ret = req.ParseFromString(request.body);
             if (ret == false)
@@ -1051,7 +1080,7 @@ namespace chen_im
                 return err_response("好友子服务调用失败！");
             }
             // 5. 向客户端进行响应
-            response.set_content(rsp.SerializeAsString(), "application/x-protbuf");
+            response.set_content(rsp.SerializeAsString(), "application/x-protobuf");
         }
 
         void GetChatSessionList(const httplib::Request &request, httplib::Response &response)
@@ -1062,7 +1091,7 @@ namespace chen_im
             {
                 rsp.set_success(false);
                 rsp.set_errmsg(errmsg);
-                response.set_content(rsp.SerializeAsString(), "application/x-protbuf");
+                response.set_content(rsp.SerializeAsString(), "application/x-protobuf");
             };
             bool ret = req.ParseFromString(request.body);
             if (ret == false)
@@ -1095,7 +1124,7 @@ namespace chen_im
                 return err_response("好友子服务调用失败！");
             }
             // 5. 向客户端进行响应
-            response.set_content(rsp.SerializeAsString(), "application/x-protbuf");
+            response.set_content(rsp.SerializeAsString(), "application/x-protobuf");
         }
 
         void GetChatSessionMember(const httplib::Request &request, httplib::Response &response)
@@ -1106,7 +1135,7 @@ namespace chen_im
             {
                 rsp.set_success(false);
                 rsp.set_errmsg(errmsg);
-                response.set_content(rsp.SerializeAsString(), "application/x-protbuf");
+                response.set_content(rsp.SerializeAsString(), "application/x-protobuf");
             };
             bool ret = req.ParseFromString(request.body);
             if (ret == false)
@@ -1139,7 +1168,7 @@ namespace chen_im
                 return err_response("好友子服务调用失败！");
             }
             // 5. 向客户端进行响应
-            response.set_content(rsp.SerializeAsString(), "application/x-protbuf");
+            response.set_content(rsp.SerializeAsString(), "application/x-protobuf");
         }
         void ChatSessionCreate(const httplib::Request &request, httplib::Response &response)
         {
@@ -1149,7 +1178,7 @@ namespace chen_im
             {
                 rsp.set_success(false);
                 rsp.set_errmsg(errmsg);
-                response.set_content(rsp.SerializeAsString(), "application/x-protbuf");
+                response.set_content(rsp.SerializeAsString(), "application/x-protobuf");
             };
             bool ret = req.ParseFromString(request.body);
             if (ret == false)
@@ -1202,7 +1231,7 @@ namespace chen_im
             }
             // 5. 向客户端进行响应
             rsp.clear_chat_session_info();
-            response.set_content(rsp.SerializeAsString(), "application/x-protbuf");
+            response.set_content(rsp.SerializeAsString(), "application/x-protobuf");
         }
         void GetHistoryMsg(const httplib::Request &request, httplib::Response &response)
         {
@@ -1212,7 +1241,7 @@ namespace chen_im
             {
                 rsp.set_success(false);
                 rsp.set_errmsg(errmsg);
-                response.set_content(rsp.SerializeAsString(), "application/x-protbuf");
+                response.set_content(rsp.SerializeAsString(), "application/x-protobuf");
             };
             bool ret = req.ParseFromString(request.body);
             if (ret == false)
@@ -1245,7 +1274,7 @@ namespace chen_im
                 return err_response("消息存储子服务调用失败！");
             }
             // 5. 向客户端进行响应
-            response.set_content(rsp.SerializeAsString(), "application/x-protbuf");
+            response.set_content(rsp.SerializeAsString(), "application/x-protobuf");
         }
         void GetRecentMsg(const httplib::Request &request, httplib::Response &response)
         {
@@ -1255,7 +1284,7 @@ namespace chen_im
             {
                 rsp.set_success(false);
                 rsp.set_errmsg(errmsg);
-                response.set_content(rsp.SerializeAsString(), "application/x-protbuf");
+                response.set_content(rsp.SerializeAsString(), "application/x-protobuf");
             };
             bool ret = req.ParseFromString(request.body);
             if (ret == false)
@@ -1288,7 +1317,7 @@ namespace chen_im
                 return err_response("消息存储子服务调用失败！");
             }
             // 5. 向客户端进行响应
-            response.set_content(rsp.SerializeAsString(), "application/x-protbuf");
+            response.set_content(rsp.SerializeAsString(), "application/x-protobuf");
         }
         void MsgSearch(const httplib::Request &request, httplib::Response &response)
         {
@@ -1298,7 +1327,7 @@ namespace chen_im
             {
                 rsp.set_success(false);
                 rsp.set_errmsg(errmsg);
-                response.set_content(rsp.SerializeAsString(), "application/x-protbuf");
+                response.set_content(rsp.SerializeAsString(), "application/x-protobuf");
             };
             bool ret = req.ParseFromString(request.body);
             if (ret == false)
@@ -1331,7 +1360,7 @@ namespace chen_im
                 return err_response("消息存储子服务调用失败！");
             }
             // 5. 向客户端进行响应
-            response.set_content(rsp.SerializeAsString(), "application/x-protbuf");
+            response.set_content(rsp.SerializeAsString(), "application/x-protobuf");
         }
         void GetSingleFile(const httplib::Request &request, httplib::Response &response)
         {
@@ -1341,7 +1370,7 @@ namespace chen_im
             {
                 rsp.set_success(false);
                 rsp.set_errmsg(errmsg);
-                response.set_content(rsp.SerializeAsString(), "application/x-protbuf");
+                response.set_content(rsp.SerializeAsString(), "application/x-protobuf");
             };
             bool ret = req.ParseFromString(request.body);
             if (ret == false)
@@ -1374,7 +1403,7 @@ namespace chen_im
                 return err_response("文件存储子服务调用失败！");
             }
             // 5. 向客户端进行响应
-            response.set_content(rsp.SerializeAsString(), "application/x-protbuf");
+            response.set_content(rsp.SerializeAsString(), "application/x-protobuf");
         }
         void GetMultiFile(const httplib::Request &request, httplib::Response &response)
         {
@@ -1384,7 +1413,7 @@ namespace chen_im
             {
                 rsp.set_success(false);
                 rsp.set_errmsg(errmsg);
-                response.set_content(rsp.SerializeAsString(), "application/x-protbuf");
+                response.set_content(rsp.SerializeAsString(), "application/x-protobuf");
             };
             bool ret = req.ParseFromString(request.body);
             if (ret == false)
@@ -1417,7 +1446,7 @@ namespace chen_im
                 return err_response("文件存储子服务调用失败！");
             }
             // 5. 向客户端进行响应
-            response.set_content(rsp.SerializeAsString(), "application/x-protbuf");
+            response.set_content(rsp.SerializeAsString(), "application/x-protobuf");
         }
         void PutSingleFile(const httplib::Request &request, httplib::Response &response)
         {
@@ -1427,7 +1456,7 @@ namespace chen_im
             {
                 rsp.set_success(false);
                 rsp.set_errmsg(errmsg);
-                response.set_content(rsp.SerializeAsString(), "application/x-protbuf");
+                response.set_content(rsp.SerializeAsString(), "application/x-protobuf");
             };
             bool ret = req.ParseFromString(request.body);
             if (ret == false)
@@ -1460,7 +1489,7 @@ namespace chen_im
                 return err_response("文件存储子服务调用失败！");
             }
             // 5. 向客户端进行响应
-            response.set_content(rsp.SerializeAsString(), "application/x-protbuf");
+            response.set_content(rsp.SerializeAsString(), "application/x-protobuf");
         }
         void PutMultiFile(const httplib::Request &request, httplib::Response &response)
         {
@@ -1470,7 +1499,7 @@ namespace chen_im
             {
                 rsp.set_success(false);
                 rsp.set_errmsg(errmsg);
-                response.set_content(rsp.SerializeAsString(), "application/x-protbuf");
+                response.set_content(rsp.SerializeAsString(), "application/x-protobuf");
             };
             bool ret = req.ParseFromString(request.body);
             if (ret == false)
@@ -1503,7 +1532,7 @@ namespace chen_im
                 return err_response("文件存储子服务调用失败！");
             }
             // 5. 向客户端进行响应
-            response.set_content(rsp.SerializeAsString(), "application/x-protbuf");
+            response.set_content(rsp.SerializeAsString(), "application/x-protobuf");
         }
         void SpeechRecognition(const httplib::Request &request, httplib::Response &response)
         {
@@ -1514,7 +1543,7 @@ namespace chen_im
             {
                 rsp.set_success(false);
                 rsp.set_errmsg(errmsg);
-                response.set_content(rsp.SerializeAsString(), "application/x-protbuf");
+                response.set_content(rsp.SerializeAsString(), "application/x-protobuf");
             };
             bool ret = req.ParseFromString(request.body);
             if (ret == false)
@@ -1547,7 +1576,7 @@ namespace chen_im
                 return err_response("语音识别子服务调用失败！");
             }
             // 5. 向客户端进行响应
-            response.set_content(rsp.SerializeAsString(), "application/x-protbuf");
+            response.set_content(rsp.SerializeAsString(), "application/x-protobuf");
         }
 
         void NewMessage(const httplib::Request &request, httplib::Response &response)
@@ -1559,7 +1588,7 @@ namespace chen_im
             {
                 rsp.set_success(false);
                 rsp.set_errmsg(errmsg);
-                response.set_content(rsp.SerializeAsString(), "application/x-protbuf");
+                response.set_content(rsp.SerializeAsString(), "application/x-protobuf");
             };
             bool ret = req.ParseFromString(request.body);
             if (ret == false)
@@ -1615,7 +1644,7 @@ namespace chen_im
             rsp.set_request_id(req.request_id());
             rsp.set_success(target_rsp.success());
             rsp.set_errmsg(target_rsp.errmsg());
-            response.set_content(rsp.SerializeAsString(), "application/x-protbuf");
+            response.set_content(rsp.SerializeAsString(), "application/x-protobuf");
         }
 
     private:
