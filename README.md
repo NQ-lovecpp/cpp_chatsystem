@@ -3075,6 +3075,40 @@ DELETE /user
 
 # 项目部署
 
+## 开发阶段：子服务独立构建（推荐）
+开发时建议进入对应子服务目录，在该目录下创建 `build/`，所有中间产物仅生成在子服务的 `build/` 目录内，最终可执行文件也位于该目录：
+
+```bash
+cd ChatSystem-Backend/1.Speech_Server
+mkdir -p build
+cmake -S . -B build
+cmake --build build -j$(nproc)
+```
+
+将 `1.Speech_Server` 替换为对应子服务目录即可（如 `2.File_Server`、`3.User_Server` 等）。
+不要在子服务源码目录内直接执行 `cmake` 或 `make`。
+也可以采用传统方式进入 `build/` 后执行 `cmake ..` 与 `make`，效果等价且不会污染源码目录：
+
+```bash
+cd ChatSystem-Backend/1.Speech_Server
+mkdir -p build
+cd build
+cmake ..
+make -j$(nproc)
+```
+
+## 部署阶段：顶层构建仅做编排
+部署时顶层 `ChatSystem-Backend` 的 `CMakeLists.txt` 仅负责进入 7 个子服务目录执行构建，
+每个子服务在自己目录下的 `build/` 中生成中间产物和可执行文件。
+
+示例（顶层驱动整体构建）：
+
+```bash
+cd ChatSystem-Backend
+cmake -S . -B build
+cmake --build build -j$(nproc)
+```
+
 ## 编写项目配置文件
 在项目的各个子服务中，每个子服务可能都会有不同的配置，代码中我们通过gflags进行了参数解析，但是如果改换了部署的机器，就需要修改代码中的数据，然后重新编译代码，这是一件非常麻烦的事情，会导致项目的自动部署成为空谈
 而gflags不仅支持参数的解析，也支持配置文件的解析，因此我们需要将代码中需要的参数通过配置文件来进行配置。

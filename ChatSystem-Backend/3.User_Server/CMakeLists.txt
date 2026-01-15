@@ -12,6 +12,8 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 # 2. 声明工程名称
 project(user_server)
 
+add_compile_options(-include mysql/plugin_auth_common.h)
+
 set(target "user_server")
 
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g")

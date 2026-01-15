@@ -13,6 +13,7 @@ api_builds/
 **/api_builds/
 **/bin/
 **/docker_image_data/
+**/CMakeFiles/
 
 # 过滤assets
 assets/

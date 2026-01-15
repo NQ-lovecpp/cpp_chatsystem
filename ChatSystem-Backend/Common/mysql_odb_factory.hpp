@@ -5,6 +5,7 @@
 #include <iostream>
 
 #include <odb/database.hxx>
+#include <mysql/plugin_auth_common.h>
 #include <odb/mysql/database.hxx>
 #include <gflags/gflags.h>
 

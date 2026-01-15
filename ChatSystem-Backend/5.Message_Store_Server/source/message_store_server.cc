@@ -35,6 +35,13 @@ DEFINE_string(mq_msg_exchange, "msg_exchange", "持久化消息的发布交换�
 DEFINE_string(mq_msg_queue, "msg_queue", "持久化消息的发布队列名称");
 DEFINE_string(mq_msg_binding_key, "msg_queue", "持久化消息的发布队列名称");
 
+// ES同步队列配置
+DEFINE_string(mq_es_sync_exchange, "es_sync_exchange", "ES同步交换机名称");
+DEFINE_string(mq_es_sync_queue, "es_sync_queue", "ES同步队列名称");
+DEFINE_string(mq_es_sync_routing, "es_sync_routing", "ES同步路由键");
+DEFINE_int32(es_sync_retry_max, 5, "ES同步最大重试次数");
+DEFINE_int32(es_sync_retry_delay, 1000, "ES同步重试基础延迟（毫秒）");
+
 
 int main(int argc, char *argv[])
 {
@@ -44,11 +51,15 @@ int main(int argc, char *argv[])
     chen_im::MessageServerFactory msb;
     msb.make_mq_object(FLAGS_mq_user, FLAGS_mq_pswd, FLAGS_mq_host,
         FLAGS_mq_msg_exchange, FLAGS_mq_msg_queue, FLAGS_mq_msg_binding_key);
+    // 初始化ES同步队列
+    msb.make_mq_es_sync_object(FLAGS_mq_user, FLAGS_mq_pswd, FLAGS_mq_host,
+        FLAGS_mq_es_sync_exchange, FLAGS_mq_es_sync_queue, FLAGS_mq_es_sync_routing);
     msb.make_es_object({FLAGS_es_host});
     msb.make_mysql_object(FLAGS_mysql_user, FLAGS_mysql_pswd, FLAGS_mysql_host, 
         FLAGS_mysql_db, FLAGS_mysql_cset, FLAGS_mysql_access_port, FLAGS_mysql_pool_count);
     msb.make_discovery_object(FLAGS_registry_host, FLAGS_base_service, FLAGS_file_service, FLAGS_user_service);
-    msb.make_rpc_server(FLAGS_listen_port, FLAGS_rpc_timeout, FLAGS_rpc_threads);
+    msb.make_rpc_server(FLAGS_listen_port, FLAGS_rpc_timeout, FLAGS_rpc_threads, 
+        FLAGS_es_sync_retry_max, FLAGS_es_sync_retry_delay);
     msb.make_registry_object(FLAGS_registry_host, FLAGS_base_service + FLAGS_instance_name, FLAGS_access_host);
     auto server = msb.build();
     server->start();

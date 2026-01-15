@@ -8,6 +8,8 @@ cmake_minimum_required(VERSION 3.1.3)
 project(transmite_server)
 set(CMAKE_CXX_STANDARD 17)
 
+add_compile_options(-include mysql/plugin_auth_common.h)
+
 set(target "message_transmit_server")
 
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g")

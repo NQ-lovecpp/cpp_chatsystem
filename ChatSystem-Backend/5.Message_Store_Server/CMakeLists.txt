@@ -10,6 +10,8 @@ project(message_server)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED True)
 
+add_compile_options(-include mysql/plugin_auth_common.h)
+
 set(target "message_store_server")
 set(test_client "message_store_client")
 

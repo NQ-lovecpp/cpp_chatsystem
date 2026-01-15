@@ -9,6 +9,8 @@ project(gateway_server)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED True)
 
+add_compile_options(-include mysql/plugin_auth_common.h)
+
 set(target "gateway_server")
 
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g")

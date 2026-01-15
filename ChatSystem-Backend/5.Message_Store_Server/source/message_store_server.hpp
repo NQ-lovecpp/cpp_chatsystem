@@ -28,18 +28,35 @@ namespace chen_im
         std::string _user_service_name;          // 用户子服务名称
         std::string _file_service_name;          // 文件子服务名称
         ServiceManager::ptr _service_manager;    // 服务管理对象
+        
+        // ES同步队列相关
+        MQClient::ptr _es_sync_mq;               // ES同步队列客户端
+        std::string _es_sync_exchange;           // ES同步交换机名称
+        std::string _es_sync_routing;            // ES同步路由键
+        int _es_sync_retry_max;                  // ES同步最大重试次数
+        int _es_sync_retry_delay;                // ES同步重试基础延迟（毫秒）
 
     public:
         MessageServiceImpl(const std::shared_ptr<elasticlient::Client> &es_client,
                            const std::shared_ptr<odb::mysql::database> &mysql_client,
                            const ServiceManager::ptr &channel_manager,
                            const std::string &file_service_name,
-                           const std::string &user_service_name) 
+                           const std::string &user_service_name,
+                           const MQClient::ptr &es_sync_mq,
+                           const std::string &es_sync_exchange,
+                           const std::string &es_sync_routing,
+                           int es_sync_retry_max,
+                           int es_sync_retry_delay) 
             :_es_message(std::make_shared<ESMessage>(es_client)), 
             _mysql_message_table(std::make_shared<MessageTable>(mysql_client)), 
             _file_service_name(file_service_name), 
             _user_service_name(user_service_name), 
-            _service_manager(channel_manager)
+            _service_manager(channel_manager),
+            _es_sync_mq(es_sync_mq),
+            _es_sync_exchange(es_sync_exchange),
+            _es_sync_routing(es_sync_routing),
+            _es_sync_retry_max(es_sync_retry_max),
+            _es_sync_retry_delay(es_sync_retry_delay)
         {
             _es_message->create_index();
         }
@@ -326,7 +343,8 @@ namespace chen_im
             return;
         }
         
-        // 消息队列的消费者收到消息时的回调函数，这里涉及到了mysql与es的双写！！！
+        // 消息队列的消费者收到消息时的回调函数
+        // 优化后的双写策略：优先写MySQL，ES写入失败时发送到同步队列
         void when_get_an_message(const char *body, size_t sz)
         {
             LOG_DEBUG("收到新消息，进行存储处理！");
@@ -337,6 +355,10 @@ namespace chen_im
             chen_im::MessageInfo message;
 
             ret = message.ParseFromArray(body, sz);
+            if (!ret) {
+                LOG_ERROR("消息反序列化失败！");
+                return;
+            }
 
 
 
@@ -368,25 +390,14 @@ namespace chen_im
             // }
 
 
-            // 2. 根据不同的消息类型进行不同的处理
+            // 2. 根据不同的消息类型进行不同的处理（先处理文件上传，准备数据）
             std::string file_id, file_name, content;
-            int64_t file_size;
+            int64_t file_size = 0;
             switch (message.message().message_type())
             {
-            //  2.1 如果是一个文本类型消息，取元信息存储到ES中
+            //  2.1 如果是一个文本类型消息，提取内容
             case MessageType::STRING:
                 content = message.message().string_message().content();
-                ret = _es_message->append_message(
-                    message.sender().user_id(),
-                    message.message_id(),
-                    message.timestamp(),
-                    message.chat_session_id(),
-                    content);
-                if (ret == false)
-                {
-                    LOG_ERROR("文本消息向存储引擎进行存储失败！");
-                    return;
-                }
                 break;
             //  2.2 如果是一个图片/语音/文件消息，则取出数据存储到文件子服务中，并获取文件ID
             case MessageType::IMAGE:
@@ -428,7 +439,8 @@ namespace chen_im
                 LOG_ERROR("消息类型错误！");
                 return;
             }
-            // 3. 提取消息的元信息，存储到mysql数据库中
+            
+            // 3. 优先写入MySQL（带重试机制）
             chen_im::Message msg(message.message_id(),
                                  message.chat_session_id(),
                                  message.sender().user_id(),
@@ -438,15 +450,166 @@ namespace chen_im
             msg.file_id(file_id);
             msg.file_name(file_name);
             msg.file_size(file_size);
-            ret = _mysql_message_table->insert(msg);
-            if (ret == false)
-            {
-                LOG_ERROR("向数据库插入新消息失败！");
-                return;
+            
+            bool mysql_success = _write_to_mysql_with_retry(msg, 3);
+            if (!mysql_success) {
+                LOG_ERROR("MySQL写入失败，消息丢弃: message_id={}", message.message_id());
+                // ⚠️ TODO: 已知问题 - MySQL失败时消息丢失风险
+                // 
+                // 问题描述：
+                // 当前实现中，MySQL写入失败后直接return，但RabbitMQ消费者会无条件ACK消息，
+                // 导致消息被确认消费但实际未存储，造成消息丢失。
+                //
+                // 影响：
+                // - 如果MySQL临时故障（连接超时、连接池耗尽等），消息会永久丢失
+                // - 无法通过重试机制恢复
+                //
+                // 解决方案（待实现）：
+                // 1. 方案A：修改RabbitMQ消费者支持手动ACK，MySQL失败时不ACK，让消息重新入队
+                // 2. 方案B：创建MySQL重试队列，MySQL失败时发送到重试队列（类似ES同步队列机制）
+                // 3. 方案C：MySQL失败时发送到死信队列，支持人工介入和补偿
+                //
+                // 推荐方案B，与ES同步队列机制保持一致，架构统一。
+                return;  // MySQL失败则放弃整个消息（⚠️ 存在消息丢失风险）
+            }
+            
+            // 4. 尝试写入ES（仅文本消息需要ES索引）
+            if (message.message().message_type() == MessageType::STRING) {
+                bool es_success = _try_write_to_es(message);
+                if (!es_success) {
+                    // ES写入失败，发送到同步队列进行异步重试
+                    _publish_to_es_sync_queue(message, 0);
+                    LOG_WARN("ES写入失败，已加入同步队列: message_id={}", message.message_id());
+                }
+                // 记录完整的处理结果
+                LOG_INFO("消息存储完成 - message_id={}, MySQL:成功, ES:{}", 
+                         message.message_id(), es_success ? "成功" : "异步同步中");
+            } else {
+                // 非文本消息不需要ES
+                LOG_INFO("消息存储完成 - message_id={}, MySQL:成功, ES:不需要", message.message_id());
+            }
+        }
+        
+        // ES同步队列的消费者回调函数
+        // 从ES同步队列中消费消息，进行重试写入ES
+        void when_es_sync_message(const char *body, size_t sz)
+        {
+            LOG_DEBUG("收到ES同步消息，进行重试处理");
+            
+            try {
+                // 1. 解析重试计数和消息数据
+                std::string data(body, sz);
+                size_t pos = data.find('|');
+                if (pos == std::string::npos) {
+                    LOG_ERROR("ES同步消息格式错误！");
+                    return;
+                }
+                
+                int retry_count = std::stoi(data.substr(0, pos));
+                std::string message_data = data.substr(pos + 1);
+                
+                chen_im::MessageInfo message;
+                if (!message.ParseFromString(message_data)) {
+                    LOG_ERROR("ES同步消息反序列化失败！");
+                    return;
+                }
+                
+                // 2. 检查重试次数
+                if (retry_count >= _es_sync_retry_max) {
+                    LOG_ERROR("ES同步重试次数超限，放弃: message_id={}, retry_count={}/{}", 
+                              message.message_id(), retry_count, _es_sync_retry_max);
+                    // 超过最大重试次数，进入死信队列（RabbitMQ自动处理）
+                    return;
+                }
+                
+                // 3. 指数退避延迟
+                int delay_ms = _es_sync_retry_delay * std::pow(2, retry_count);
+                LOG_INFO("ES同步重试延迟: {}ms, message_id={}, retry_count={}/{}", 
+                         delay_ms, message.message_id(), retry_count + 1, _es_sync_retry_max);
+                std::this_thread::sleep_for(std::chrono::milliseconds(delay_ms));
+                
+                // 4. 尝试写入ES
+                bool ret = _try_write_to_es(message);
+                if (!ret) {
+                    // 写入失败，重新发布到同步队列（增加重试计数）
+                    _publish_to_es_sync_queue(message, retry_count + 1);
+                    LOG_WARN("ES同步失败，重新入队: message_id={}, retry_count={}/{}", 
+                             message.message_id(), retry_count + 1, _es_sync_retry_max);
+                } else {
+                    LOG_INFO("ES同步成功: message_id={}, retry_count={}", 
+                             message.message_id(), retry_count + 1);
+                }
+            } catch (const std::exception& e) {
+                LOG_ERROR("ES同步处理异常: error={}", e.what());
             }
         }
 
     private:
+        /// @brief MySQL写入（带重试机制）
+        /// @param msg 要插入的消息对象
+        /// @param max_retry 最大重试次数
+        /// @return 是否成功
+        bool _write_to_mysql_with_retry(chen_im::Message& msg, int max_retry = 3) {
+            for (int i = 0; i < max_retry; i++) {
+                if (_mysql_message_table->insert(msg)) {
+                    LOG_DEBUG("MySQL写入成功: message_id={}", msg.message_id());
+                    return true;
+                }
+                LOG_WARN("MySQL写入失败，重试 {}/{}, message_id={}", i + 1, max_retry, msg.message_id());
+                std::this_thread::sleep_for(std::chrono::milliseconds(100));
+            }
+            LOG_ERROR("MySQL写入最终失败: message_id={}", msg.message_id());
+            return false;
+        }
+        
+        /// @brief 尝试写入ES
+        /// @param message 消息对象
+        /// @return 是否成功
+        bool _try_write_to_es(const chen_im::MessageInfo& message) {
+            try {
+                bool ret = _es_message->append_message(
+                    message.sender().user_id(),
+                    message.message_id(),
+                    message.timestamp(),
+                    message.chat_session_id(),
+                    message.message().string_message().content()
+                );
+                if (ret) {
+                    LOG_DEBUG("ES写入成功: message_id={}", message.message_id());
+                } else {
+                    LOG_WARN("ES写入失败: message_id={}", message.message_id());
+                }
+                return ret;
+            } catch (const std::exception& e) {
+                LOG_ERROR("ES写入异常: message_id={}, error={}", message.message_id(), e.what());
+                return false;
+            }
+        }
+        
+        /// @brief 发布到ES同步队列
+        /// @param message 消息对象
+        /// @param retry_count 当前重试次数
+        void _publish_to_es_sync_queue(const chen_im::MessageInfo& message, int retry_count = 0) {
+            try {
+                // 创建带重试计数的消息
+                chen_im::MessageInfo sync_message = message;
+                // 将重试次数编码到消息ID的特殊字段（或使用自定义头）
+                // 这里简化处理，实际可以用AMQP的消息头
+                std::string data = sync_message.SerializeAsString();
+                std::string metadata = std::to_string(retry_count) + "|" + data;
+                
+                bool ret = _es_sync_mq->publish_message(_es_sync_exchange, metadata, _es_sync_routing);
+                if (ret) {
+                    LOG_INFO("消息已发送到ES同步队列: message_id={}, retry_count={}", 
+                             message.message_id(), retry_count);
+                } else {
+                    LOG_ERROR("发送到ES同步队列失败: message_id={}", message.message_id());
+                }
+            } catch (const std::exception& e) {
+                LOG_ERROR("发布到ES同步队列异常: message_id={}, error={}", 
+                         message.message_id(), e.what());
+            }
+        }
 
         /// @brief 根据一批用户id，获取<用户id, 用户信息>
         /// @param request_id 请求id
@@ -612,6 +775,13 @@ namespace chen_im
         std::string _exchange_name;
         std::string _queue_name;
         MQClient::ptr _mq_client;
+        
+        // ES同步队列相关
+        MQClient::ptr _es_sync_mq_client;
+        std::string _es_sync_exchange;
+        std::string _es_sync_queue;
+        std::string _es_sync_routing;
+        
         std::shared_ptr<brpc::Server> _rpc_server;
 
     public:
@@ -669,7 +839,25 @@ namespace chen_im
             _mq_client = std::make_shared<MQClient>(user, passwd, host);
             _mq_client->declear_all_components(exchange_name, queue_name, binding_key);
         }
-        void make_rpc_server(uint16_t port, int32_t timeout, uint8_t num_threads)
+        
+        // 用于构造ES同步队列客户端对象
+        void make_mq_es_sync_object(const std::string &user,
+                                     const std::string &passwd,
+                                     const std::string &host,
+                                     const std::string &exchange_name,
+                                     const std::string &queue_name,
+                                     const std::string &routing_key)
+        {
+            _es_sync_exchange = exchange_name;
+            _es_sync_queue = queue_name;
+            _es_sync_routing = routing_key;
+            _es_sync_mq_client = std::make_shared<MQClient>(user, passwd, host);
+            _es_sync_mq_client->declear_all_components(exchange_name, queue_name, routing_key);
+            LOG_INFO("ES同步队列初始化完成: exchange={}, queue={}, routing={}", 
+                     exchange_name, queue_name, routing_key);
+        }
+        void make_rpc_server(uint16_t port, int32_t timeout, uint8_t num_threads, 
+                             int es_sync_retry_max = 5, int es_sync_retry_delay = 1000)
         {
             if (!_es_client)
             {
@@ -686,10 +874,19 @@ namespace chen_im
                 LOG_ERROR("还未初始化信道管理模块！");
                 abort();
             }
+            if (!_es_sync_mq_client)
+            {
+                LOG_ERROR("还未初始化ES同步队列模块！");
+                abort();
+            }
             _rpc_server = std::make_shared<brpc::Server>();
 
-            MessageServiceImpl *msg_service = new MessageServiceImpl(_es_client,
-                                                                     _mysql_client, _service_manager, _file_service_name, _user_service_name);
+            MessageServiceImpl *msg_service = new MessageServiceImpl(
+                _es_client, _mysql_client, _service_manager, 
+                _file_service_name, _user_service_name,
+                _es_sync_mq_client, _es_sync_exchange, _es_sync_routing,
+                es_sync_retry_max, es_sync_retry_delay
+            );
             int ret = _rpc_server->AddService(msg_service,
                                               brpc::ServiceOwnership::SERVER_OWNS_SERVICE);
             if (ret == -1)
@@ -707,14 +904,19 @@ namespace chen_im
                 abort();
             }
 
+            // 设置主消息队列的消费者回调
             std::function<void(const char*, size_t)> callback = std::bind(&MessageServiceImpl::when_get_an_message, msg_service,
                                       std::placeholders::_1, std::placeholders::_2);
             if(!callback) {
                 LOG_WARN("callback是无效的！！！");
             }
-            
-            // 当brpc服务器启动后再设置消息队列客户端的回调函数
             _mq_client->consume_message(_queue_name, "msg_queue", callback);
+            
+            // 设置ES同步队列的消费者回调
+            std::function<void(const char*, size_t)> es_sync_callback = std::bind(&MessageServiceImpl::when_es_sync_message, msg_service,
+                                      std::placeholders::_1, std::placeholders::_2);
+            _es_sync_mq_client->consume_message(_es_sync_queue, "es_sync_consumer", es_sync_callback);
+            LOG_INFO("ES同步队列消费者已启动");
         }
         // 构造RPC服务器对象
         MessageServer::ptr build()
