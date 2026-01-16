@@ -367,13 +367,17 @@ bpkg install odb
 然后，安装 ODB 运行时库：
 
 ```bash
-cd .. 
+cd ..
 bpkg create -d libodb-gcc-N cc config.cxx=g++ config.cc.coptions=-O3 config.install.root=/usr/ config.install.sudo=sudo
 cd libodb-gcc-N
 bpkg add https://pkg.cppget.org/1/beta
 bpkg fetch
 bpkg build libodb
 bpkg build libodb-mysql
+bpkg build libodb-boost
+bpkg install libodb
+bpkg install libodb-mysql
+bpkg install libodb-boost
 ```
 
 ### 2.8 Redis 安装
@@ -391,7 +395,7 @@ sudo vim /etc/redis/redis.conf
 修改以下配置项：
 
 ```bash
-# bind 127.0.0.1   # 注释掉这行 
+# bind 127.0.0.1   # 注释掉这行
 bind 0.0.0.0       # 添加这行
 protected-mode no  # 把 yes 改成 no
 ```
@@ -432,6 +436,36 @@ sudo rabbitmq-plugins enable rabbitmq_management
 
 访问 Web UI 界面，默认端口为 `15672`。
 
+### 2.10 RabbitMQ 安装
+```bash
+# 安装librabbitmq-dev（基础C客户端库）
+sudo apt install -y librabbitmq-dev
+# 安装libev（异步事件库，AMQP-CPP依赖）
+sudo apt install -y libev-dev
+# 安装gflags（示例中用于命令行参数解析，可选）
+sudo apt install -y libgflags-dev
+
+# 克隆AMQP-CPP仓库
+git clone https://github.com/CopernicaMarketingSoftware/AMQP-CPP.git
+cd AMQP-CPP/
+# 编译（默认生成动态库和静态库）
+make
+# 安装到系统目录（/usr/include和/usr/lib）
+sudo make install
+
+若编译 AMQP-CPP 时出现类似以下 SSL 错误：
+/usr/include/openssl/macros.h:147:4: error: #error "OPENSSL_API_COMPAT expresses an impossible API compatibility level"
+
+原因是系统中 SSL 库版本不兼容，解决方案：
+# 强制卸载冲突的SSL相关包
+sudo dpkg -P --force-all libevent-openssl-2.1-7 openssl libssl-dev
+# 修复依赖并重新安装
+sudo apt --fix-broken install
+# 重新编译AMQP-CPP
+make clean && make && sudo make install
+```
+
+
 
 
 
@@ -449,7 +483,7 @@ sudo rabbitmq-plugins enable rabbitmq_management
 # 五、微服务通信接口设计
 因为微服务框架的思想是将业务拆分到不同的节点主机上提供服务，因此主机节点之间的通信就尤为重要，而在进行开发之前，首先要做的就是将通信接口（service）以及传输的数据结构定义出来（message），比如：
 ```proto
-//用户名注册   
+//用户名注册
 message UserRegisterReq {
     string request_id = 1;
     string nickname = 2;
@@ -462,15 +496,15 @@ message UserRegisterRsp {
 }
 
 service UserService {
-    rpc UserRegister(UserRegisterReq) returns (UserRegisterRsp);                   
-    rpc UserLogin(UserLoginReq) returns (UserLoginRsp);                           
-    rpc GetPhoneVerifyCode(PhoneVerifyCodeReq) returns (PhoneVerifyCodeRsp);       
-    rpc PhoneRegister(PhoneRegisterReq) returns (PhoneRegisterRsp);               
-    rpc PhoneLogin(PhoneLoginReq) returns (PhoneLoginRsp);                        
-    rpc GetUserInfo(GetUserInfoReq) returns (GetUserInfoRsp);                     
-    rpc GetMultiUserInfo(GetMultiUserInfoReq) returns (GetMultiUserInfoRsp);      
-    rpc SetUserAvatar(SetUserAvatarReq) returns (SetUserAvatarRsp);               
-    rpc SetUserNickname(SetUserNicknameReq) returns (SetUserNicknameRsp);         
+    rpc UserRegister(UserRegisterReq) returns (UserRegisterRsp);
+    rpc UserLogin(UserLoginReq) returns (UserLoginRsp);
+    rpc GetPhoneVerifyCode(PhoneVerifyCodeReq) returns (PhoneVerifyCodeRsp);
+    rpc PhoneRegister(PhoneRegisterReq) returns (PhoneRegisterRsp);
+    rpc PhoneLogin(PhoneLoginReq) returns (PhoneLoginRsp);
+    rpc GetUserInfo(GetUserInfoReq) returns (GetUserInfoRsp);
+    rpc GetMultiUserInfo(GetMultiUserInfoReq) returns (GetMultiUserInfoRsp);
+    rpc SetUserAvatar(SetUserAvatarReq) returns (SetUserAvatarRsp);
+    rpc SetUserNickname(SetUserNicknameReq) returns (SetUserNicknameRsp);
     rpc SetUserDescription(SetUserDescriptionReq) returns (SetUserDescriptionRsp);
     rpc SetUserPhoneNumber(SetUserPhoneNumberReq) returns (SetUserPhoneNumberRsp);
 }
@@ -512,7 +546,7 @@ message ClientAuthenticationRsp {
 }
 
 //通信接口统一采用POST请求实现,正文采用protobuf协议进行组织
-/*  
+/*
     HTTP HEADER：
     POST /service/xxxxx
     Content-Type: application/x-protobuf
@@ -522,7 +556,7 @@ message ClientAuthenticationRsp {
 
     -------------------------------------------------------
 
-    HTTP/1.1 200 OK 
+    HTTP/1.1 200 OK
     Content-Type: application/x-protobuf
     Content-Length: 123
 
@@ -938,7 +972,7 @@ import "base.proto";
 option cc_generic_services = true;
 
 //----------------------------
-//用户名注册   
+//用户名注册
 message UserRegisterReq {
     string request_id = 1;
     string nickname = 2;
@@ -952,7 +986,7 @@ message UserRegisterRsp {
     string errmsg = 3;
 }
 //----------------------------
-//用户名登录 
+//用户名登录
 message UserLoginReq {
     string request_id = 1;
     string nickname = 2;
@@ -1002,7 +1036,7 @@ message PhoneLoginReq {
 message PhoneLoginRsp {
     string request_id = 1;
     bool success = 2;
-    string errmsg = 3; 
+    string errmsg = 3;
     string login_session_id = 4;
 }
 //个人信息获取-这个只用于获取当前登录用户的信息
@@ -1016,11 +1050,11 @@ message GetUserInfoReq {
 message GetUserInfoRsp {
     string request_id = 1;
     bool success = 2;
-    string errmsg = 3; 
+    string errmsg = 3;
     UserInfo user_info = 4;
 }
 //----------------------------
-//用户头像修改 
+//用户头像修改
 message SetUserAvatarReq {
     string request_id = 1;
     optional string user_id = 2;
@@ -1030,10 +1064,10 @@ message SetUserAvatarReq {
 message SetUserAvatarRsp {
     string request_id = 1;
     bool success = 2;
-    string errmsg = 3; 
+    string errmsg = 3;
 }
 //----------------------------
-//用户昵称修改 
+//用户昵称修改
 message SetUserNicknameReq {
     string request_id = 1;
     optional string user_id = 2;
@@ -1043,10 +1077,10 @@ message SetUserNicknameReq {
 message SetUserNicknameRsp {
     string request_id = 1;
     bool success = 2;
-    string errmsg = 3; 
+    string errmsg = 3;
 }
 //----------------------------
-//用户签名修改 
+//用户签名修改
 message SetUserDescriptionReq {
     string request_id = 1;
     optional string user_id = 2;
@@ -1056,10 +1090,10 @@ message SetUserDescriptionReq {
 message SetUserDescriptionRsp {
     string request_id = 1;
     bool success = 2;
-    string errmsg = 3; 
+    string errmsg = 3;
 }
 //----------------------------
-//用户手机修改 
+//用户手机修改
 message SetUserPhoneNumberReq {
     string request_id = 1;
     optional string user_id = 2;
@@ -1071,7 +1105,7 @@ message SetUserPhoneNumberReq {
 message SetUserPhoneNumberRsp {
     string request_id = 1;
     bool success = 2;
-    string errmsg = 3; 
+    string errmsg = 3;
 }
 
 service UserService {
@@ -1110,7 +1144,7 @@ message GetFriendListReq {
 message GetFriendListRsp {
     string request_id = 1;
     bool success = 2;
-    string errmsg = 3; 
+    string errmsg = 3;
     repeated UserInfo friend_list = 4;
 }
 
@@ -1125,7 +1159,7 @@ message FriendRemoveReq {
 message FriendRemoveRsp {
     string request_id = 1;
     bool success = 2;
-    string errmsg = 3; 
+    string errmsg = 3;
 }
 //--------------------------------------
 //添加好友--发送好友申请
@@ -1138,7 +1172,7 @@ message FriendAddReq {
 message FriendAddRsp {
     string request_id = 1;
     bool success = 2;
-    string errmsg = 3; 
+    string errmsg = 3;
     string notify_event_id = 4;//通知事件id
 }
 //--------------------------------------
@@ -1155,7 +1189,7 @@ message FriendAddProcessReq {
 message FriendAddProcessRsp {
     string request_id = 1;
     bool success = 2;
-    string errmsg = 3; 
+    string errmsg = 3;
     optional string new_session_id = 4; // 同意后会创建会话，向网关返回会话信息，用于通知双方会话的建立，这个字段客户端不需要关注
 }
 //--------------------------------------
@@ -1173,7 +1207,7 @@ message FriendEvent {
 message GetPendingFriendEventListRsp {
     string request_id = 1;
     bool success = 2;
-    string errmsg = 3; 
+    string errmsg = 3;
     repeated FriendEvent event = 4;
 }
 
@@ -1188,7 +1222,7 @@ message FriendSearchReq {
 message FriendSearchRsp {
     string request_id = 1;
     bool success = 2;
-    string errmsg = 3; 
+    string errmsg = 3;
     repeated UserInfo user_info = 4;
 }
 
@@ -1202,7 +1236,7 @@ message GetChatSessionListReq {
 message GetChatSessionListRsp {
     string request_id = 1;
     bool success = 2;
-    string errmsg = 3; 
+    string errmsg = 3;
     repeated ChatSessionInfo chat_session_info_list = 4;
 }
 //--------------------------------------
@@ -1218,9 +1252,9 @@ message ChatSessionCreateReq {
 message ChatSessionCreateRsp {
     string request_id = 1;
     bool success = 2;
-    string errmsg = 3; 
+    string errmsg = 3;
     //这个字段属于后台之间的数据，给前端回复的时候不需要这个字段，会话信息通过通知进行发送
-    optional ChatSessionInfo chat_session_info = 4; 
+    optional ChatSessionInfo chat_session_info = 4;
 }
 //--------------------------------------
 //获取会话成员列表
@@ -1233,7 +1267,7 @@ message GetChatSessionMemberReq {
 message GetChatSessionMemberRsp {
     string request_id = 1;
     bool success = 2;
-    string errmsg = 3; 
+    string errmsg = 3;
     repeated UserInfo member_info_list = 4;
 }
 
@@ -1269,7 +1303,7 @@ message GetSingleFileReq {
 message GetSingleFileRsp {
     string request_id = 1;
     bool success = 2;
-    string errmsg = 3; 
+    string errmsg = 3;
     FileDownloadData file_data = 4;
 }
 
@@ -1282,7 +1316,7 @@ message GetMultiFileReq {
 message GetMultiFileRsp {
     string request_id = 1;
     bool success = 2;
-    string errmsg = 3; 
+    string errmsg = 3;
     repeated FileDownloadData file_data = 4;
 }
 
@@ -1308,7 +1342,7 @@ message PutMultiFileReq {
 message PutMultiFileRsp {
     string request_id = 1;
     bool success = 2;
-    string errmsg = 3; 
+    string errmsg = 3;
     repeated FileMessageInfo file_info = 4;
 }
 
@@ -1348,7 +1382,7 @@ message GetHistoryMsgReq {
 message GetHistoryMsgRsp {
     string request_id = 1;
     bool success = 2;
-    string errmsg = 3; 
+    string errmsg = 3;
     repeated MessageInfo msg_list = 4;
 }
 
@@ -1363,7 +1397,7 @@ message GetRecentMsgReq {
 message GetRecentMsgRsp {
     string request_id = 1;
     bool success = 2;
-    string errmsg = 3; 
+    string errmsg = 3;
     repeated MessageInfo msg_list = 4;
 }
 
@@ -1377,7 +1411,7 @@ message MsgSearchReq {
 message MsgSearchRsp {
     string request_id = 1;
     bool success = 2;
-    string errmsg = 3; 
+    string errmsg = 3;
     repeated MessageInfo msg_list = 4;
 }
 
@@ -1385,7 +1419,7 @@ service MsgStorageService {
     rpc GetHistoryMsg(GetHistoryMsgReq) returns (GetHistoryMsgRsp);
     rpc GetRecentMsg(GetRecentMsgReq) returns (GetRecentMsgRsp);
     rpc MsgSearch(MsgSearchReq) returns (MsgSearchRsp);
-    
+
 }
 
 ```
@@ -1417,14 +1451,14 @@ message NewMessageReq {
 message NewMessageRsp {
     string request_id = 1;
     bool success = 2;
-    string errmsg = 3; 
+    string errmsg = 3;
 }
 
 //这个用于内部的通信,生成完整的消息信息，并获取消息的转发人员列表
 message GetTransmitTargetRsp {
     string request_id = 1;
     bool success = 2;
-    string errmsg = 3; 
+    string errmsg = 3;
     MessageInfo message = 4;
     repeated string target_id_list = 5;
 }
@@ -1457,7 +1491,7 @@ message SpeechRecognitionReq {
 message SpeechRecognitionRsp {
     string request_id = 1;
     bool success = 2;
-    string errmsg = 3; 
+    string errmsg = 3;
     string recognition_result = 4;
 }
 
@@ -2108,7 +2142,7 @@ DELETE /user
 - 主要用于管理消息的存储：
   - **文本消息：** 储存在 ElasticSearch 文档搜索服务中。
   - **文件/语音/图片：** 需要转储到文件管理子服务中。
-  
+
 - 还需管理消息的搜索与获取，对外提供以下接口：
   1. **获取历史消息(通过MySQL)：**
      - 获取最近 N 条消息：用于登录成功后，点击对方头像打开聊天框时显示最近的消息。
@@ -2190,7 +2224,7 @@ class Message
     friend class odb::access; // odb要访问private成员
 private:
 #pragma db id auto
-    unsigned long _id;     
+    unsigned long _id;
 #pragma db type("varchar(64)") index unique
     std::string _message_id;                // 用于唯一标识一条消息
 #pragma db type("varchar(64)") index column("session_id")
@@ -2443,15 +2477,15 @@ service MsgStorageService {
 #pragma db object
 class friend_relation {
     public:
-        friend_relation(){} 
+        friend_relation(){}
     private:
         friend class odb::access;
-        #pragma db id auto 
-        long int _id; 
-        #pragma db index type("VARCHAR(127)") 
-        std::string _user_id; 
-        #pragma db type("VARCHAR(127)") 
-        std::string _friend_id; 
+        #pragma db id auto
+        long int _id;
+        #pragma db index type("VARCHAR(127)")
+        std::string _user_id;
+        #pragma db type("VARCHAR(127)")
+        std::string _friend_id;
 };
 ```
 
@@ -2493,24 +2527,24 @@ class friend_relation {
 #include <odb/core.hxx>
 #include <odb/nullable.hxx>
 
-enum class session_type_t { 
-    SINGLE = 1, 
-    GROUP = 2 
-}; 
+enum class session_type_t {
+    SINGLE = 1,
+    GROUP = 2
+};
 
-#pragma db object 
-class chat_session { 
-    public: 
-        chat_session() {} 
-    private: 
-        friend class odb::access; 
-        #pragma db id auto 
-        long int _id; 
-        #pragma db unique type("VARCHAR(127)") 
-        std::string _session_id; 
-        #pragma db type("VARCHAR(127)") 
-        odb::nullable<std::string> _session_name; 
-        #pragma db type("TINYINT") 
+#pragma db object
+class chat_session {
+    public:
+        chat_session() {}
+    private:
+        friend class odb::access;
+        #pragma db id auto
+        long int _id;
+        #pragma db unique type("VARCHAR(127)")
+        std::string _session_id;
+        #pragma db type("VARCHAR(127)")
+        odb::nullable<std::string> _session_name;
+        #pragma db type("TINYINT")
         session_type_t _session_type;
 };
 ```
@@ -2538,18 +2572,18 @@ class chat_session {
 #include <odb/core.hxx>
 #include <odb/nullable.hxx>
 
-#pragma db object 
+#pragma db object
 class chat_session_member {
-    public: 
-        chat_session_member (){} 
-    private: 
-        friend class odb::access; 
-        #pragma db id auto 
-        unsigned long _id; 
-        #pragma db index type("VARCHAR(127)") 
-        std::string _session_id; 
-        #pragma db type("VARCHAR(127)") 
-        std::string _user_id; 
+    public:
+        chat_session_member (){}
+    private:
+        friend class odb::access;
+        #pragma db id auto
+        unsigned long _id;
+        #pragma db index type("VARCHAR(127)")
+        std::string _session_id;
+        #pragma db type("VARCHAR(127)")
+        std::string _user_id;
 };
 ```
 
@@ -2573,27 +2607,27 @@ class chat_session_member {
 
 ```cpp
 enum class fevent_status{
-    PENDING = 1, 
-    ACCEPT = 2, 
-    REJECT = 3 
-}; 
+    PENDING = 1,
+    ACCEPT = 2,
+    REJECT = 3
+};
 
-#pragma db object 
+#pragma db object
 class friend_event {
-    public: 
-        friend_event() {} 
-    private: 
-        friend class odb::access; 
-        #pragma db id auto 
-        long int _id; 
-        #pragma db unique type("VARCHAR(127)") 
-        std::string _event_id; 
-        #pragma db type("VARCHAR(127)") 
-        std::string _req_user_id; 
-        #pragma db type("VARCHAR(127)") 
-        std::string _rsp_user_id; 
-        #pragma db type("TINYINT") 
-        fevent_status _status; 
+    public:
+        friend_event() {}
+    private:
+        friend class odb::access;
+        #pragma db id auto
+        long int _id;
+        #pragma db unique type("VARCHAR(127)")
+        std::string _event_id;
+        #pragma db type("VARCHAR(127)")
+        std::string _req_user_id;
+        #pragma db type("VARCHAR(127)")
+        std::string _rsp_user_id;
+        #pragma db type("TINYINT")
+        fevent_status _status;
 };
 ```
 
@@ -2602,109 +2636,109 @@ class friend_event {
 **创建用户索引**
 
 ```json
-POST /user/_doc 
-{ 
-    "settings" : { 
-        "analysis" : { 
-            "analyzer" : { 
-                "ik" : { 
-                    "tokenizer" : "ik_max_word" 
-                } 
-            } 
-        } 
-    }, 
-    "mappings" : { 
-        "dynamic" : true, 
-        "properties" : { 
-            "nickname" : { 
-                "type" : "text", 
-                "analyzer" : "ik_max_word" 
-            }, 
-            "user_id" : { 
-                "type" : "keyword", 
-                "analyzer" : "standard" 
-            }, 
-            "phone" : { 
-                "type" : "keyword", 
-                "analyzer" : "standard" 
-            }, 
-            "description" : { 
-                "type" : "text", 
-                "index": "not_analyzed" 
-            }, 
-            "avatar_id" : { 
-                "type" : "text", 
-                "index": "not_analyzed" 
-            } 
-        } 
-    } 
+POST /user/_doc
+{
+    "settings" : {
+        "analysis" : {
+            "analyzer" : {
+                "ik" : {
+                    "tokenizer" : "ik_max_word"
+                }
+            }
+        }
+    },
+    "mappings" : {
+        "dynamic" : true,
+        "properties" : {
+            "nickname" : {
+                "type" : "text",
+                "analyzer" : "ik_max_word"
+            },
+            "user_id" : {
+                "type" : "keyword",
+                "analyzer" : "standard"
+            },
+            "phone" : {
+                "type" : "keyword",
+                "analyzer" : "standard"
+            },
+            "description" : {
+                "type" : "text",
+                "index": "not_analyzed"
+            },
+            "avatar_id" : {
+                "type" : "text",
+                "index": "not_analyzed"
+            }
+        }
+    }
 }
 ```
 
 **新增测试数据**
 
 ```json
-POST /user/_doc/_bulk 
-{"index":{"_id":"1"}} 
-{"user_id" : "USER4b862aaa-2df8654a-7eb4bb65-e3507f66","nickname" : "昵称 1","phone" : "手机号 1","description" : "签名 1","avatar_id" : "头像 1"} 
-{"index":{"_id":"2"}} 
-{"user_id" : "USER14eeeaa5-442771b9-0262e455-e4663d1d","nickname" : "昵称 2","phone" : "手机号 2","description" : "签名 2","avatar_id" : "头像 2"} 
-{"index":{"_id":"3"}} 
-{"user_id" : "USER484a6734-03a124f0-996c169d-d05c1869","nickname" : "昵称 3","phone" : "手机号 3","description" : "签名 3","avatar_id" : "头像 3"} 
-{"index":{"_id":"4"}} 
-{"user_id" : "USER186ade83-4460d4a6-8c08068f-83127b5d","nickname" : "昵称 4","phone" : "手机号 4","description" : "签名 4","avatar_id" : "头像 4"} 
-{"index":{"_id":"5"}} 
-{"user_id" : "USER6f19d074-c33891cf-23bf5a83-57189a19","nickname" : "昵称 5","phone" : "手机号 5","description" : "签名 5","avatar_id" : "头像 5"} 
-{"index":{"_id":"6"}} 
-{"user_id" : "USER97605c64-9833ebb7-d0455353-35a59195","nickname" : "昵称 6","phone" : "手机号 6","description" : "签名 6","avatar_id" : "头像 6"} 
+POST /user/_doc/_bulk
+{"index":{"_id":"1"}}
+{"user_id" : "USER4b862aaa-2df8654a-7eb4bb65-e3507f66","nickname" : "昵称 1","phone" : "手机号 1","description" : "签名 1","avatar_id" : "头像 1"}
+{"index":{"_id":"2"}}
+{"user_id" : "USER14eeeaa5-442771b9-0262e455-e4663d1d","nickname" : "昵称 2","phone" : "手机号 2","description" : "签名 2","avatar_id" : "头像 2"}
+{"index":{"_id":"3"}}
+{"user_id" : "USER484a6734-03a124f0-996c169d-d05c1869","nickname" : "昵称 3","phone" : "手机号 3","description" : "签名 3","avatar_id" : "头像 3"}
+{"index":{"_id":"4"}}
+{"user_id" : "USER186ade83-4460d4a6-8c08068f-83127b5d","nickname" : "昵称 4","phone" : "手机号 4","description" : "签名 4","avatar_id" : "头像 4"}
+{"index":{"_id":"5"}}
+{"user_id" : "USER6f19d074-c33891cf-23bf5a83-57189a19","nickname" : "昵称 5","phone" : "手机号 5","description" : "签名 5","avatar_id" : "头像 5"}
+{"index":{"_id":"6"}}
+{"user_id" : "USER97605c64-9833ebb7-d0455353-35a59195","nickname" : "昵称 6","phone" : "手机号 6","description" : "签名 6","avatar_id" : "头像 6"}
 ```
 
 **进行搜索测试**
 
 ```json
-GET /user/_doc/_search?pretty 
-{ 
-    "query": { 
-        "match_all": {} 
-    } 
+GET /user/_doc/_search?pretty
+{
+    "query": {
+        "match_all": {}
+    }
 }
 ```
 
 ```json
-GET /user/_doc/_search?pretty 
-{ 
-    "query" : { 
-        "bool" : { 
-            "must_not" : [ 
-                { 
-                    "terms" : { 
-                        "user_id.keyword" : [ 
-                            "USER4b862aaa-2df8654a-7eb4bb65-e3507f66", 
-                            "USER14eeeaa5-442771b9-0262e455-e4663d1d", 
-                            "USER484a6734-03a124f0-996c169d-d05c1869" 
-                        ] 
-                    } 
-                } 
-            ], 
-            "should" : [ 
-                { 
-                    "match" : { 
-                        "user_id" : "昵称" 
-                    } 
-                }, 
-                { 
-                    "match" : { 
-                        "nickname" : "昵称" 
-                    } 
-                }, 
-                { 
-                    "match" : { 
-                        "phone" : "昵称" 
-                    } 
-                } 
-            ] 
-        } 
-    } 
+GET /user/_doc/_search?pretty
+{
+    "query" : {
+        "bool" : {
+            "must_not" : [
+                {
+                    "terms" : {
+                        "user_id.keyword" : [
+                            "USER4b862aaa-2df8654a-7eb4bb65-e3507f66",
+                            "USER14eeeaa5-442771b9-0262e455-e4663d1d",
+                            "USER484a6734-03a124f0-996c169d-d05c1869"
+                        ]
+                    }
+                }
+            ],
+            "should" : [
+                {
+                    "match" : {
+                        "user_id" : "昵称"
+                    }
+                },
+                {
+                    "match" : {
+                        "nickname" : "昵称"
+                    }
+                },
+                {
+                    "match" : {
+                        "phone" : "昵称"
+                    }
+                }
+            ]
+        }
+    }
 }
 ```
 
