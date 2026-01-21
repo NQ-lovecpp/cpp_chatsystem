@@ -18,7 +18,7 @@ COPY ./build/depends /lib/x86_64-linux-gnu/
 RUN ln -sf /lib/x86_64-linux-gnu/libcurl.so.4 /lib/x86_64-linux-gnu/libcurl.so || true
 
 # 拷贝等待脚本
-COPY ../wait_for_services.sh /im/bin/wait_for_services.sh
+COPY ./wait_for_services.sh /im/bin/wait_for_services.sh
 RUN chmod +x /im/bin/wait_for_services.sh
 
 # 容器启动时先等待依赖，再启动服务
