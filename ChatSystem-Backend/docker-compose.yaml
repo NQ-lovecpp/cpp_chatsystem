@@ -1,166 +1,326 @@
 version: "3.8"
 
+networks:
+  chatsystem-overlay:
+    driver: overlay
+    attachable: true
 
-#   etcd:
-#     image: etcd:latest
-
-#   mysql:
-#     image: mysql:latest
-
-#   redis:
-#     image: redis:latest
-
-#   elasticsearch:
-#     image: elasticsearch:latest
-
-#   rabbitmq:
-#     image: rabbitmq:latest
-
+volumes:
+  mysql-data:
+  redis-data:
+  es-data:
+  rabbitmq-data:
+  etcd-data:
 
 services:
+  # ========== 基础设施服务 ==========
+  
+  etcd:
+    image: quay.io/coreos/etcd:v3.5.9
+    container_name: etcd
+    hostname: etcd
+    networks:
+      - chatsystem-overlay
+    ports:
+      - "2379:2379"
+      - "2380:2380"
+    volumes:
+      - etcd-data:/etcd-data
+    environment:
+      - ETCD_NAME=etcd-node
+      - ETCD_DATA_DIR=/etcd-data
+      - ETCD_LISTEN_CLIENT_URLS=http://0.0.0.0:2379
+      - ETCD_ADVERTISE_CLIENT_URLS=http://etcd:2379
+      - ETCD_LISTEN_PEER_URLS=http://0.0.0.0:2380
+      - ETCD_INITIAL_ADVERTISE_PEER_URLS=http://etcd:2380
+      - ETCD_INITIAL_CLUSTER=etcd-node=http://etcd:2380
+      - ETCD_INITIAL_CLUSTER_STATE=new
+      - ETCD_INITIAL_CLUSTER_TOKEN=etcd-cluster
+    deploy:
+      replicas: 1
+      restart_policy:
+        condition: on-failure
+      placement:
+        constraints:
+          - node.role == manager
+
+  mysql:
+    image: mysql:8.0
+    container_name: mysql
+    hostname: mysql
+    networks:
+      - chatsystem-overlay
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql-data:/var/lib/mysql
+      - ./SQL_Code/init_all.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    environment:
+      - MYSQL_ROOT_PASSWORD=Cydia4384!
+      - MYSQL_DATABASE=chen_im
+      - MYSQL_CHARACTER_SET_SERVER=utf8mb4
+      - MYSQL_COLLATION_SERVER=utf8mb4_unicode_ci
+    deploy:
+      replicas: 1
+      restart_policy:
+        condition: on-failure
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-pCydia4384!"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: redis
+    hostname: redis
+    networks:
+      - chatsystem-overlay
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    command: redis-server --appendonly yes
+    deploy:
+      replicas: 1
+      restart_policy:
+        condition: on-failure
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.11.0
+    container_name: elasticsearch
+    hostname: elasticsearch
+    networks:
+      - chatsystem-overlay
+    ports:
+      - "9200:9200"
+      - "9300:9300"
+    volumes:
+      - es-data:/usr/share/elasticsearch/data
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+    deploy:
+      replicas: 1
+      restart_policy:
+        condition: on-failure
+      resources:
+        limits:
+          memory: 1G
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:9200/_cluster/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  rabbitmq:
+    image: rabbitmq:3.12-management-alpine
+    container_name: rabbitmq
+    hostname: rabbitmq
+    networks:
+      - chatsystem-overlay
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    volumes:
+      - rabbitmq-data:/var/lib/rabbitmq
+    environment:
+      - RABBITMQ_DEFAULT_USER=root
+      - RABBITMQ_DEFAULT_PASS=czhuowen
+    deploy:
+      replicas: 1
+      restart_policy:
+        condition: on-failure
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ========== 业务服务 ==========
 
   speech_server:
-    build: ./1.Speech_Server
-    image: speech_server:v2
-    container_name: speech_server-service
+    build:
+      context: ./1.Speech_Server
+      dockerfile: Dockerfile
+    image: speech_server:v3
+    networks:
+      - chatsystem-overlay
     volumes:
-      # 1. 希望容器内的程序能够访问宿主机上的文件
-      # 2. 希望容器内程序运行所产生的数据文件能落在宿主机上
-      # 挂载的信息： entrypoint.sh文件 数据目录(im/logs, im/data), 配置文件
-      - ./Configs/speech_server.conf:/im/conf/speech_server.conf
+      - ./Configs/speech_server.conf:/im/conf/speech_server.conf:ro
       - ./docker_image_data/logs:/im/logs:rw
       - ./docker_image_data/data:/im/data:rw
-      - ./entrypoint.sh:/im/bin/entrypoint.sh
-    network_mode: host
-    ports:
-      - 10001:10001
-    restart: always
-    # entrypoint:
-    #   # 跟dockerfile中的cmd比较类似，都是容器启动后的默认操作--替代dockerfile中的cmd
-    #   /im/bin/entrypoint.sh -h 127.0.0.1 -p 2379 -c "/im/bin/speech_server -flagfile=/im/conf/speech_server.conf"
+    deploy:
+      replicas: 1
+      restart_policy:
+        condition: on-failure
+    depends_on:
+      - etcd
+    healthcheck:
+      test: ["CMD-SHELL", "nc -z localhost 10001 || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
 
   file_server:
-    build: ./2.File_Server
-    image: file_server:v2
-    container_name: file_server-service
+    build:
+      context: ./2.File_Server
+      dockerfile: Dockerfile
+    image: file_server:v3
+    networks:
+      - chatsystem-overlay
     volumes:
-      # 1. 希望容器内的程序能够访问宿主机上的文件
-      # 2. 希望容器内程序运行所产生的数据文件能落在宿主机上
-      # 挂载的信息： entrypoint.sh文件 数据目录(im/logs, im/data), 配置文件
-      - ./Configs/file_server.conf:/im/conf/file_server.conf
+      - ./Configs/file_server.conf:/im/conf/file_server.conf:ro
       - ./docker_image_data/logs:/im/logs:rw
-      - ./entrypoint.sh:/im/bin/entrypoint.sh
-    network_mode: host
-    ports:
-      - 10002:10002
-    restart: always
-    # entrypoint:
-    #   # 跟dockerfile中的cmd比较类似，都是容器启动后的默认操作--替代dockerfile中的cmd
-    #   /im/bin/entrypoint.sh -h 127.0.0.1 -p 2379 -c "/im/bin/file_server -flagfile=/im/conf/file_server.conf"
+      - ./docker_image_data/data:/im/data:rw
+    deploy:
+      replicas: 1
+      restart_policy:
+        condition: on-failure
+    depends_on:
+      - etcd
+    healthcheck:
+      test: ["CMD-SHELL", "nc -z localhost 10002 || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
 
   user_server:
-    build: ./3.User_Server
-    image: user_server:v2
-    container_name: user_server-service
+    build:
+      context: ./3.User_Server
+      dockerfile: Dockerfile
+    image: user_server:v3
+    networks:
+      - chatsystem-overlay
     volumes:
-      # 1. 希望容器内的程序能够访问宿主机上的文件
-      # 2. 希望容器内程序运行所产生的数据文件能落在宿主机上
-      # 挂载的信息： entrypoint.sh文件 数据目录(im/logs, im/data), 配置文件
-      - ./Configs/user_server.conf:/im/conf/user_server.conf
+      - ./Configs/user_server.conf:/im/conf/user_server.conf:ro
       - ./docker_image_data/logs:/im/logs:rw
-      - ./entrypoint.sh:/im/bin/entrypoint.sh
-    network_mode: host
-    ports:
-      - 10003:10003
-    restart: always
-    # entrypoint:
-    #   # 跟dockerfile中的cmd比较类似，都是容器启动后的默认操作--替代dockerfile中的cmd
-    #   /im/bin/entrypoint.sh -h 127.0.0.1 -p 2379,3306,5672,9200 -c "/im/bin/user_server -flagfile=/im/conf/user_server.conf"
+    deploy:
+      replicas: 1
+      restart_policy:
+        condition: on-failure
+    depends_on:
+      - etcd
+      - mysql
+      - redis
+      - elasticsearch
+    healthcheck:
+      test: ["CMD-SHELL", "nc -z localhost 10003 || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
 
   message_transmit_server:
-    build: ./4.Message_Transmit_Server
-    image: message_transmit_server:v2
-    container_name: message_transmit_server-service
+    build:
+      context: ./4.Message_Transmit_Server
+      dockerfile: Dockerfile
+    image: message_transmit_server:v3
+    networks:
+      - chatsystem-overlay
     volumes:
-      # 1. 希望容器内的程序能够访问宿主机上的文件
-      # 2. 希望容器内程序运行所产生的数据文件能落在宿主机上
-      # 挂载的信息： entrypoint.sh文件 数据目录(im/logs, im/data), 配置文件
-      - ./Configs/message_transmit_server.conf:/im/conf/message_transmit_server.conf
+      - ./Configs/message_transmit_server.conf:/im/conf/message_transmit_server.conf:ro
       - ./docker_image_data/logs:/im/logs:rw
       - ./docker_image_data/data:/im/data:rw
-      - ./entrypoint.sh:/im/bin/entrypoint.sh
-    network_mode: host
-    ports:
-      - 10004:10004
-    restart: always
-    # entrypoint:
-    #   # 跟dockerfile中的cmd比较类似，都是容器启动后的默认操作--替代dockerfile中的cmd
-    #   /im/bin/entrypoint.sh -h 127.0.0.1 -p 2379,3306,5672 -c "/im/bin/message_transmit_server -flagfile=/im/conf/message_transmit_server.conf"
+    deploy:
+      replicas: 1
+      restart_policy:
+        condition: on-failure
+    depends_on:
+      - etcd
+      - mysql
+      - rabbitmq
+    healthcheck:
+      test: ["CMD-SHELL", "nc -z localhost 10004 || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
 
   message_store_server:
-    build: ./5.Message_Store_Server
-    image: message_store_server:v2
-    container_name: message_store_server-service
+    build:
+      context: ./5.Message_Store_Server
+      dockerfile: Dockerfile
+    image: message_store_server:v3
+    networks:
+      - chatsystem-overlay
     volumes:
-      # 1. 希望容器内的程序能够访问宿主机上的文件
-      # 2. 希望容器内程序运行所产生的数据文件能落在宿主机上
-      # 挂载的信息： entrypoint.sh文件 数据目录(im/logs, im/data), 配置文件
-      - ./Configs/message_store_server.conf:/im/conf/message_store_server.conf
+      - ./Configs/message_store_server.conf:/im/conf/message_store_server.conf:ro
       - ./docker_image_data/logs:/im/logs:rw
       - ./docker_image_data/data:/im/data:rw
-      - ./entrypoint.sh:/im/bin/entrypoint.sh
-    network_mode: host
-    ports:
-      - 10005:10005
-    restart: always
-    # entrypoint:
-    #   # 跟dockerfile中的cmd比较类似，都是容器启动后的默认操作--替代dockerfile中的cmd
-    #   /im/bin/entrypoint.sh -h 127.0.0.1 -p 2379,3306,9200,5672 -c "/im/bin/message_store_server -flagfile=/im/conf/message_store_server.conf"
+    deploy:
+      replicas: 1
+      restart_policy:
+        condition: on-failure
+    depends_on:
+      - etcd
+      - mysql
+      - elasticsearch
+      - rabbitmq
+    healthcheck:
+      test: ["CMD-SHELL", "nc -z localhost 10005 || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
 
   friend_server:
-    build: ./6.Friend_Server
-    image: friend_server:v2
-    container_name: friend_server-service
+    build:
+      context: ./6.Friend_Server
+      dockerfile: Dockerfile
+    image: friend_server:v3
+    networks:
+      - chatsystem-overlay
     volumes:
-      # 1. 希望容器内的程序能够访问宿主机上的文件
-      # 2. 希望容器内程序运行所产生的数据文件能落在宿主机上
-      # 挂载的信息： entrypoint.sh文件 数据目录(im/logs, im/data), 配置文件
-      - ./Configs/friend_server.conf:/im/conf/friend_server.conf
+      - ./Configs/friend_server.conf:/im/conf/friend_server.conf:ro
       - ./docker_image_data/logs:/im/logs:rw
       - ./docker_image_data/data:/im/data:rw
-      - ./entrypoint.sh:/im/bin/entrypoint.sh
-    network_mode: host  
-    ports:
-      - 10006:10006
-    restart: always
-    # entrypoint:
-    #   # 跟dockerfile中的cmd比较类似，都是容器启动后的默认操作--替代dockerfile中的cmd
-    #   /im/bin/entrypoint.sh -h 127.0.0.1 -p 2379,3306,9200 -c "/im/bin/friend_server -flagfile=/im/conf/friend_server.conf"
-  
-  gateway_server:
-    build: ./7.Gateway_Server
-    image: gateway_server:v2
-    container_name: gateway_server-service
-    volumes:
-      # 1. 希望容器内的程序能够访问宿主机上的文件
-      # 2. 希望容器内程序运行所产生的数据文件能落在宿主机上
-      # 挂载的信息： entrypoint.sh文件 数据目录(im/logs, im/data), 配置文件
-      - ./Configs/gateway_server.conf:/im/conf/gateway_server.conf
-      - ./docker_image_data/logs:/im/logs:rw
-      - ./docker_image_data/data:/im/data:rw
-      - ./entrypoint.sh:/im/bin/entrypoint.sh
-    network_mode: host
-    ports:
-      - 9000:9000
-      - 9001:9001
-    restart: always
+    deploy:
+      replicas: 1
+      restart_policy:
+        condition: on-failure
     depends_on:
+      - etcd
+      - mysql
+      - elasticsearch
+    healthcheck:
+      test: ["CMD-SHELL", "nc -z localhost 10006 || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  gateway_server:
+    build:
+      context: ./7.Gateway_Server
+      dockerfile: Dockerfile
+    image: gateway_server:v3
+    networks:
+      - chatsystem-overlay
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - ./Configs/gateway_server.conf:/im/conf/gateway_server.conf:ro
+      - ./docker_image_data/logs:/im/logs:rw
+      - ./docker_image_data/data:/im/data:rw
+    deploy:
+      replicas: 1
+      restart_policy:
+        condition: on-failure
+    depends_on:
+      - etcd
+      - redis
       - speech_server
       - file_server
       - user_server
       - message_transmit_server
       - message_store_server
       - friend_server
-    # entrypoint:
-    #   # 跟dockerfile中的cmd比较类似，都是容器启动后的默认操作--替代dockerfile中的cmd
-    #   /im/bin/entrypoint.sh -h 127.0.0.1 -p 2379,6379 -c "/im/bin/gateway_server -flagfile=/im/conf/gateway_server.conf"
+    healthcheck:
+      test: ["CMD-SHELL", "nc -z localhost 9000 || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
