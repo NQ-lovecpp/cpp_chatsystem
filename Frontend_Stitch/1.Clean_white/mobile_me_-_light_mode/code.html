@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Mobile Me - Settings</title>
+<!-- Google Fonts -->
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<!-- Material Symbols -->
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<!-- Tailwind CSS -->
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<!-- Theme Configuration -->
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#198cb3",
+                        "primary-dark": "#14708f",
+                        "background-light": "#f6f7f8",
+                        "background-dark": "#111d21",
+                        "glass-border": "rgba(255, 255, 255, 0.5)",
+                        "glass-bg": "rgba(255, 255, 255, 0.65)",
+                    },
+                    fontFamily: {
+                        "display": ["Space Grotesk", "sans-serif"],
+                        "body": ["Noto Sans", "sans-serif"],
+                    },
+                    borderRadius: {"DEFAULT": "0.5rem", "lg": "1rem", "xl": "1.5rem", "2xl": "2rem", "full": "9999px"},
+                    boxShadow: {
+                        "glass": "0 8px 32px 0 rgba(31, 38, 135, 0.07)",
+                        "glass-hover": "0 8px 32px 0 rgba(31, 38, 135, 0.12)",
+                    }
+                },
+            },
+        }
+    </script>
+<style>
+        /* Custom Utilities for Glassmorphism */
+        .glass-panel {
+            background: rgba(255, 255, 255, 0.65);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 255, 255, 0.6);
+            box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.05);
+        }
+        
+        .glass-panel-hover:hover {
+            background: rgba(255, 255, 255, 0.75);
+            border-color: rgba(255, 255, 255, 0.8);
+            box-shadow: 0 12px 40px 0 rgba(31, 38, 135, 0.08);
+            transform: translateY(-1px);
+        }
+
+        /* Smooth transitions */
+        .transition-all-custom {
+            transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+        }
+
+        /* Abstract Background blobs */
+        .blob {
+            position: absolute;
+            filter: blur(80px);
+            z-index: 0;
+            opacity: 0.6;
+        }
+    </style>
+</head>
+<body class="font-display bg-slate-50 text-[#111617] antialiased overflow-x-hidden">
+<!-- Background Decoration -->
+<div class="fixed inset-0 z-0 overflow-hidden pointer-events-none">
+<!-- Gradient Base -->
+<div class="absolute inset-0 bg-gradient-to-b from-[#F3F7FA] to-[#E8F0F5]"></div>
+<!-- Abstract Shapes -->
+<div class="blob bg-blue-200 w-96 h-96 rounded-full top-[-10%] left-[-10%] opacity-40 mix-blend-multiply animate-pulse"></div>
+<div class="blob bg-purple-100 w-96 h-96 rounded-full bottom-[-10%] right-[-10%] opacity-50 mix-blend-multiply"></div>
+<div class="blob bg-cyan-100 w-64 h-64 rounded-full top-[40%] right-[10%] opacity-30 mix-blend-multiply"></div>
+</div>
+<!-- Main Layout Wrapper -->
+<div class="relative z-10 flex min-h-screen w-full flex-col items-center py-6 px-4 sm:px-6">
+<!-- Mobile Container Simulation -->
+<div class="w-full max-w-[500px] flex flex-col gap-6 pb-12">
+<!-- Header -->
+<header class="glass-panel sticky top-4 z-50 flex items-center justify-between rounded-full px-5 py-3 transition-all-custom">
+<button class="flex items-center justify-center text-slate-700 hover:text-primary transition-colors rounded-full p-1 hover:bg-white/50">
+<span class="material-symbols-outlined text-[24px]">arrow_back</span>
+</button>
+<h1 class="text-lg font-bold tracking-tight text-[#111617]">Settings</h1>
+<div class="w-8 h-8 rounded-full overflow-hidden border border-white shadow-sm">
+<img class="w-full h-full object-cover" data-alt="User profile avatar portrait" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAaUUht0sqxrs6bj_g2w-WlgWvVirsX4uTRANhH4mnJYLrSWYdgiI0_T9Ib9Ss2tyZ51-c3zdSLB4YP2Y29-9XJg5L3IzJ90pT-6skr7vnToaUTDCalY5CTH3LWuyoRq_CABuV0q_M3jMR9bAO0b6GYB-6camOXkWhQ5ZDFO7gsLQnpP4ZdO4mHuZEBW4h8J1R-q1jg9BTqc-9ZRvA3W8LasLYrqLKa2clZ6aJfRfRt1RHov8voAwJ4co4ySVHVYlr1Qmx4eaOAxwbV"/>
+</div>
+</header>
+<!-- Profile Card -->
+<section class="glass-panel rounded-2xl p-6 flex flex-col items-center text-center gap-4 transition-all-custom hover:shadow-glass-hover">
+<div class="relative group">
+<div class="w-28 h-28 rounded-full p-1 bg-gradient-to-tr from-primary/20 to-purple-200">
+<div class="w-full h-full rounded-full overflow-hidden border-4 border-white shadow-sm bg-gray-100">
+<img class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" data-alt="High resolution user profile portrait" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCFAQXtZIkKYZvFX1OS__-tXXVttvewWrtLKMsPoYis2kP2uD7vQII2HtZwhwQjPWqeabNKkA4CFW0-fmKX0knV_2OXegean6l5pLHpmPv8ulExnQHn8OHegPTAqYJlYTBG26Qg8AfpvzXCtizK18IrurNUxaw197E1NOhYKwtbNTR_r4v7pxDxpExsqZjTcIbI4nuO7fB1qawj4MXBzMQGY5SPOxhOSk1Sbncq7EzV1KWi6Pqi01_TNXsQWiC7diFQxgPJzhDF48wz"/>
+</div>
+</div>
+<button class="absolute bottom-1 right-1 bg-white text-slate-700 rounded-full p-2 shadow-md border border-slate-100 hover:text-primary transition-colors">
+<span class="material-symbols-outlined text-[18px] block">edit</span>
+</button>
+</div>
+<div class="space-y-1">
+<h2 class="text-2xl font-bold text-[#111617]">Alex Johnson</h2>
+<p class="text-slate-500 font-medium text-sm">@alexj_ai</p>
+</div>
+<div class="flex items-center gap-2 bg-gradient-to-r from-primary/10 to-blue-50 px-4 py-1.5 rounded-full border border-primary/10">
+<span class="material-symbols-outlined text-primary text-[16px]">verified</span>
+<span class="text-primary text-xs font-bold uppercase tracking-wider">AI Pro Plan</span>
+</div>
+</section>
+<!-- Settings Group: AI Persona -->
+<section class="flex flex-col gap-3">
+<h3 class="px-2 text-sm font-bold text-slate-400 uppercase tracking-widest">AI Persona</h3>
+<div class="glass-panel rounded-2xl overflow-hidden divide-y divide-white/40">
+<!-- Item 1: Chat Personality -->
+<div class="group flex items-center justify-between p-4 hover:bg-white/40 transition-colors cursor-pointer">
+<div class="flex items-center gap-4">
+<div class="flex h-12 w-12 items-center justify-center rounded-xl bg-purple-50 text-purple-600 shadow-sm border border-purple-100">
+<span class="material-symbols-outlined">smart_toy</span>
+</div>
+<div>
+<p class="font-bold text-[#111617]">Chat Personality</p>
+<p class="text-sm text-slate-500">Adjust how AI responds</p>
+</div>
+</div>
+<div class="flex items-center gap-2">
+<span class="text-sm font-medium text-slate-600 bg-white/60 px-2 py-1 rounded-lg border border-white/50 backdrop-blur-sm">Professional</span>
+<span class="material-symbols-outlined text-slate-400">chevron_right</span>
+</div>
+</div>
+<!-- Item 2: Voice Mode -->
+<div class="group flex items-center justify-between p-4 hover:bg-white/40 transition-colors">
+<div class="flex items-center gap-4">
+<div class="flex h-12 w-12 items-center justify-center rounded-xl bg-blue-50 text-blue-600 shadow-sm border border-blue-100">
+<span class="material-symbols-outlined">graphic_eq</span>
+</div>
+<div>
+<p class="font-bold text-[#111617]">Voice Mode</p>
+<p class="text-sm text-slate-500">Enable audio responses</p>
+</div>
+</div>
+<label class="relative inline-flex items-center cursor-pointer">
+<input checked="" class="sr-only peer" type="checkbox" value=""/>
+<div class="w-11 h-6 bg-slate-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-100 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary shadow-inner"></div>
+</label>
+</div>
+</div>
+</section>
+<!-- Settings Group: General -->
+<section class="flex flex-col gap-3">
+<h3 class="px-2 text-sm font-bold text-slate-400 uppercase tracking-widest">General</h3>
+<div class="glass-panel rounded-2xl overflow-hidden divide-y divide-white/40">
+<!-- Item: Notifications -->
+<div class="group flex items-center justify-between p-4 hover:bg-white/40 transition-colors cursor-pointer">
+<div class="flex items-center gap-4">
+<div class="flex h-12 w-12 items-center justify-center rounded-xl bg-amber-50 text-amber-600 shadow-sm border border-amber-100">
+<span class="material-symbols-outlined">notifications</span>
+</div>
+<div class="flex flex-col">
+<p class="font-bold text-[#111617]">Notifications</p>
+</div>
+</div>
+<span class="material-symbols-outlined text-slate-400 group-hover:translate-x-1 transition-transform">chevron_right</span>
+</div>
+<!-- Item: Privacy & Security -->
+<div class="group flex items-center justify-between p-4 hover:bg-white/40 transition-colors cursor-pointer">
+<div class="flex items-center gap-4">
+<div class="flex h-12 w-12 items-center justify-center rounded-xl bg-emerald-50 text-emerald-600 shadow-sm border border-emerald-100">
+<span class="material-symbols-outlined">shield</span>
+</div>
+<div class="flex flex-col">
+<p class="font-bold text-[#111617]">Privacy &amp; Security</p>
+</div>
+</div>
+<span class="material-symbols-outlined text-slate-400 group-hover:translate-x-1 transition-transform">chevron_right</span>
+</div>
+<!-- Item: Data Usage -->
+<div class="group flex items-center justify-between p-4 hover:bg-white/40 transition-colors cursor-pointer">
+<div class="flex items-center gap-4">
+<div class="flex h-12 w-12 items-center justify-center rounded-xl bg-cyan-50 text-cyan-600 shadow-sm border border-cyan-100">
+<span class="material-symbols-outlined">data_usage</span>
+</div>
+<div class="flex flex-col">
+<p class="font-bold text-[#111617]">Data Usage</p>
+</div>
+</div>
+<span class="material-symbols-outlined text-slate-400 group-hover:translate-x-1 transition-transform">chevron_right</span>
+</div>
+</div>
+</section>
+<!-- Settings Group: Appearance -->
+<section class="flex flex-col gap-3">
+<h3 class="px-2 text-sm font-bold text-slate-400 uppercase tracking-widest">Appearance</h3>
+<div class="glass-panel rounded-2xl overflow-hidden divide-y divide-white/40">
+<!-- Item: Theme -->
+<div class="group flex items-center justify-between p-4 hover:bg-white/40 transition-colors cursor-pointer">
+<div class="flex items-center gap-4">
+<div class="flex h-12 w-12 items-center justify-center rounded-xl bg-pink-50 text-pink-500 shadow-sm border border-pink-100">
+<span class="material-symbols-outlined">palette</span>
+</div>
+<div>
+<p class="font-bold text-[#111617]">Theme</p>
+</div>
+</div>
+<div class="flex items-center gap-2">
+<span class="text-sm font-medium text-slate-600">Light Mode</span>
+<span class="material-symbols-outlined text-slate-400">chevron_right</span>
+</div>
+</div>
+<!-- Item: Font Size -->
+<div class="group flex items-center justify-between p-4 hover:bg-white/40 transition-colors cursor-pointer">
+<div class="flex items-center gap-4">
+<div class="flex h-12 w-12 items-center justify-center rounded-xl bg-indigo-50 text-indigo-500 shadow-sm border border-indigo-100">
+<span class="material-symbols-outlined">format_size</span>
+</div>
+<div>
+<p class="font-bold text-[#111617]">Font Size</p>
+</div>
+</div>
+<div class="flex items-center gap-2">
+<span class="text-sm font-medium text-slate-600">Medium</span>
+<span class="material-symbols-outlined text-slate-400">chevron_right</span>
+</div>
+</div>
+</div>
+</section>
+<!-- Footer -->
+<footer class="mt-4 flex flex-col items-center gap-4">
+<button class="w-full glass-panel rounded-xl py-4 text-rose-500 font-bold hover:bg-rose-50 hover:border-rose-200 transition-colors flex items-center justify-center gap-2">
+<span class="material-symbols-outlined">logout</span>
+                    Log Out
+                </button>
+<p class="text-xs text-slate-400 font-medium">Mobile Me v2.4.0 (Build 3021)</p>
+</footer>
+</div>
+</div>
+</body></html>

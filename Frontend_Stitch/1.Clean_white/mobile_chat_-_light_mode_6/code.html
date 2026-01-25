@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Mobile Contacts - Light Mode V2</title>
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#9000ff", // Electric Indigo
+                        "accent-mint": "#6fffcf", // Mint
+                        "background-light": "#fbfaf8", // Soft Porcelain White
+                        "surface-white": "#ffffff",
+                        "text-main": "#150c1d",
+                        "text-sub": "#7945a1",
+                        "border-subtle": "#eee6f4",
+                        "active-highlight": "#fdfaff",
+                    },
+                    fontFamily: {
+                        "display": ["Space Grotesk", "sans-serif"]
+                    },
+                    borderRadius: {
+                        "DEFAULT": "0.5rem",
+                        "lg": "1rem",
+                        "xl": "1.5rem",
+                        "2xl": "2rem",
+                        "full": "9999px"
+                    },
+                    boxShadow: {
+                        "soft-float": "0px 4px 12px rgba(144, 0, 255, 0.05)",
+                        "card-hover": "0px 8px 24px rgba(144, 0, 255, 0.12)",
+                        "glow": "0 0 20px rgba(111, 255, 207, 0.3)"
+                    }
+                },
+            },
+        }
+    </script>
+<style>
+        body {
+            font-family: "Space Grotesk", sans-serif;
+            background-color: #fbfaf8;
+        }
+        .hide-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .hide-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+    </style>
+</head>
+<body class="bg-background-light text-text-main h-screen overflow-hidden flex flex-col">
+<div class="flex flex-1 h-full max-w-[1600px] mx-auto w-full p-4 lg:p-6 gap-6">
+<aside class="hidden md:flex w-[320px] lg:w-[380px] flex-col bg-surface-white rounded-2xl shadow-soft-float border border-border-subtle/50 h-full overflow-hidden">
+<div class="p-6 pb-2">
+<div class="flex items-center justify-between mb-6">
+<div class="flex items-center gap-3">
+<div class="size-8 rounded-xl bg-gradient-to-br from-primary to-primary/80 flex items-center justify-center text-white shadow-lg shadow-primary/20">
+<span class="material-symbols-outlined text-[20px]">contacts</span>
+</div>
+<h1 class="text-xl font-bold tracking-tight text-[#150c1d]">Directory</h1>
+</div>
+<button class="size-10 rounded-full bg-border-subtle/30 hover:bg-border-subtle flex items-center justify-center transition-colors text-primary">
+<span class="material-symbols-outlined">person_add</span>
+</button>
+</div>
+<div class="relative group">
+<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+<span class="material-symbols-outlined text-primary/60">search</span>
+</div>
+<input class="block w-full pl-10 pr-3 py-3 border-none rounded-xl leading-5 bg-background-light text-text-main placeholder-primary/40 focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all shadow-sm" placeholder="Search people..." type="text"/>
+</div>
+</div>
+<div class="px-6 py-2 flex gap-2 overflow-x-auto hide-scrollbar">
+<button class="px-4 py-1.5 rounded-full bg-background-light text-text-sub hover:bg-border-subtle/50 transition-colors text-sm font-medium whitespace-nowrap border border-border-subtle">Recents</button>
+<button class="px-4 py-1.5 rounded-full bg-primary text-white text-sm font-medium whitespace-nowrap shadow-md shadow-primary/20">Contacts</button>
+<button class="px-4 py-1.5 rounded-full bg-background-light text-text-sub hover:bg-border-subtle/50 transition-colors text-sm font-medium whitespace-nowrap border border-border-subtle">Groups</button>
+</div>
+<div class="flex-1 overflow-y-auto px-4 pt-2 pb-4 space-y-1 mt-2">
+<div class="px-2 py-1 text-xs font-bold text-gray-400 uppercase tracking-wider">Favorites</div>
+<div class="flex items-center gap-3 p-2 rounded-xl hover:bg-background-light cursor-pointer transition-colors">
+<div class="bg-center bg-no-repeat bg-cover rounded-full size-10 shadow-sm" style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuBWnV-qCb-aWoDR1HqaqXDGNdSD_6kIGIGFYj35f90jcowFQasxprWe4qjCqjcKATgurOIlkw6fRkcUH1p7uCdQCmHgLKjx5g7J8C8XDkm5m_YwBtfMNE8S4iotVZ-CtekTYXXmn_I519aeyyjK5W7UE6WbgWufwFIMLxRB78H0Uskz91rzzP22GshUpptKElvdHjS78PTMjgT7_R2gkuQjZNtUxVYoTKEKJiSo_BNbEMtnDNSEuBM_n8n-BNbp6HvhrwgC21xb3RWE");'></div>
+<div class="flex-1 min-w-0">
+<h3 class="text-text-main font-semibold text-sm truncate">Sarah Jenkins</h3>
+<p class="text-text-sub text-xs truncate">Product Manager</p>
+</div>
+<span class="size-2 rounded-full bg-green-400"></span>
+</div>
+<div class="flex items-center gap-3 p-2 rounded-xl hover:bg-background-light cursor-pointer transition-colors">
+<div class="bg-center bg-no-repeat bg-cover rounded-full size-10 shadow-sm" style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuD6G_2m4a02ajp-aK7jp2buL5QoOFFeypcDsRiu6s2dEBarO_UifWeQda6EF2hC6nqTz9m97KEL6RQYO2s21eJ_m3OK8qiUoyht5cjutQih7dDPoUxAtJA5kDOc8WmGS8M76WJZEpEkJC7A9HrV5kZ3wCKkVOkkDF49iwUZdemUK7ddN4wBfa9LVeqCSG8LSJqawQZanbjDt5pj5LRPQH_Dd4r2x1WuOsT1sPYKOSggr-w4XDL_Zp9aeVk7QkFa-tAYBtCYP9S68ZEq");'></div>
+<div class="flex-1 min-w-0">
+<h3 class="text-text-main font-semibold text-sm truncate">Design Team</h3>
+<p class="text-text-sub text-xs truncate">4 Members</p>
+</div>
+</div>
+<div class="px-2 py-1 mt-4 text-xs font-bold text-gray-400 uppercase tracking-wider">All Contacts</div>
+<div class="flex items-center gap-3 p-2 rounded-xl bg-primary/5 text-primary cursor-pointer transition-colors">
+<div class="bg-center bg-no-repeat bg-cover rounded-full size-10 shadow-sm ring-2 ring-primary/20" style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuCK6VTK1_L2I5mjTYd_096eH4ET1HE0vpOMOmkiwy-YaZFpI4L_3ndZEdNA7ngDKCzv5ANfSm1ui_QV06yqYAuuf-ITzjDPR6P-eF_Iq87ONPE7yZjSCirJO5uC20pk-vb3m1zHRmCx6Fr7mWNwMx2uSkxm3MMwde4xh6fRGiORUavANiI0OU_bseWiEh1JPxq3EU-toCth3rIp6rnJOupF5QAFjlXfSl8tWv1ch8EjGntAOMGAWs8iwfhzcb3ggJ0H81Pkx1u9LVC7");'></div>
+<div class="flex-1 min-w-0">
+<h3 class="font-bold text-sm truncate">Alice Chen</h3>
+<p class="text-primary/70 text-xs truncate">Lead Designer</p>
+</div>
+<span class="material-symbols-outlined text-[16px]">chevron_right</span>
+</div>
+<div class="flex items-center gap-3 p-2 rounded-xl hover:bg-background-light cursor-pointer transition-colors">
+<div class="bg-primary/10 rounded-full size-10 flex items-center justify-center text-primary font-bold text-sm border border-border-subtle">MK</div>
+<div class="flex-1 min-w-0">
+<h3 class="text-text-main font-semibold text-sm truncate">Marcus King</h3>
+<p class="text-text-sub text-xs truncate">Developer</p>
+</div>
+</div>
+</div>
+<div class="p-4 border-t border-border-subtle/50 bg-background-light/30">
+<div class="flex items-center gap-3 p-2 rounded-xl hover:bg-white transition-colors cursor-pointer group">
+<div class="bg-center bg-no-repeat bg-cover rounded-full size-10 shadow-sm ring-2 ring-white group-hover:ring-primary/20 transition-all" style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuDT2YPn4RlA7JEKTNP4uzbLXZqtftmXGZmfpYCF4isKc0-oyamCHNqaIZ6NEMdPVVfeBVVZ0iyZxYItc58mzeFQMU2FPQo3gYVsxH3fScj5iiaNrlXocspMcaqKL4ReSxEonLurCzafI3yxOE0I46NyLDZWs-jGq41PwcHhW4j6IBHFa0PSUB7zWPBGgdVOM8K39GwJlul47_V2-5-zijhkemTkxjQaftYUlSj8WHlxgzFsipQBGjUvyB0EUANAJYXndsKxBCDX9qHu");'></div>
+<div class="flex-1">
+<p class="text-sm font-bold text-text-main">Alex Morgan</p>
+<p class="text-xs text-primary font-medium">Online</p>
+</div>
+<span class="material-symbols-outlined text-gray-400 group-hover:text-primary transition-colors">settings</span>
+</div>
+</div>
+</aside>
+<main class="flex-1 flex flex-col bg-background-light rounded-2xl border border-border-subtle/50 relative overflow-hidden">
+<header class="flex items-center justify-between px-8 py-6 z-10 sticky top-0 bg-background-light/95 backdrop-blur-md">
+<div>
+<h2 class="text-2xl font-bold text-text-main">My Contacts</h2>
+<p class="text-sm text-text-sub mt-1">142 Active Contacts</p>
+</div>
+<div class="flex items-center gap-3">
+<button class="flex items-center gap-2 px-4 py-2 rounded-xl bg-white border border-border-subtle text-text-main hover:border-primary/30 transition-all shadow-sm">
+<span class="material-symbols-outlined text-[18px]">filter_list</span>
+<span class="text-sm font-medium">Filter</span>
+</button>
+<button class="flex items-center gap-2 px-4 py-2 rounded-xl bg-primary text-white shadow-lg shadow-primary/25 hover:shadow-primary/40 hover:scale-[1.02] transition-all">
+<span class="material-symbols-outlined text-[18px]">add</span>
+<span class="text-sm font-bold">Add New</span>
+</button>
+</div>
+</header>
+<div class="flex-1 overflow-y-auto px-4 md:px-8 pb-10 space-y-4">
+<div class="flex items-center gap-4 py-2">
+<div class="h-px bg-border-subtle flex-1"></div>
+<span class="text-xs font-bold text-primary/60 bg-primary/5 px-2 py-1 rounded-md">A</span>
+<div class="h-px bg-border-subtle flex-1"></div>
+</div>
+<div class="bg-white rounded-2xl shadow-card-hover border border-primary/20 overflow-hidden transition-all duration-300 relative group w-full max-w-3xl mx-auto">
+<div class="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-primary to-accent-mint z-20"></div>
+<div class="p-5 flex items-start gap-5 cursor-pointer relative z-10">
+<div class="relative">
+<div class="bg-center bg-no-repeat bg-cover rounded-2xl size-16 shadow-lg shadow-primary/10 border-2 border-white" style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuCUHpGzo84oBciieO-luPEnfo2gN-pv09X1_h7R18mzjVUCAeL0YUySbIPYjHwT8yA4h5wfu5Tmc4CYRVHIsoKAEokY8f0HUUC6-_2Vrh-AuAGqxOlHOmHr6euCmbFDyBW_5bNmlPUXCz_9F7y1MAnh4NC6nPpIvjDF0vnq2WZi6hnQEbkzdveXq1rO7L5uwr8XC18IkZ3yprqx9Fv3c6U1n6IbmVXRnObpZENo47qgXPOPviA2-ZV6hKKbbWIFh0XK2Sc61YX7PPgC");'></div>
+<div class="absolute -bottom-1 -right-1 size-4 bg-accent-mint rounded-full border-2 border-white flex items-center justify-center">
+<div class="size-1.5 bg-primary rounded-full"></div>
+</div>
+</div>
+<div class="flex-1 pt-1">
+<div class="flex justify-between items-start">
+<div>
+<h3 class="text-xl font-bold text-text-main">Alice Chen</h3>
+<p class="text-primary font-medium text-sm mt-0.5">Lead UI/UX Designer</p>
+</div>
+<div class="flex items-center gap-2">
+<span class="bg-primary/10 text-primary text-xs font-bold px-2 py-1 rounded-lg border border-primary/10">Work</span>
+<button class="size-8 rounded-full hover:bg-background-light flex items-center justify-center text-gray-400 hover:text-primary transition-colors">
+<span class="material-symbols-outlined">expand_less</span>
+</button>
+</div>
+</div>
+<div class="flex gap-4 mt-3 text-xs text-text-sub font-medium">
+<span class="flex items-center gap-1"><span class="material-symbols-outlined text-[14px]">location_on</span> San Francisco, CA</span>
+<span class="flex items-center gap-1"><span class="material-symbols-outlined text-[14px]">schedule</span> 10:42 AM (Local)</span>
+</div>
+</div>
+</div>
+<div class="px-5 pb-6 pl-[5.5rem] space-y-6">
+<div class="flex flex-wrap items-center gap-3">
+<button class="flex-1 bg-primary text-white h-10 px-4 rounded-xl font-semibold text-sm shadow-lg shadow-primary/20 hover:shadow-primary/30 hover:translate-y-[-1px] transition-all flex items-center justify-center gap-2">
+<span class="material-symbols-outlined text-[18px]">chat_bubble</span>
+                            Message
+                        </button>
+<button class="flex-1 bg-white border border-border-subtle text-text-main h-10 px-4 rounded-xl font-semibold text-sm hover:bg-background-light hover:border-primary/30 transition-all flex items-center justify-center gap-2">
+<span class="material-symbols-outlined text-[18px]">call</span>
+                            Voice
+                        </button>
+<button class="flex-1 bg-white border border-border-subtle text-text-main h-10 px-4 rounded-xl font-semibold text-sm hover:bg-background-light hover:border-primary/30 transition-all flex items-center justify-center gap-2">
+<span class="material-symbols-outlined text-[18px]">videocam</span>
+                            Video
+                        </button>
+</div>
+<div class="grid grid-cols-2 gap-4">
+<div class="p-3 rounded-xl bg-background-light border border-border-subtle/50 group/item hover:border-primary/20 transition-colors">
+<p class="text-xs text-gray-400 font-medium mb-1 flex items-center gap-1">
+<span class="material-symbols-outlined text-[14px]">smartphone</span> Mobile
+                            </p>
+<p class="text-sm font-semibold text-text-main text-ellipsis overflow-hidden">+1 (555) 012-3456</p>
+</div>
+<div class="p-3 rounded-xl bg-background-light border border-border-subtle/50 group/item hover:border-primary/20 transition-colors">
+<p class="text-xs text-gray-400 font-medium mb-1 flex items-center gap-1">
+<span class="material-symbols-outlined text-[14px]">mail</span> Email
+                            </p>
+<p class="text-sm font-semibold text-text-main text-ellipsis overflow-hidden">alice.chen@design.co</p>
+</div>
+</div>
+<div>
+<div class="flex items-center justify-between mb-2">
+<h4 class="text-xs font-bold text-gray-400 uppercase tracking-wider">Shared Media</h4>
+<button class="text-xs text-primary font-bold hover:underline">View All</button>
+</div>
+<div class="flex gap-3 overflow-x-auto pb-2 hide-scrollbar">
+<div class="shrink-0 w-24 h-16 rounded-lg bg-cover bg-center shadow-sm border border-border-subtle cursor-pointer hover:opacity-90 transition-opacity" style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuAasg63CXYGfHA-C6BBXNF3fuzZNgXMJNdJqY4jXayDlhpBqRfxNamjK9AuBPPn2V5L-7FpIrWkxHRhOnqz7beNC_Lyq7LhoukkYbo6XXsaZEnez0DXYwwatp-qHvmGds2vUihzW4BtMuIsasxzsoWrIFRgZ-yXbBP5ixBYR5Fgrn5lw65_HXulp78wrZ5-9CCiqPqpdALMFNqHqGZAknMcNp_baRDlOkfuu_HOi_bvyQO5oDSsgmTrzdm7Jp4siAL-zIJbeWJQqkOO");'></div>
+<div class="shrink-0 w-24 h-16 rounded-lg bg-cover bg-center shadow-sm border border-border-subtle cursor-pointer hover:opacity-90 transition-opacity" style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuBWnV-qCb-aWoDR1HqaqXDGNdSD_6kIGIGFYj35f90jcowFQasxprWe4qjCqjcKATgurOIlkw6fRkcUH1p7uCdQCmHgLKjx5g7J8C8XDkm5m_YwBtfMNE8S4iotVZ-CtekTYXXmn_I519aeyyjK5W7UE6WbgWufwFIMLxRB78H0Uskz91rzzP22GshUpptKElvdHjS78PTMjgT7_R2gkuQjZNtUxVYoTKEKJiSo_BNbEMtnDNSEuBM_n8n-BNbp6HvhrwgC21xb3RWE");'></div> 
+<div class="shrink-0 w-24 h-16 rounded-lg bg-primary/5 border border-border-subtle flex items-center justify-center cursor-pointer hover:bg-primary/10 transition-colors text-primary">
+<span class="material-symbols-outlined">folder_open</span>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class="bg-surface-white rounded-xl border border-transparent shadow-sm hover:shadow-md hover:border-border-subtle/80 transition-all duration-200 cursor-pointer p-3 flex items-center gap-4 w-full max-w-3xl mx-auto group">
+<div class="bg-gradient-to-br from-primary to-accent-mint rounded-full size-12 flex items-center justify-center text-white font-bold shadow-sm">
+<span class="material-symbols-outlined">smart_toy</span>
+</div>
+<div class="flex-1 min-w-0">
+<h3 class="text-text-main font-semibold text-base group-hover:text-primary transition-colors">AI Assistant</h3>
+<p class="text-text-sub text-sm truncate">Automated Helper</p>
+</div>
+<div class="flex items-center gap-3 pr-2">
+<span class="px-2 py-0.5 rounded-md bg-gray-100 text-xs font-medium text-gray-500">Bot</span>
+<span class="material-symbols-outlined text-gray-300 group-hover:text-primary transition-colors">expand_more</span>
+</div>
+</div>
+<div class="flex items-center gap-4 py-2 mt-2">
+<div class="h-px bg-border-subtle flex-1"></div>
+<span class="text-xs font-bold text-primary/60 bg-primary/5 px-2 py-1 rounded-md">B</span>
+<div class="h-px bg-border-subtle flex-1"></div>
+</div>
+<div class="bg-surface-white rounded-xl border border-transparent shadow-sm hover:shadow-md hover:border-border-subtle/80 transition-all duration-200 cursor-pointer p-3 flex items-center gap-4 w-full max-w-3xl mx-auto group">
+<div class="relative">
+<div class="bg-center bg-no-repeat bg-cover rounded-full size-12 shadow-sm border border-border-subtle" style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuCJgW-XtPxU3sbdL1oXT5pD8fANxpoI51iqW4lxV5IWO4766LIzjzi2DJLLPXSjykc9FRQKq08KVRrWp9KOdCcZXrTNp60srjfvGRlyPrUS5f6gSPXf4UaR3QCRKjCJ6dEMC6-YheKJ54AWqi_btRTBZP04RzPONVI9VJg5Qplu-WsqcVfx5sMZKYE8JxxrDtGdHJff4yhRf-eoBJ8CQVz-9PtJYOf7a5n4tpc1sqKhQUm5L31r9Y1tGTx_uzhV0LjMg1b6DCZKec4l");'></div>
+</div>
+<div class="flex-1 min-w-0">
+<h3 class="text-text-main font-semibold text-base group-hover:text-primary transition-colors">Ben Thompson</h3>
+<p class="text-text-sub text-sm truncate">Marketing Director</p>
+</div>
+<div class="flex items-center gap-3 pr-2">
+<span class="material-symbols-outlined text-gray-300 group-hover:text-primary transition-colors">expand_more</span>
+</div>
+</div>
+<div class="flex items-center gap-4 py-2 mt-2">
+<div class="h-px bg-border-subtle flex-1"></div>
+<span class="text-xs font-bold text-primary/60 bg-primary/5 px-2 py-1 rounded-md">D</span>
+<div class="h-px bg-border-subtle flex-1"></div>
+</div>
+<div class="bg-surface-white rounded-xl border border-transparent shadow-sm hover:shadow-md hover:border-border-subtle/80 transition-all duration-200 cursor-pointer p-3 flex items-center gap-4 w-full max-w-3xl mx-auto group">
+<div class="relative">
+<div class="bg-center bg-no-repeat bg-cover rounded-full size-12 shadow-sm border border-border-subtle" style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuD6G_2m4a02ajp-aK7jp2buL5QoOFFeypcDsRiu6s2dEBarO_UifWeQda6EF2hC6nqTz9m97KEL6RQYO2s21eJ_m3OK8qiUoyht5cjutQih7dDPoUxAtJA5kDOc8WmGS8M76WJZEpEkJC7A9HrV5kZ3wCKkVOkkDF49iwUZdemUK7ddN4wBfa9LVeqCSG8LSJqawQZanbjDt5pj5LRPQH_Dd4r2x1WuOsT1sPYKOSggr-w4XDL_Zp9aeVk7QkFa-tAYBtCYP9S68ZEq");'></div>
+</div>
+<div class="flex-1 min-w-0">
+<h3 class="text-text-main font-semibold text-base group-hover:text-primary transition-colors">Design Team</h3>
+<p class="text-text-sub text-sm truncate">Group • 12 Members</p>
+</div>
+<div class="flex items-center gap-3 pr-2">
+<span class="material-symbols-outlined text-gray-300 group-hover:text-primary transition-colors">expand_more</span>
+</div>
+</div>
+<div class="flex items-center gap-4 py-2 mt-2">
+<div class="h-px bg-border-subtle flex-1"></div>
+<span class="text-xs font-bold text-primary/60 bg-primary/5 px-2 py-1 rounded-md">M</span>
+<div class="h-px bg-border-subtle flex-1"></div>
+</div>
+<div class="bg-surface-white rounded-xl border border-transparent shadow-sm hover:shadow-md hover:border-border-subtle/80 transition-all duration-200 cursor-pointer p-3 flex items-center gap-4 w-full max-w-3xl mx-auto group">
+<div class="relative">
+<div class="bg-primary/10 rounded-full size-12 flex items-center justify-center text-primary font-bold text-lg border border-border-subtle group-hover:bg-primary group-hover:text-white transition-colors">
+                        MK
+                    </div>
+<div class="absolute bottom-0 right-0 size-3 bg-accent-mint rounded-full border-2 border-white"></div>
+</div>
+<div class="flex-1 min-w-0">
+<h3 class="text-text-main font-semibold text-base group-hover:text-primary transition-colors">Marcus King</h3>
+<p class="text-text-sub text-sm truncate">Frontend Developer</p>
+</div>
+<div class="flex items-center gap-3 pr-2">
+<span class="material-symbols-outlined text-gray-300 group-hover:text-primary transition-colors">expand_more</span>
+</div>
+</div>
+<div class="flex items-center gap-4 py-2 mt-2">
+<div class="h-px bg-border-subtle flex-1"></div>
+<span class="text-xs font-bold text-primary/60 bg-primary/5 px-2 py-1 rounded-md">S</span>
+<div class="h-px bg-border-subtle flex-1"></div>
+</div>
+<div class="bg-surface-white rounded-xl border border-transparent shadow-sm hover:shadow-md hover:border-border-subtle/80 transition-all duration-200 cursor-pointer p-3 flex items-center gap-4 w-full max-w-3xl mx-auto group">
+<div class="relative">
+<div class="bg-center bg-no-repeat bg-cover rounded-full size-12 shadow-sm border border-border-subtle" style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuBWnV-qCb-aWoDR1HqaqXDGNdSD_6kIGIGFYj35f90jcowFQasxprWe4qjCqjcKATgurOIlkw6fRkcUH1p7uCdQCmHgLKjx5g7J8C8XDkm5m_YwBtfMNE8S4iotVZ-CtekTYXXmn_I519aeyyjK5W7UE6WbgWufwFIMLxRB78H0Uskz91rzzP22GshUpptKElvdHjS78PTMjgT7_R2gkuQjZNtUxVYoTKEKJiSo_BNbEMtnDNSEuBM_n8n-BNbp6HvhrwgC21xb3RWE");'></div>
+</div>
+<div class="flex-1 min-w-0">
+<h3 class="text-text-main font-semibold text-base group-hover:text-primary transition-colors">Sarah Jenkins</h3>
+<p class="text-text-sub text-sm truncate">Product Manager</p>
+</div>
+<div class="flex items-center gap-3 pr-2">
+<span class="material-symbols-outlined text-gray-300 group-hover:text-primary transition-colors">expand_more</span>
+</div>
+</div>
+<div class="h-10"></div> 
+</div>
+<div class="absolute bottom-8 right-8 md:hidden">
+<button class="size-14 rounded-full bg-primary text-white shadow-xl shadow-primary/40 flex items-center justify-center hover:scale-105 transition-transform">
+<span class="material-symbols-outlined text-[24px]">person_add</span>
+</button>
+</div>
+</main>
+</div>
+
+</body></html>

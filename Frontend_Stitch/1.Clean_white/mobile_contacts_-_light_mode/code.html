@@ -1,0 +1,349 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Mobile Contacts - Light Mode</title>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@200;300;400;500;600;700;800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#f09475",
+                        "background-light": "#fafaf9",
+                        "background-dark": "#22252a",
+                        "soft-blue": "#C9E3F2",
+                        "soft-lilac": "#DCD8EC",
+                    },
+                    fontFamily: {
+                        "display": ["Manrope", "sans-serif"]
+                    },
+                    borderRadius: { "DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "2xl": "1rem", "3xl": "1.5rem", "4xl": "2rem", "full": "9999px" },
+                    boxShadow: {
+                        "soft": "0 10px 40px -10px rgba(0,0,0,0.05)",
+                        "glass": "0 8px 32px 0 rgba(31, 38, 135, 0.07)",
+                    },
+                    animation: {
+                        'pulse-slow': 'pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+                        'float': 'float 6s ease-in-out infinite',
+                    },
+                    keyframes: {
+                        float: {
+                            '0%, 100%': { transform: 'translateY(0)' },
+                            '50%': { transform: 'translateY(-5px)' },
+                        }
+                    }
+                },
+            },
+        }
+    </script>
+<style>
+        /* Custom Pulse Animation for Active Status */
+        .active-pulse-ring::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            border-radius: 9999px;
+            border: 2px solid #f09475;
+            animation: ripple 2s infinite;
+            z-index: -1;
+        }
+        @keyframes ripple {
+            0% { transform: scale(1); opacity: 0.8; }
+            100% { transform: scale(1.6); opacity: 0; }
+        }
+        
+        /* Hide scrollbar for clean look */
+        .no-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .no-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+
+        /* Glassmorphism utility */
+        .glass-panel {
+            background: rgba(255, 255, 255, 0.7);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+        }
+    </style>
+</head>
+<body class="bg-background-light dark:bg-background-dark text-[#181311] font-display min-h-screen flex items-center justify-center p-4 selection:bg-primary/30">
+<!-- Desktop Central Container (Mobile View) -->
+<main class="relative w-full max-w-[520px] h-[90vh] bg-white rounded-[32px] shadow-soft flex flex-col overflow-hidden border border-white/50 ring-1 ring-black/5">
+<!-- Top Navigation / Header -->
+<header class="px-6 pt-8 pb-2 flex items-center justify-between bg-white z-20 sticky top-0">
+<h1 class="text-3xl font-extrabold tracking-tight text-[#181311]">Contacts</h1>
+<!-- AI Entry Point -->
+<button class="group flex items-center gap-2 pr-1 pl-3 py-1 bg-gradient-to-r from-soft-blue/30 to-soft-lilac/30 rounded-full hover:from-soft-blue/50 hover:to-soft-lilac/50 transition-all duration-300 border border-transparent hover:border-primary/20">
+<span class="text-xs font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-600 to-purple-600">Ask AI</span>
+<div class="size-8 rounded-full bg-white flex items-center justify-center shadow-sm group-hover:scale-105 transition-transform">
+<span class="material-symbols-outlined text-transparent bg-clip-text bg-gradient-to-r from-blue-500 to-purple-500" style="font-variation-settings: 'FILL' 1;">spark</span>
+</div>
+</button>
+</header>
+<!-- Search Bar Area -->
+<div class="px-6 py-4 bg-white z-20">
+<label class="relative flex items-center w-full group">
+<span class="absolute left-4 text-gray-400 group-focus-within:text-primary transition-colors material-symbols-outlined">search</span>
+<input class="w-full h-14 pl-12 pr-4 bg-[#f8f8f8] rounded-2xl border-none focus:ring-2 focus:ring-primary/50 focus:bg-white transition-all text-base placeholder:text-gray-400 font-medium" placeholder="Search for friends, tags, or AI summaries..." type="text"/>
+<div class="absolute right-3 p-1.5 bg-white rounded-xl shadow-sm cursor-pointer hover:bg-gray-50 transition-colors">
+<span class="material-symbols-outlined text-gray-500 text-[20px]">tune</span>
+</div>
+</label>
+</div>
+<!-- Scrollable Content -->
+<div class="flex-1 overflow-y-auto no-scrollbar pb-24">
+<!-- Active Now Section -->
+<div class="pt-2 pb-6">
+<div class="flex items-center justify-between px-6 mb-4">
+<h3 class="text-sm font-bold text-gray-500 uppercase tracking-wider">Active Now</h3>
+</div>
+<div class="flex overflow-x-auto no-scrollbar px-6 gap-5 pb-4">
+<!-- Item 1 -->
+<div class="flex flex-col items-center gap-2 min-w-[68px] cursor-pointer group">
+<div class="relative active-pulse-ring size-[68px]">
+<div class="size-full rounded-full bg-cover bg-center border-2 border-white relative z-10 group-hover:scale-105 transition-transform duration-300" data-alt="Portrait of a smiling woman" style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuBOVESWFcVIT5zsNxwrNhk_ncM_HxtT0t_4VUp5TG5qPX8q3mpVTHoRZxvUIfg_80qfqz3I0Zh4GDYibizsPbFjtTQw_HOz7PRJetCNe_1Hv85HDijpVMthCO0-KYGm3j0qOE5mJeABWbQkiMo4hl3MbmO3MuQU34WWF3KeDJDNZsQp1WdM7AMT7C_y2cAWuARP6-aC0JVkJputWrtHDwc1PNEix7VMt34yrkUB0drYwzqB5zVW4VwfjCoZwsmdZGLXcFzqiSKI0M9i');"></div>
+<div class="absolute bottom-0 right-0 size-4 bg-primary border-2 border-white rounded-full z-20"></div>
+</div>
+<span class="text-xs font-semibold text-[#181311] truncate max-w-full">Anna</span>
+</div>
+<!-- Item 2 -->
+<div class="flex flex-col items-center gap-2 min-w-[68px] cursor-pointer group">
+<div class="relative active-pulse-ring size-[68px]">
+<div class="size-full rounded-full bg-cover bg-center border-2 border-white relative z-10 group-hover:scale-105 transition-transform duration-300" data-alt="Portrait of a man with glasses" style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuAKK4GNmKsZToxoA2XzZt8ggRNxlM28APdB6-vsRoUSytIij4VDc3gG7TBbtPJRj76XmikcOzlBLYYWMXtvO053SINDflo3FrcYgt0R5r-LGapmbNkrGHxEF1_jd-jTwOol_of2VOqVG7MF4JfHLnU0gbxGRRQrFdpAGKfPXgoST8P_eMDVdrdv-buyIq2aIWdk8kjCKNrMpILeAwqg8j3YoRqApJkzn5HZ1gglWs-2PTIKMJp0ryIkEeInnjzQa4Kqipkw2o88jFaP');"></div>
+<div class="absolute bottom-0 right-0 size-4 bg-primary border-2 border-white rounded-full z-20"></div>
+</div>
+<span class="text-xs font-semibold text-[#181311] truncate max-w-full">Marcus</span>
+</div>
+<!-- Item 3 -->
+<div class="flex flex-col items-center gap-2 min-w-[68px] cursor-pointer group">
+<div class="relative active-pulse-ring size-[68px]">
+<div class="size-full rounded-full bg-cover bg-center border-2 border-white relative z-10 group-hover:scale-105 transition-transform duration-300" data-alt="Portrait of a smiling young woman" style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuD35e2sv9Sd9Rdhey6Xvs_u-PZfuxBF1U6tJMmhZxWBLt481tKBbBYLiRTcPVrN2Z6FmxzlE_6dmVxEg5P2R6SJqgdBUF6xqXbiBVp8H4cE8PWG8JQCy7gJOB9i7MB8wkv_AnscG6eMmJZ29BWHfZeTIxA9vmPnFJXQWS3CO_3b_lbkKz6pjregXvX-J8PHylDCeSrOx5IVUsSkZz1na2UQZu8RAwMrmda5zEumXYbtDwEVrLaIaWz1SpDJzcIUHmyfm7-WJczFJvma');"></div>
+<div class="absolute bottom-0 right-0 size-4 bg-primary border-2 border-white rounded-full z-20"></div>
+</div>
+<span class="text-xs font-semibold text-[#181311] truncate max-w-full">Elisa</span>
+</div>
+<!-- Item 4 (Offline/Recent) -->
+<div class="flex flex-col items-center gap-2 min-w-[68px] cursor-pointer opacity-80 group">
+<div class="relative size-[68px]">
+<div class="size-full rounded-full bg-cover bg-center border-2 border-white relative z-10 grayscale-[30%] group-hover:grayscale-0 transition-all duration-300" data-alt="Portrait of a man looking serious" style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuCBGZNB0pVe7qoHJxT6x0j5MNQa7Bbnz6p7s7uX2x9oHYPOX6dd_wte6Lug-bb4Oi9MrK2UTSqrsU0CJNsT7Gpm79_jumHfSH2DjFpmN94llg00z0GAeseroeXUzAD7KUgjaP71HrQrSoOPH5aQyc_sUyoB67GFgK2oBYcw2nmRIbceWTp1zrb86tMjIRmhDJ7DE50oPB4AJ2MDiBLd47vGBOZROB6lHopae2BlyiNcKk-rXiruYRnGlUsGhZAazO1UuvEp-1CRhGNa');"></div>
+<!-- No pulse, just a grey dot or nothing -->
+<div class="absolute bottom-0 right-0 size-4 bg-gray-300 border-2 border-white rounded-full z-20"></div>
+</div>
+<span class="text-xs font-medium text-gray-500 truncate max-w-full">David</span>
+</div>
+<!-- Item 5 -->
+<div class="flex flex-col items-center gap-2 min-w-[68px] cursor-pointer opacity-80 group">
+<div class="relative size-[68px]">
+<div class="size-full rounded-full bg-cover bg-center border-2 border-white relative z-10 grayscale-[30%] group-hover:grayscale-0 transition-all duration-300" data-alt="Portrait of a man with a beard" style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuDSGE7nxNbGyth5hBa7of6kmdy9OSvkA28l6sCixJp7zdiaV-9_ugE8pKcduIiVRbd8vsNRAV9a9ZiAkUHC6VE-h_YPkWcIFA9f5Nc9lefAvdO78LOTI8YL2YdJlQfPZH3iGHCR5DDqM9UvrlqSIlmDxmdIxVAmK9Kjrszax7fwBvVZqX6wBY-FCAm0PhPkCi8MHC-QT3QDJ2V7g8fGTUc7v5KlvGeuNhPBbk3i6Zr1eRvRQabmAbWJcV11tSgxgLkuEpSzExLdLjai');"></div>
+</div>
+<span class="text-xs font-medium text-gray-500 truncate max-w-full">James</span>
+</div>
+</div>
+</div>
+<!-- Contacts List -->
+<div class="flex flex-col">
+<!-- Section Header -->
+<div class="sticky top-0 bg-white/95 backdrop-blur-sm z-10 px-6 py-2 border-b border-gray-50">
+<span class="text-sm font-bold text-gray-400">Recent &amp; Favorites</span>
+</div>
+<div class="px-4 py-2 flex flex-col gap-1">
+<!-- Contact Card 1 -->
+<button class="flex items-center gap-4 p-3 hover:bg-gray-50 rounded-2xl transition-colors group w-full text-left">
+<div class="relative">
+<div class="size-14 rounded-full bg-cover bg-center" data-alt="Portrait of a woman with short hair" style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuCv74-5sxSAKPffZ607GF7vYnGMvmBQs_kDeKSinneJqYKH8LfNMh53nuA1MSpXTlH96_jJcJGhabT6kWjkzgF2E3bHrphL85YvIztZE2dDlCSCLLsUIzn2xrVdaFFjuMdSumSewxGKMSfzcI02nf0Z6pZo5i6OOzDBKAUJnsj6Gsj7Asnah_jTtEFjTNTEHkUuW9KPFFtU-x8UdOZxhEIW4EHCDIhP2WzwTqUYfQQQKYn7VkncbLOhdCQzleEvaVuw8KXIW7buzo55');"></div>
+</div>
+<div class="flex-1 min-w-0">
+<h4 class="text-[#181311] font-bold text-[17px] leading-tight group-hover:text-primary transition-colors">Sarah Connor</h4>
+<p class="text-gray-500 text-sm truncate mt-0.5">Planning the trip to Cyberdyne? 🤖</p>
+</div>
+<div class="size-9 rounded-full bg-gray-100 flex items-center justify-center text-gray-400 group-hover:bg-primary group-hover:text-white transition-all">
+<span class="material-symbols-outlined text-[20px]">chat_bubble</span>
+</div>
+</button>
+<!-- Contact Card 2 -->
+<button class="flex items-center gap-4 p-3 hover:bg-gray-50 rounded-2xl transition-colors group w-full text-left">
+<div class="relative">
+<div class="size-14 rounded-full bg-cover bg-center" data-alt="Portrait of a young man" style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuC00D4OVQGT5exhs9muXRdLKeiu7ZwqkBiPrEAtCwWF6fVVihAUTgbJ9nO6r8cG5OLkduFkE4zV7xqUYIQI8TrN4Uq2zBXgs5MNxXyZr-BBGTLlj0dI05Y49_aDW7OLHtKNz7y3S96zgfLgu9sIGvUqSq5BN8pF1MvzA421BFZaq3OhIU7wJ3HtZBvwEtMShiM5ym87qM06DARaODYkNQ56xTqjS7HKtjy4c3T8967ezzVuVQU0AWBqmWgToYENREQyrUITO4K1_z0s');"></div>
+</div>
+<div class="flex-1 min-w-0">
+<h4 class="text-[#181311] font-bold text-[17px] leading-tight group-hover:text-primary transition-colors">Tom Hiddles</h4>
+<p class="text-gray-500 text-sm truncate mt-0.5">Shared a file: "Project_Loki.pdf"</p>
+</div>
+<div class="size-9 rounded-full bg-gray-100 flex items-center justify-center text-gray-400 group-hover:bg-primary group-hover:text-white transition-all">
+<span class="material-symbols-outlined text-[20px]">chat_bubble</span>
+</div>
+</button>
+<!-- Contact Card 3 -->
+<button class="flex items-center gap-4 p-3 hover:bg-gray-50 rounded-2xl transition-colors group w-full text-left">
+<div class="relative">
+<!-- Initials avatar -->
+<div class="size-14 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold text-xl">
+                                EM
+                            </div>
+</div>
+<div class="flex-1 min-w-0">
+<h4 class="text-[#181311] font-bold text-[17px] leading-tight group-hover:text-primary transition-colors">Elon Muskrat</h4>
+<p class="text-gray-500 text-sm truncate mt-0.5">Hey, are we still on for Mars?</p>
+</div>
+<div class="size-9 rounded-full bg-gray-100 flex items-center justify-center text-gray-400 group-hover:bg-primary group-hover:text-white transition-all">
+<span class="material-symbols-outlined text-[20px]">chat_bubble</span>
+</div>
+</button>
+</div>
+<!-- Section Header -->
+<div class="sticky top-0 bg-white/95 backdrop-blur-sm z-10 px-6 py-2 border-b border-gray-50 mt-2">
+<span class="text-sm font-bold text-gray-400">All Contacts</span>
+</div>
+<div class="px-4 py-2 flex flex-col gap-1">
+<!-- Repeated Generic Contacts -->
+<button class="flex items-center gap-4 p-3 hover:bg-gray-50 rounded-2xl transition-colors group w-full text-left">
+<div class="size-14 rounded-full bg-gray-200 bg-cover bg-center" data-alt="Portrait of a woman" style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuCAU88SadHGQBB2-nFfAYJttIYz8nCAb-2jdIJLAih9lQat2cgC919aQ2JhfE4zi39DXtQV9dHW8r5wYax-gqij2lqKyUnESpH80Dyr2MU3C7UsFx6JlnI7KGGoLG4-z_Z3PZid1ZZyswr17QxFts22IaH_5bNi01eDoMpGMA7gIlfjXWnWVy_9KkOsfTr5hjNKJtZB8bGA7SCJjbRbWIws1NqwkPJEFxJC6YVoscmmCLQDeNC0VPfHe5MlXrVDpYak3mhsAf1ria5m');"></div>
+<div class="flex-1 min-w-0">
+<h4 class="text-[#181311] font-bold text-[17px]">Alice Wonderland</h4>
+<p class="text-gray-400 text-sm">Last seen yesterday</p>
+</div>
+</button>
+<button class="flex items-center gap-4 p-3 hover:bg-gray-50 rounded-2xl transition-colors group w-full text-left">
+<div class="size-14 rounded-full bg-gray-200 bg-cover bg-center" data-alt="Portrait of a man" style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuCuIBEdIIdyE2k_LgG6RuJNL96AokAAZD13v0Xy9oNIZCJyNA1ulG3gIL_jeubDZHNOiR_5UKovKovsEZhdP6NaJk3lQRKgYQhg5iXOWJhQZJaZM5651CcfTaaGpw_uzsdKlsU7xDqf8jv7Gy0pSMrKksJLXYMunCg-lu9kiANUJANY9tMMasxrVzi-9mzWHO_szf8fc0qun3fccqlpH-Fs7N14cfGLT0J8eYQpCMMxMH-k-qg1Il2kFD98DqNfrVsP8HtL4SYm-xlZ');"></div>
+<div class="flex-1 min-w-0">
+<h4 class="text-[#181311] font-bold text-[17px]">Bob Builder</h4>
+<p class="text-gray-400 text-sm">Last seen 2 days ago</p>
+</div>
+</button>
+<button class="flex items-center gap-4 p-3 hover:bg-gray-50 rounded-2xl transition-colors group w-full text-left">
+<div class="size-14 rounded-full bg-gray-200 bg-cover bg-center" data-alt="Portrait of a woman modeling" style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuCizGmlz58p2-aSmxZprGyBnlQGCPTqoMa-vxuSac6jrsOfijzHV-Pibdi2DawSPuROf4272KXHv32H3SobBJ9S66zD8Qvmy6srWIIBG4bmsia0LJ2e3gU4PkXXG-MVMm0bnIMa7gjnJ7H3jj6RfCGiUTCwpNNXb_6XFsOij39f6JBhlPNZ5EYWoBHe80ldp4mtjx2ruj85Hn5y7IpfHHANIeEeQhVKgAWvM4vio-LOFXzjQPjA4W38nEgHbQBG_wK4Cy2E16--536p');"></div>
+<div class="flex-1 min-w-0">
+<h4 class="text-[#181311] font-bold text-[17px]">Catherine Zeta</h4>
+<p class="text-gray-400 text-sm">Offline</p>
+</div>
+</button>
+<!-- Spacer for content behind modal -->
+<div class="h-32"></div>
+</div>
+</div>
+</div>
+<!-- Floating Action Button -->
+<div class="absolute bottom-24 right-6 z-20">
+<button class="size-14 bg-[#181311] rounded-full shadow-xl flex items-center justify-center text-white hover:scale-110 active:scale-95 transition-all duration-300 group">
+<span class="material-symbols-outlined text-[28px] group-hover:rotate-90 transition-transform">add</span>
+</button>
+</div>
+<!-- Profile Overlay (Simulating an open state) -->
+<!-- Using glass-panel and pastel gradient as requested -->
+<div class="absolute inset-x-0 bottom-0 top-[20%] rounded-t-[40px] shadow-[0_-10px_40px_rgba(0,0,0,0.1)] z-40 overflow-hidden flex flex-col animate-[slideUp_0.4s_ease-out]">
+<!-- Gradient Background -->
+<div class="absolute inset-0 bg-gradient-to-br from-soft-blue via-white to-soft-lilac opacity-90"></div>
+<!-- Modal Handle -->
+<div class="relative w-full flex justify-center pt-4 pb-2 z-10 cursor-pointer">
+<div class="w-12 h-1.5 bg-gray-300/50 rounded-full"></div>
+</div>
+<!-- Profile Content -->
+<div class="relative z-10 flex flex-col items-center px-8 pt-4 pb-8 flex-1 overflow-y-auto no-scrollbar">
+<!-- Close Button (Absolute) -->
+<button class="absolute top-4 right-6 p-2 rounded-full bg-white/50 hover:bg-white text-gray-500 transition-colors">
+<span class="material-symbols-outlined text-[20px]">close</span>
+</button>
+<!-- Avatar with glow -->
+<div class="relative mb-4 group">
+<div class="absolute -inset-1 bg-gradient-to-r from-blue-200 to-purple-200 rounded-full blur opacity-75 group-hover:opacity-100 transition duration-1000 group-hover:duration-200"></div>
+<div class="relative size-32 rounded-full border-4 border-white shadow-lg bg-cover bg-center" data-alt="Close up of a smiling man" style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuAl7jkkoGFJ35NxCIp6Z0ocdjG3A3-TFSuhgxNzDVn041USAJvkoBILwKYe0-nr9oJx1wPPn4aV1jlOhjMciG8OwObEvyyyPt8OO6wGLC2nO-Myhih4T8gQzuk4IbMdi6XNrBLvqe1a7VLnXbd5_cM2p5-sP94aTIUDMUsUI9JhF21bHnJNRUbRL7zS2oiq_gCkvIeLDU9ItPojgzyZ_AWAKFjIXF9Y-0K04T01K9tIcLvvbRLFuHpwcylgOxtCFhTj25JRX0nJ0VlJ');"></div>
+<div class="absolute bottom-2 right-2 size-6 bg-green-500 border-4 border-white rounded-full"></div>
+</div>
+<h2 class="text-3xl font-black text-[#181311] text-center tracking-tight mb-1">David Chen</h2>
+<p class="text-gray-500 font-medium text-center mb-6">@david_chen • Product Designer</p>
+<!-- Action Grid -->
+<div class="grid grid-cols-4 gap-4 w-full mb-8">
+<button class="flex flex-col items-center gap-2 group">
+<div class="size-14 rounded-2xl bg-[#181311] text-white flex items-center justify-center shadow-lg group-hover:scale-105 active:scale-95 transition-all">
+<span class="material-symbols-outlined text-[24px]">chat_bubble</span>
+</div>
+<span class="text-xs font-semibold text-gray-700">Message</span>
+</button>
+<button class="flex flex-col items-center gap-2 group">
+<div class="size-14 rounded-2xl bg-white text-[#181311] flex items-center justify-center shadow-md group-hover:scale-105 active:scale-95 transition-all">
+<span class="material-symbols-outlined text-[24px]">call</span>
+</div>
+<span class="text-xs font-semibold text-gray-700">Call</span>
+</button>
+<button class="flex flex-col items-center gap-2 group">
+<div class="size-14 rounded-2xl bg-white text-[#181311] flex items-center justify-center shadow-md group-hover:scale-105 active:scale-95 transition-all">
+<span class="material-symbols-outlined text-[24px]">videocam</span>
+</div>
+<span class="text-xs font-semibold text-gray-700">Video</span>
+</button>
+<button class="flex flex-col items-center gap-2 group">
+<div class="size-14 rounded-2xl bg-white text-[#181311] flex items-center justify-center shadow-md group-hover:scale-105 active:scale-95 transition-all">
+<span class="material-symbols-outlined text-[24px]">search_insights</span>
+</div>
+<span class="text-xs font-semibold text-gray-700">AI Recap</span>
+</button>
+</div>
+<!-- AI Insight Card -->
+<div class="w-full bg-white/60 backdrop-blur-md rounded-2xl p-5 mb-6 border border-white/50 shadow-sm">
+<div class="flex items-center gap-2 mb-3">
+<span class="material-symbols-outlined text-purple-500 text-[20px]">auto_awesome</span>
+<h5 class="text-sm font-bold text-gray-800">Connection Summary</h5>
+</div>
+<p class="text-sm text-gray-600 leading-relaxed">
+                        You last spoke with David about <span class="font-bold text-gray-800">UI Animation</span> concepts 2 days ago. He is currently active in the "Design Systems" group.
+                    </p>
+<div class="mt-3 flex gap-2">
+<span class="px-2 py-1 bg-white rounded-lg text-xs font-medium text-gray-500 border border-gray-100 shadow-sm">#design</span>
+<span class="px-2 py-1 bg-white rounded-lg text-xs font-medium text-gray-500 border border-gray-100 shadow-sm">#prototyping</span>
+</div>
+</div>
+<!-- Media Gallery Preview -->
+<div class="w-full">
+<div class="flex justify-between items-end mb-3">
+<h5 class="text-sm font-bold text-gray-800">Shared Media</h5>
+<span class="text-xs text-primary font-bold cursor-pointer">View All</span>
+</div>
+<div class="grid grid-cols-3 gap-2">
+<div class="aspect-square rounded-xl bg-cover bg-center" data-alt="Abstract fluid art texture" style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuCNTXsdiq3wMD5ivPpkVhiBf-fpIj_ffQChR6P3CevJSxk3k-lNftPFqeqlyeunGxd-4I8qpAkq3CqgpvyPqaetwShaqcg2DNH8WYs7tEwA6kqJRdMR3WVtGcWBybjtKC59fDNnmPCnPByfEn-Y3RGiuTJhgxqPfln1bvivd3m6e1VzblDq7KU5yKCUepzNA1T_Gi2Cm6qVAEmJIGAk9v5pSBD0Mp28EaK9EMz4bvvBfMFiNU3Ub3kK_hu8vJXCl5JHfFHXrA5YXKHj');"></div>
+<div class="aspect-square rounded-xl bg-cover bg-center" data-alt="Geometric 3D render" style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuBUADhg-KRBp1clwkUjqmlIQZRZ3K6mcZ4iyd2IuT09ISNghEsgO9pZI_utsp9MRGeh0pf2Fr4VOYs5LBXIsVv_SLZyV4aumkm9e5nddz3hGaWgX_hLzbxSf_IjFPdr2GUqliLDJJKXEJMhVvLh5S8Sgr5Pov1qRqlwuCV38JLa7gV6SHI6nvF5zljCouFzK4X7CZHl859_36bojd8ekpneUedjwj5YYbpfunzTpXN4hMdkLlwn_NBp-MmcyAIjKj4ugVzZT5n1gqv1');"></div>
+<div class="aspect-square rounded-xl bg-gray-100 flex items-center justify-center text-gray-400">
+<span class="material-symbols-outlined">more_horiz</span>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Bottom Navigation Bar (App Container Style) -->
+<div class="absolute bottom-0 w-full bg-white border-t border-gray-100 px-6 py-4 flex justify-between items-center z-30">
+<button class="flex flex-col items-center gap-1 text-gray-400 hover:text-primary transition-colors">
+<span class="material-symbols-outlined text-[26px]">chat</span>
+<!-- <span class="text-[10px] font-medium">Chats</span> -->
+</button>
+<button class="flex flex-col items-center gap-1 text-primary">
+<span class="material-symbols-outlined text-[26px] font-variation-settings-fill">group</span>
+<div class="size-1.5 bg-primary rounded-full mt-1"></div>
+</button>
+<button class="flex flex-col items-center gap-1 text-gray-400 hover:text-primary transition-colors">
+<div class="size-12 -mt-8 bg-primary rounded-full shadow-lg shadow-primary/30 flex items-center justify-center text-white">
+<span class="material-symbols-outlined text-[28px]">smart_toy</span>
+</div>
+</button>
+<button class="flex flex-col items-center gap-1 text-gray-400 hover:text-primary transition-colors">
+<span class="material-symbols-outlined text-[26px]">notifications</span>
+</button>
+<button class="flex flex-col items-center gap-1 text-gray-400 hover:text-primary transition-colors">
+<span class="material-symbols-outlined text-[26px]">settings</span>
+</button>
+</div>
+</main>
+<!-- Background Decor (to make the desktop view interesting) -->
+<div class="fixed top-20 left-20 w-64 h-64 bg-primary/10 rounded-full blur-3xl z-[-1] animate-float"></div>
+<div class="fixed bottom-20 right-20 w-96 h-96 bg-blue-200/20 rounded-full blur-3xl z-[-1] animate-float" style="animation-delay: 2s;"></div>
+</body></html>

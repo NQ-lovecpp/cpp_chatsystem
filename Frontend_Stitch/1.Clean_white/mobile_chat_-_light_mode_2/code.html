@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Mobile Me - Light Mode V1</title>
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#9000ff", // Electric Indigo
+                        "accent-mint": "#6fffcf", // Mint
+                        "background-light": "#fbfaf8", // Soft Porcelain White
+                        "surface-white": "#ffffff",
+                        "text-main": "#333333",
+                        "text-sub": "#7945a1",
+                        "border-subtle": "#eee6f4",
+                    },
+                    fontFamily: {
+                        "display": ["Space Grotesk", "sans-serif"]
+                    },
+                    borderRadius: {
+                        "DEFAULT": "0.5rem",
+                        "lg": "1rem",
+                        "xl": "1.5rem",
+                        "2xl": "2rem",
+                        "full": "9999px"
+                    },
+                    boxShadow: {
+                        "soft-float": "0px 4px 12px rgba(144, 0, 255, 0.05)",
+                        "card-hover": "0px 8px 16px rgba(144, 0, 255, 0.08)",
+                        "aura": "0 0 40px rgba(144, 0, 255, 0.15), 0 0 80px rgba(111, 255, 207, 0.1)"
+                    }
+                },
+            },
+        }
+    </script>
+<style>
+        body {
+            font-family: "Space Grotesk", sans-serif;
+            background-color: #fbfaf8;
+        }
+        .hide-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .hide-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }.text-gradient-mint {
+            background: linear-gradient(90deg, #9000ff 0%, #6fffcf 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+    </style>
+</head>
+<body class="bg-background-light text-text-main h-screen overflow-hidden flex flex-col">
+<div class="flex flex-1 h-full max-w-[1600px] mx-auto w-full p-4 lg:p-6 gap-6">
+<nav class="hidden md:flex flex-col w-[88px] bg-surface-white rounded-xl shadow-soft-float border border-border-subtle/50 h-full py-6 items-center flex-shrink-0 z-30">
+<div class="mb-10">
+<div class="size-12 rounded-xl bg-gradient-to-br from-primary to-accent-mint flex items-center justify-center text-white shadow-lg shadow-primary/20 cursor-pointer hover:shadow-primary/40 transition-shadow">
+<span class="material-symbols-outlined text-[28px]">auto_awesome</span>
+</div>
+</div>
+<div class="flex flex-col gap-6 w-full items-center flex-1">
+<button class="group flex flex-col items-center gap-1.5 w-full relative p-2 rounded-xl transition-all hover:bg-gray-50">
+<div class="size-10 rounded-xl flex items-center justify-center text-gray-400 group-hover:bg-primary/5 group-hover:text-primary transition-all duration-300">
+<span class="material-symbols-outlined text-[24px]">article</span>
+</div>
+<span class="text-[10px] font-medium text-gray-400 group-hover:text-primary transition-colors">Articles</span>
+</button>
+<button class="group flex flex-col items-center gap-1.5 w-full relative p-2 rounded-xl transition-all hover:bg-gray-50">
+<div class="size-10 rounded-xl flex items-center justify-center text-gray-400 group-hover:bg-primary/5 group-hover:text-primary transition-all duration-300">
+<span class="material-symbols-outlined text-[24px]">chat_bubble</span>
+</div>
+<span class="text-[10px] font-medium text-gray-400 group-hover:text-primary transition-colors">Chat</span>
+</button>
+<button class="group flex flex-col items-center gap-1.5 w-full relative p-2 rounded-xl transition-all hover:bg-gray-50">
+<div class="size-10 rounded-xl flex items-center justify-center text-gray-400 group-hover:bg-primary/5 group-hover:text-primary transition-all duration-300">
+<span class="material-symbols-outlined text-[24px]">assignment_turned_in</span>
+</div>
+<span class="text-[10px] font-medium text-gray-400 group-hover:text-primary transition-colors">Apply</span>
+</button>
+<button class="group flex flex-col items-center gap-1.5 w-full relative p-2 rounded-xl transition-all">
+<div class="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-8 bg-primary rounded-r-full shadow-[0_0_12px_rgba(144,0,255,0.4)]"></div>
+<div class="size-10 rounded-xl flex items-center justify-center bg-primary text-white shadow-lg shadow-primary/30 transition-all duration-300 transform scale-105">
+<span class="material-symbols-outlined text-[24px]">person</span>
+</div>
+<span class="text-[10px] font-bold text-primary transition-colors">My Info</span>
+</button>
+</div>
+<div class="mt-auto flex flex-col gap-4">
+<button class="size-10 rounded-xl flex items-center justify-center text-gray-400 hover:bg-red-50 hover:text-red-500 transition-all" title="Logout">
+<span class="material-symbols-outlined text-[22px]">logout</span>
+</button>
+</div>
+</nav>
+<aside class="hidden md:flex w-[380px] flex-col bg-surface-white rounded-xl shadow-soft-float border border-border-subtle/50 h-full overflow-hidden opacity-90 grayscale-[0.3] hover:grayscale-0 hover:opacity-100 transition-all duration-500">
+<div class="p-6 pb-2">
+<div class="flex items-center justify-between mb-6">
+<div class="flex items-center gap-3">
+<div class="size-8 rounded-lg bg-primary/10 flex items-center justify-center text-primary">
+<span class="material-symbols-outlined">chat_bubble</span>
+</div>
+<h1 class="text-xl font-bold tracking-tight text-[#150c1d]">Messages</h1>
+</div>
+</div>
+<div class="relative group">
+<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+<span class="material-symbols-outlined text-primary/60">search</span>
+</div>
+<input class="block w-full pl-10 pr-3 py-3 border-none rounded-xl leading-5 bg-background-light text-text-main placeholder-primary/40 focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all shadow-sm" placeholder="Search conversations..." type="text"/>
+</div>
+</div>
+<div class="flex-1 overflow-y-auto px-4 pt-2 pb-4 space-y-2 mt-2">
+<div class="group flex items-center gap-4 p-3 rounded-xl hover:bg-white hover:shadow-card-hover border border-transparent hover:border-border-subtle/50 cursor-pointer transition-all">
+<div class="relative">
+<div class="bg-center bg-no-repeat bg-cover rounded-full size-12 shadow-sm border-2 border-white" style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuCK6VTK1_L2I5mjTYd_096eH4ET1HE0vpOMOmkiwy-YaZFpI4L_3ndZEdNA7ngDKCzv5ANfSm1ui_QV06yqYAuuf-ITzjDPR6P-eF_Iq87ONPE7yZjSCirJO5uC20pk-vb3m1zHRmCx6Fr7mWNwMx2uSkxm3MMwde4xh6fRGiORUavANiI0OU_bseWiEh1JPxq3EU-toCth3rIp6rnJOupF5QAFjlXfSl8tWv1ch8EjGntAOMGAWs8iwfhzcb3ggJ0H81Pkx1u9LVC7");'></div>
+</div>
+<div class="flex-1 min-w-0">
+<div class="flex justify-between items-baseline mb-0.5">
+<h3 class="text-text-main font-bold text-base truncate">Alice Chen</h3>
+<span class="text-xs text-gray-400">10m</span>
+</div>
+<p class="text-text-sub text-sm truncate font-medium">Just checking them now...</p>
+</div>
+</div>
+<div class="group flex items-center gap-4 p-3 rounded-xl hover:bg-white hover:shadow-card-hover border border-transparent hover:border-border-subtle/50 cursor-pointer transition-all">
+<div class="relative">
+<div class="bg-center bg-no-repeat bg-cover rounded-full size-12 shadow-sm border border-border-subtle" style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuD6G_2m4a02ajp-aK7jp2buL5QoOFFeypcDsRiu6s2dEBarO_UifWeQda6EF2hC6nqTz9m97KEL6RQYO2s21eJ_m3OK8qiUoyht5cjutQih7dDPoUxAtJA5kDOc8WmGS8M76WJZEpEkJC7A9HrV5kZ3wCKkVOkkDF49iwUZdemUK7ddN4wBfa9LVeqCSG8LSJqawQZanbjDt5pj5LRPQH_Dd4r2x1WuOsT1sPYKOSggr-w4XDL_Zp9aeVk7QkFa-tAYBtCYP9S68ZEq");'></div>
+</div>
+<div class="flex-1 min-w-0">
+<div class="flex justify-between items-baseline mb-0.5">
+<h3 class="text-text-main font-semibold text-base truncate">Design Team</h3>
+<span class="text-xs text-gray-400">2h</span>
+</div>
+<p class="text-text-sub text-sm truncate">Meeting scheduled for 3 PM</p>
+</div>
+</div>
+</div>
+<div class="p-4 border-t border-border-subtle/50 bg-background-light/50">
+<div class="flex items-center gap-3 p-2 rounded-xl bg-white shadow-sm border border-border-subtle cursor-pointer">
+<div class="bg-center bg-no-repeat bg-cover rounded-full size-10 shadow-sm" style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuDT2YPn4RlA7JEKTNP4uzbLXZqtftmXGZmfpYCF4isKc0-oyamCHNqaIZ6NEMdPVVfeBVVZ0iyZxYItc58mzeFQMU2FPQo3gYVsxH3fScj5iiaNrlXocspMcaqKL4ReSxEonLurCzafI3yxOE0I46NyLDZWs-jGq41PwcHhW4j6IBHFa0PSUB7zWPBGgdVOM8K39GwJlul47_V2-5-zijhkemTkxjQaftYUlSj8WHlxgzFsipQBGjUvyB0EUANAJYXndsKxBCDX9qHu");'></div>
+<div class="flex-1">
+<p class="text-sm font-bold text-text-main">Alex Morgan</p>
+<p class="text-xs text-primary font-medium">Settings</p>
+</div>
+<span class="material-symbols-outlined text-primary fill-1">settings</span>
+</div>
+</div>
+</aside>
+<main class="flex-1 flex flex-col bg-surface-white rounded-xl shadow-soft-float border border-border-subtle/50 relative overflow-hidden">
+<header class="flex items-center justify-between px-8 py-5 border-b border-border-subtle/50 bg-surface-white/95 backdrop-blur-md sticky top-0 z-20">
+<div class="flex items-center gap-3">
+<button class="md:hidden p-2 -ml-2 text-gray-500">
+<span class="material-symbols-outlined">menu</span>
+</button>
+<h2 class="text-xl md:text-2xl font-bold text-text-main tracking-tight">Settings</h2>
+</div>
+<button class="size-10 flex items-center justify-center rounded-full text-text-sub hover:bg-background-light hover:text-primary transition-colors">
+<span class="material-symbols-outlined">close</span>
+</button>
+</header>
+<div class="flex-1 overflow-y-auto bg-[#fbfaf8] p-4 md:p-8">
+<div class="max-w-2xl mx-auto space-y-8 pb-12">
+<div class="flex flex-col items-center justify-center py-4 md:py-8">
+<div class="relative mb-6 group cursor-pointer">
+<div class="absolute inset-0 rounded-full bg-gradient-to-tr from-primary/30 to-accent-mint/30 blur-2xl transform scale-125 opacity-70 group-hover:scale-150 transition-transform duration-700"></div>
+<div class="relative size-32 rounded-full p-1.5 bg-white shadow-xl ring-1 ring-border-subtle/50">
+<div class="w-full h-full rounded-full bg-cover bg-center" style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuDT2YPn4RlA7JEKTNP4uzbLXZqtftmXGZmfpYCF4isKc0-oyamCHNqaIZ6NEMdPVVfeBVVZ0iyZxYItc58mzeFQMU2FPQo3gYVsxH3fScj5iiaNrlXocspMcaqKL4ReSxEonLurCzafI3yxOE0I46NyLDZWs-jGq41PwcHhW4j6IBHFa0PSUB7zWPBGgdVOM8K39GwJlul47_V2-5-zijhkemTkxjQaftYUlSj8WHlxgzFsipQBGjUvyB0EUANAJYXndsKxBCDX9qHu');"></div>
+</div>
+<button class="absolute bottom-1 right-1 size-10 bg-primary text-white rounded-full shadow-lg border-[3px] border-white flex items-center justify-center hover:bg-violet-700 transition-colors">
+<span class="material-symbols-outlined text-[18px]">edit</span>
+</button>
+</div>
+<div class="text-center space-y-1">
+<h3 class="text-2xl font-bold text-text-main">Alex Morgan</h3>
+<p class="text-text-sub font-medium">@alexm_design</p>
+</div>
+<div class="mt-6 flex gap-3 w-full justify-center">
+<button class="px-6 py-2.5 rounded-full bg-white border border-border-subtle text-text-main text-sm font-bold shadow-sm hover:shadow-card-hover hover:border-primary/20 transition-all flex items-center gap-2">
+<span class="material-symbols-outlined text-[18px] text-primary">share</span>
+                                Share Profile
+                            </button>
+<button class="px-6 py-2.5 rounded-full bg-white border border-border-subtle text-text-main text-sm font-bold shadow-sm hover:shadow-card-hover hover:border-primary/20 transition-all flex items-center gap-2">
+<span class="material-symbols-outlined text-[18px] text-primary">qr_code</span>
+                                My Code
+                            </button>
+</div>
+</div>
+<div class="bg-surface-white rounded-2xl shadow-sm border border-border-subtle/60 overflow-hidden">
+<div class="px-6 py-4 border-b border-border-subtle/30 bg-gray-50/50 flex items-center gap-2">
+<span class="material-symbols-outlined text-primary text-[18px]">palette</span>
+<h4 class="text-xs font-bold text-gray-500 uppercase tracking-widest">Appearance</h4>
+</div>
+<div class="divide-y divide-border-subtle/30">
+<div class="px-6 py-4 flex items-center justify-between hover:bg-gray-50/50 transition-colors group">
+<div class="flex items-center gap-4">
+<div class="size-11 rounded-xl bg-violet-50 text-primary flex items-center justify-center group-hover:bg-primary group-hover:text-white transition-colors duration-300">
+<span class="material-symbols-outlined">dark_mode</span>
+</div>
+<div class="flex flex-col">
+<p class="text-base font-bold text-text-main">Dark Mode</p>
+<p class="text-sm text-gray-500">Easier on the eyes at night</p>
+</div>
+</div>
+<button aria-pressed="false" class="w-14 h-8 rounded-full bg-gray-200 relative transition-all duration-300 focus:outline-none hover:bg-gray-300 shadow-inner">
+<div class="absolute top-1 left-1 bg-white size-6 rounded-full shadow-md transition-transform duration-300 transform translate-x-0"></div>
+</button>
+</div>
+<div class="px-6 py-4 flex items-center justify-between hover:bg-gray-50/50 transition-colors cursor-pointer group">
+<div class="flex items-center gap-4">
+<div class="size-11 rounded-xl bg-violet-50 text-primary flex items-center justify-center group-hover:bg-primary group-hover:text-white transition-colors duration-300">
+<span class="material-symbols-outlined">text_fields</span>
+</div>
+<div class="flex flex-col">
+<p class="text-base font-bold text-text-main">Text Size</p>
+<p class="text-sm text-gray-500">Default (Medium)</p>
+</div>
+</div>
+<span class="material-symbols-outlined text-gray-300 group-hover:text-primary transition-colors">chevron_right</span>
+</div>
+</div>
+</div>
+<div class="bg-surface-white rounded-2xl shadow-sm border border-border-subtle/60 overflow-hidden">
+<div class="px-6 py-4 border-b border-border-subtle/30 bg-gray-50/50 flex items-center gap-2">
+<span class="material-symbols-outlined text-primary text-[18px]">notifications</span>
+<h4 class="text-xs font-bold text-gray-500 uppercase tracking-widest">Notifications</h4>
+</div>
+<div class="divide-y divide-border-subtle/30">
+<div class="px-6 py-4 flex items-center justify-between hover:bg-gray-50/50 transition-colors group">
+<div class="flex items-center gap-4">
+<div class="size-11 rounded-xl bg-violet-50 text-primary flex items-center justify-center group-hover:bg-primary group-hover:text-white transition-colors duration-300">
+<span class="material-symbols-outlined">vibration</span>
+</div>
+<div class="flex flex-col">
+<p class="text-base font-bold text-text-main">Push Notifications</p>
+<p class="text-sm text-gray-500">Instant alerts for messages</p>
+</div>
+</div>
+<button aria-pressed="true" class="w-14 h-8 rounded-full bg-primary relative transition-all duration-300 focus:outline-none hover:bg-violet-700 shadow-lg shadow-primary/30">
+<div class="absolute top-1 left-1 bg-white size-6 rounded-full shadow-md transition-transform duration-300 transform translate-x-6"></div>
+</button>
+</div>
+<div class="px-6 py-4 flex items-center justify-between hover:bg-gray-50/50 transition-colors group">
+<div class="flex items-center gap-4">
+<div class="size-11 rounded-xl bg-violet-50 text-primary flex items-center justify-center group-hover:bg-primary group-hover:text-white transition-colors duration-300">
+<span class="material-symbols-outlined">volume_up</span>
+</div>
+<div class="flex flex-col">
+<p class="text-base font-bold text-text-main">In-App Sounds</p>
+<p class="text-sm text-gray-500">Play sounds for new messages</p>
+</div>
+</div>
+<button aria-pressed="true" class="w-14 h-8 rounded-full bg-primary relative transition-all duration-300 focus:outline-none hover:bg-violet-700 shadow-lg shadow-primary/30">
+<div class="absolute top-1 left-1 bg-white size-6 rounded-full shadow-md transition-transform duration-300 transform translate-x-6"></div>
+</button>
+</div>
+</div>
+</div>
+<div class="bg-surface-white rounded-2xl shadow-sm border border-border-subtle/60 overflow-hidden">
+<div class="px-6 py-4 border-b border-border-subtle/30 bg-gray-50/50 flex items-center gap-2">
+<span class="material-symbols-outlined text-primary text-[18px]">security</span>
+<h4 class="text-xs font-bold text-gray-500 uppercase tracking-widest">Privacy &amp; AI</h4>
+</div>
+<div class="divide-y divide-border-subtle/30">
+<div class="px-6 py-4 flex items-center justify-between hover:bg-gray-50/50 transition-colors group">
+<div class="flex items-center gap-4">
+<div class="size-11 rounded-xl bg-gradient-to-br from-primary to-accent-mint text-white flex items-center justify-center shadow-lg shadow-primary/20">
+<span class="material-symbols-outlined">auto_awesome</span>
+</div>
+<div class="flex flex-col">
+<p class="text-base font-bold text-text-main flex items-center gap-2">
+                                            Smart AI Suggestions
+                                            <span class="px-2 py-0.5 rounded-full bg-primary/10 text-primary text-[10px] font-bold uppercase border border-primary/20">Beta</span>
+</p>
+<p class="text-sm text-gray-500">Contextual reply options</p>
+</div>
+</div>
+<button aria-pressed="true" class="w-14 h-8 rounded-full bg-primary relative transition-all duration-300 focus:outline-none hover:bg-violet-700 shadow-lg shadow-primary/30">
+<div class="absolute top-1 left-1 bg-white size-6 rounded-full shadow-md transition-transform duration-300 transform translate-x-6"></div>
+</button>
+</div>
+<div class="px-6 py-4 flex items-center justify-between hover:bg-gray-50/50 transition-colors group">
+<div class="flex items-center gap-4">
+<div class="size-11 rounded-xl bg-violet-50 text-primary flex items-center justify-center group-hover:bg-primary group-hover:text-white transition-colors duration-300">
+<span class="material-symbols-outlined">visibility</span>
+</div>
+<div class="flex flex-col">
+<p class="text-base font-bold text-text-main">Active Status</p>
+<p class="text-sm text-gray-500">Show when you're online</p>
+</div>
+</div>
+<button aria-pressed="true" class="w-14 h-8 rounded-full bg-primary relative transition-all duration-300 focus:outline-none hover:bg-violet-700 shadow-lg shadow-primary/30">
+<div class="absolute top-1 left-1 bg-white size-6 rounded-full shadow-md transition-transform duration-300 transform translate-x-6"></div>
+</button>
+</div>
+</div>
+</div>
+<div class="flex flex-col gap-3 pt-4">
+<button class="w-full py-4 rounded-xl bg-white border border-border-subtle text-text-main font-bold hover:bg-gray-50 transition-colors flex items-center justify-center gap-2">
+<span class="material-symbols-outlined text-gray-400">help</span>
+                            Help &amp; Support
+                        </button>
+<button class="w-full py-4 rounded-xl bg-red-50 text-red-600 font-bold hover:bg-red-100 transition-colors flex items-center justify-center gap-2">
+<span class="material-symbols-outlined">logout</span>
+                            Log Out
+                        </button>
+</div>
+<div class="text-center text-xs text-gray-400 font-medium py-4">
+                        Mobile Chat v2.4.0 (Build 8921)
+                    </div>
+</div>
+</div>
+</main>
+</div>
+</body></html>

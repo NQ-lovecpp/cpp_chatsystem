@@ -1,0 +1,42 @@
+@import "tailwindcss";
+
+/* 自定义主题变量 - 匹配 Stitch 设计稿 */
+:root {
+  --color-accent: #0B4F6C;
+  --color-accent-light: #E0F2F7;
+  --color-surface-light: #FFFFFF;
+  --color-surface-alt: #F9FAFB;
+  --color-text-main: #1F2937;
+  --color-text-muted: #6B7280;
+  --color-border-light: #E5E7EB;
+}
+
+/* 基础样式 */
+body {
+  font-family: 'Noto Sans', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+  background-color: var(--color-surface-light);
+  color: var(--color-text-main);
+  margin: 0;
+  padding: 0;
+}
+
+/* 滚动条样式 */
+::-webkit-scrollbar {
+  width: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: #D1D5DB;
+  border-radius: 10px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #9CA3AF;
+}
+
+/* 工具类 */
+.text-accent { color: var(--color-accent); }
+.bg-accent { background-color: var(--color-accent); }
+.bg-accent-light { background-color: var(--color-accent-light); }
+.border-light { border-color: var(--color-border-light); }

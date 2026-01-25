@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Chat Dashboard - Light Mode</title>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&amp;family=Noto+Sans:wght@300;400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+    tailwind.config = {
+        theme: {
+            extend: {
+                colors: {
+                    primary: "#4F46E5", // Electric Indigo
+                    secondary: "#2DD4BF", // Mint Teal
+                    "background-light": "#F8FAFC", // Very light slate/grey
+                    "glass-border": "rgba(0, 0, 0, 0.06)",
+                    "glass-surface": "rgba(255, 255, 255, 0.65)"
+                },
+                fontFamily: {
+                    display: "Space Grotesk",
+                    body: ["Noto Sans", "sans-serif"]
+                },
+                borderRadius: {
+                    DEFAULT: "0.25rem",
+                    lg: "0.5rem",
+                    xl: "0.75rem",
+                    full: "9999px"
+                },
+                animation: {
+                    blob: "blob 10s infinite",
+                    "pulse-slow": "pulse 4s cubic-bezier(0.4, 0, 0.6, 1) infinite"
+                },
+                keyframes: {
+                    blob: {
+                        "0%": { transform: "translate(0px, 0px) scale(1)" },
+                        "33%": { transform: "translate(30px, -50px) scale(1.1)" },
+                        "66%": { transform: "translate(-20px, 20px) scale(0.9)" },
+                        "100%": { transform: "translate(0px, 0px) scale(1)" }
+                    }
+                }
+            }
+        }
+    };
+</script>
+<style>::-webkit-scrollbar {
+        width: 6px;
+    }
+    ::-webkit-scrollbar-track {
+        background: transparent; 
+    }
+    ::-webkit-scrollbar-thumb {
+        background: rgba(0, 0, 0, 0.1); 
+        border-radius: 10px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+        background: rgba(0, 0, 0, 0.2); 
+    }
+    .glass-panel {
+        backdrop-filter: blur(20px);
+        -webkit-backdrop-filter: blur(20px);
+    }
+    .code-block {
+        font-family: 'Courier New', Courier, monospace;
+    }
+</style>
+</head>
+<body class="bg-background-light text-gray-800 font-display h-screen w-screen overflow-hidden selection:bg-primary selection:text-white">
+<div class="fixed inset-0 z-0 overflow-hidden pointer-events-none">
+<div class="absolute top-0 left-1/4 w-[500px] h-[500px] bg-indigo-300/30 rounded-full filter blur-[100px] animate-blob mix-blend-multiply"></div>
+<div class="absolute top-1/4 right-1/4 w-[400px] h-[400px] bg-teal-300/30 rounded-full filter blur-[100px] animate-blob animation-delay-2000 mix-blend-multiply"></div>
+<div class="absolute -bottom-32 left-1/3 w-[600px] h-[600px] bg-blue-200/40 rounded-full filter blur-[100px] animate-blob animation-delay-4000 mix-blend-multiply"></div>
+</div>
+<div class="relative z-10 flex h-full w-full">
+<nav class="w-20 min-w-[80px] flex flex-col items-center py-6 gap-8 border-r border-glass-border bg-white/80 backdrop-blur-md z-20">
+<div class="mb-4">
+<div class="bg-center bg-no-repeat bg-cover rounded-xl size-10 ring-2 ring-gray-200 shadow-sm" data-alt="User profile avatar" style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuD_YcSnwsjNaGf-wofQOXyfaSpOHHiwJzUPca8aS6rBfm6c4NSRh8SAby3iJiJmHPn0URRsWrHhkxCmlKrXzoFEXLWzyNOZgOCph8lYSjLEaMt4ehnN1O0m0C6DtyHWtiYv1s7OkOMSx_hB4BgVP5oqTnYJaNIKDEvKXWAVJDPYgmVpHmwdcmwUm5_Db1oqw4l-NVku3xNvUdPpqDIppV-S33lI6E17eVQ-S3MffECSIu6twhz0IpeRFKbB55iu0fs7CsDHHkRASsIA");'></div>
+</div>
+<div class="flex flex-col gap-6 w-full px-4">
+<button class="group flex items-center justify-center w-full aspect-square rounded-xl bg-primary text-white shadow-lg shadow-primary/30 transition-all duration-300 transform scale-105">
+<span class="material-symbols-outlined text-[26px]" data-weight="fill">chat_bubble</span>
+</button>
+<button class="group flex items-center justify-center w-full aspect-square rounded-xl text-gray-400 hover:text-primary hover:bg-indigo-50 transition-all duration-300">
+<span class="material-symbols-outlined text-[26px]">group</span>
+</button>
+<button class="group flex items-center justify-center w-full aspect-square rounded-xl text-gray-400 hover:text-primary hover:bg-indigo-50 transition-all duration-300 relative">
+<span class="material-symbols-outlined text-[26px]">smart_toy</span>
+<span class="absolute top-2 right-2 size-2 bg-primary rounded-full animate-pulse"></span>
+</button>
+<button class="group flex items-center justify-center w-full aspect-square rounded-xl text-gray-400 hover:text-primary hover:bg-indigo-50 transition-all duration-300">
+<span class="material-symbols-outlined text-[26px]">folder_open</span>
+</button>
+</div>
+<div class="mt-auto flex flex-col gap-6 w-full px-4">
+<button class="group flex items-center justify-center w-full aspect-square rounded-xl text-gray-400 hover:text-primary hover:bg-indigo-50 transition-all duration-300">
+<span class="material-symbols-outlined text-[26px]">settings</span>
+</button>
+</div>
+</nav>
+<aside class="w-[380px] min-w-[320px] flex flex-col border-r border-glass-border bg-glass-surface glass-panel z-10">
+<div class="px-5 pt-6 pb-4 flex flex-col gap-4">
+<div class="flex items-center justify-between">
+<h1 class="text-xl font-bold tracking-tight text-gray-900">Messages</h1>
+<button class="size-8 rounded-lg flex items-center justify-center hover:bg-black/5 text-gray-500 transition-colors">
+<span class="material-symbols-outlined text-[20px]">edit_square</span>
+</button>
+</div>
+<div class="relative group">
+<div class="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-gray-400">
+<span class="material-symbols-outlined text-[20px]">search</span>
+</div>
+<input class="block w-full p-2.5 pl-10 text-sm text-gray-900 border border-gray-200 rounded-lg bg-white/50 focus:bg-white focus:ring-1 focus:ring-primary focus:border-primary placeholder-gray-500 transition-all shadow-sm" placeholder="Search chats or AI..." type="text"/>
+</div>
+</div>
+<div class="flex-1 overflow-y-auto px-3 pb-4 space-y-1">
+<div class="group flex items-center gap-3 p-3 rounded-xl bg-white border border-indigo-100 shadow-sm cursor-pointer hover:shadow-md transition-all relative overflow-hidden">
+<div class="absolute inset-0 bg-gradient-to-r from-indigo-50/50 to-transparent opacity-100"></div>
+<div class="relative shrink-0 z-10">
+<div class="bg-center bg-no-repeat bg-cover rounded-full size-12 shadow-md shadow-indigo-200" data-alt="AI Avatar" style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuClRiGEED1IxoJO3fEpolhRYky5kXdwbx-CSNw1Plc4pDF_ZPXX6F6jwFp7S7LuC1f1jWj5g-lj-wKVJZ3dCzS43wREx0sdRPhwV3U0eEtMcWGUmEhSUji_9EeIixCjZlNaXgxKwOxW8U87hn5n6VC1hh_xXNq278-qeYc_Le5byTL1q-OWTWdJsumPGArpWpHO-I0MzT9cKT7XiUFKIdyFLroaaATHUvSNAVuPvTR46piDYwckmizX2qgrEcLqGLHSJTVDusXNqEcb");'></div>
+<div class="absolute -bottom-0.5 -right-0.5 bg-white rounded-full p-0.5 shadow-sm">
+<span class="material-symbols-outlined text-[14px] text-primary" data-weight="fill">bolt</span>
+</div>
+</div>
+<div class="flex flex-col flex-1 min-w-0 z-10">
+<div class="flex items-center justify-between mb-0.5">
+<p class="text-gray-900 text-base font-bold truncate">Jarvis AI</p>
+<span class="text-xs text-primary font-semibold">Now</span>
+</div>
+<p class="text-gray-600 text-sm truncate font-medium">Here is the Python code you requested.</p>
+</div>
+<div class="shrink-0 self-center z-10">
+<span class="material-symbols-outlined text-primary text-[18px] transform rotate-45">push_pin</span>
+</div>
+</div>
+<div class="group flex items-center gap-3 p-3 rounded-xl hover:bg-white/60 cursor-pointer transition-all border border-transparent hover:border-gray-200/50">
+<div class="relative shrink-0">
+<div class="bg-center bg-no-repeat bg-cover rounded-full size-12" data-alt="Portrait of Sarah" style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuDs1TOyCmfN9X67XdMK5EU7Hl9QUTKkZ1f6-0zFup0isKQlrY9bUXzoTXoE9ZBxAuPsa58v-el_Gz_rKAuPYh0DeQGJjPN7QsxP99BAhoR-1sP3wgolsLi3MW33WILuTuZn5OvxXhrWIUQ39Rv-hpn8d1Qv4axIQ7Y3yVrNUupZvMdAPjypiDAwFOtNeQUFvv1uDx6Gs5P1SpvbYw6GjB_YXzGrt68i21PgxHldsGUNLlKTiQoQPwlvm7gQckUrvnChg_qWETdJTtZ8");'></div>
+<div class="absolute bottom-0 right-0 size-3 bg-white rounded-full flex items-center justify-center">
+<div class="size-2 bg-green-500 rounded-full"></div>
+</div>
+</div>
+<div class="flex flex-col flex-1 min-w-0">
+<div class="flex items-center justify-between mb-0.5">
+<p class="text-gray-900 text-base font-semibold truncate">Sarah Chen</p>
+<span class="text-xs text-primary font-bold">2m</span>
+</div>
+<p class="text-gray-800 text-sm truncate font-medium">Can we reschedule our sync?</p>
+</div>
+<div class="shrink-0 self-center">
+<div class="size-2.5 rounded-full bg-primary shadow-lg shadow-indigo-500/50"></div>
+</div>
+</div>
+<div class="group flex items-center gap-3 p-3 rounded-xl hover:bg-white/60 cursor-pointer transition-all border border-transparent hover:border-gray-200/50">
+<div class="relative shrink-0">
+<div class="bg-center bg-no-repeat bg-cover rounded-full size-12" data-alt="Design team abstract" style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuB0suKymOX3gv-hvy5iaiOJm8SuTXnU0IeBAw3fvV49FJH-Ye160ulEzwjAns--ZI8bPaGTmdNsBC8AOo7jZEzzDklssvU_Ev63AXW6MJ8uTtdErMx6DozVyy9Iq3KfableSCJJPz5im0J_CUUNXvItTp_2qcKqkJlT8_wZdtrF3sQbOzG4VKKFfZxCKUJJFCawiFaLP_E04rtgBW6JPdqQhB2pD-qLiDP2Ifj6R5E9Rz3-eCqjEIC6a1Qs8UnftBvNOB5vbmdvRzT2");'></div>
+</div>
+<div class="flex flex-col flex-1 min-w-0">
+<div class="flex items-center justify-between mb-0.5">
+<p class="text-gray-900 text-base font-medium truncate">Design Team</p>
+<span class="text-xs text-gray-500">1h</span>
+</div>
+<p class="text-gray-500 text-sm truncate">Alex: New mockups are ready for review.</p>
+</div>
+</div>
+<div class="group flex items-center gap-3 p-3 rounded-xl hover:bg-white/60 cursor-pointer transition-all border border-transparent hover:border-gray-200/50">
+<div class="relative shrink-0">
+<div class="bg-center bg-no-repeat bg-cover rounded-full size-12 grayscale opacity-80" data-alt="Marcus portrait" style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuAcO9TD69jCD1h7lZVo32hnfZ4S-Q3Ick0N4wobsbBvBgrq47NHz3qTobmDKijlL-HH1GUk0uwhJ4mX4PaiRGGye-4Y6bNkG5BInBhVGAOg0p4r_EXCOnml87c07vXtUBLFeL8V3xT_eTBTsKI-Yc25C5Wi28Tpg0XuBJe5J2bxJvPyemdFF5dP2IgCoYpI6ZxBSyNJUHZ9aiwwiMrw5rtAOC6ce_lf6b9kBZYYXHn5c46igWKnqmKzfgms4Z0n6jzlR4b3MBGxfycp");'></div>
+</div>
+<div class="flex flex-col flex-1 min-w-0">
+<div class="flex items-center justify-between mb-0.5">
+<p class="text-gray-600 text-base font-medium truncate">Marcus</p>
+<span class="text-xs text-gray-400">Yesterday</span>
+</div>
+<p class="text-gray-400 text-sm truncate">Thanks for the update!</p>
+</div>
+</div>
+</div>
+</aside>
+<main class="flex-1 flex flex-col relative z-0 bg-transparent">
+<header class="h-20 shrink-0 px-8 flex items-center justify-between border-b border-glass-border bg-white/60 backdrop-blur-md">
+<div class="flex items-center gap-4">
+<div class="relative">
+<div class="bg-center bg-no-repeat bg-cover rounded-full size-10 shadow-lg shadow-indigo-500/20" data-alt="AI Small Avatar" style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuC3jg8n3bzOAUCwIMYuWCB_XjgBSDr2tkNp3YIIbvqSOWrVD4_xN7OMKVt2TF7LqczPOAHzCRPUYbdR_M9Q_gx-SCya0bG7Ew2GoQUHfH480RNjpjmyNa_wWdbNDXZP432wuOcMznf_9oOCYfwRPkjuvaKBVm4Ktnz_fYMN-9zIdw6WQZHJthF0OEJqoVryZCXp_vbtJymAB1WMKhqwQmu5XALwPjPGaNnYQv1pWCzb12C50OG4Gps4AsfygP-iSFLPyeKm80Hp1HdA");'></div>
+<div class="absolute -bottom-0.5 -right-0.5 bg-white rounded-full p-[2px]">
+<div class="size-2.5 bg-green-500 rounded-full animate-pulse"></div>
+</div>
+</div>
+<div class="flex flex-col">
+<h2 class="text-lg font-bold text-gray-900 flex items-center gap-2">
+                    Jarvis AI 
+                    <span class="px-1.5 py-0.5 rounded text-[10px] bg-primary/10 text-primary border border-primary/20 font-mono tracking-wider font-bold">PRO</span>
+</h2>
+<p class="text-xs text-gray-500 font-medium">Online • v4.2 Model</p>
+</div>
+</div>
+<div class="flex items-center gap-3">
+<button class="size-10 rounded-full flex items-center justify-center text-gray-400 hover:text-gray-900 hover:bg-black/5 transition-all">
+<span class="material-symbols-outlined">search</span>
+</button>
+<button class="size-10 rounded-full flex items-center justify-center text-gray-400 hover:text-gray-900 hover:bg-black/5 transition-all">
+<span class="material-symbols-outlined">call</span>
+</button>
+<button class="size-10 rounded-full flex items-center justify-center text-gray-400 hover:text-gray-900 hover:bg-black/5 transition-all">
+<span class="material-symbols-outlined">more_vert</span>
+</button>
+</div>
+</header>
+<div class="flex-1 overflow-y-auto p-8 space-y-8 scroll-smooth">
+<div class="flex justify-center">
+<span class="text-xs font-medium text-gray-500 bg-white/80 px-3 py-1 rounded-full border border-gray-200 shadow-sm">Today, 10:23 AM</span>
+</div>
+<div class="flex justify-end gap-4 group">
+<div class="flex flex-col items-end max-w-[70%]">
+<div class="bg-white border border-gray-100 text-gray-800 px-5 py-3.5 rounded-2xl rounded-tr-sm shadow-sm relative group-hover:shadow-md transition-all">
+<p class="leading-relaxed text-[15px]">Write a Python script to sort a list of dictionaries by a specific key.</p>
+</div>
+<span class="text-[11px] text-gray-400 mt-1 pr-1">10:24 AM</span>
+</div>
+<div class="bg-center bg-no-repeat bg-cover rounded-full size-8 mt-1 opacity-90 shadow-sm" data-alt="User Avatar Small" style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuCUIdwpucTCSulFs24ZmLfkvlLlgjAqkl53pf1JO-Vo3RH4O8SSw7yTs8iHQuRegCaeKW4NBLBnTBDYy43wVDOA1uyiSTIieEfJMThp_H5oCfxNfkd1VHgYZxA21oa0DBel1yDPm5MN61yu9--x-X6fsXjGdea7hSbTvXtTZ0nz4pGw8M5R6HN46y9Xdj0owT0JLLThjebSeDi3aSA-M90VaS8dtE0yActOU0UQsJ7XtSn9wpUUxgpHk6ycIsUQ1sVi2NpThMxmsMDF");'></div>
+</div>
+<div class="flex justify-start gap-4 max-w-[85%]">
+<div class="relative shrink-0 mt-1">
+<div class="bg-center bg-no-repeat bg-cover rounded-full size-8 shadow-lg shadow-indigo-500/20" data-alt="AI Avatar Small" style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuAyf4dUnsHEcF-K9qOqpdIePGjamnBrClm0DayMbReTzHoC_0tJqi42baQ6VGcbnk28tnsztIVWyU6g7zI2BaeKPXYUlfKtjdjwaABxqUrsXPKnKPwOdN3_nppd0r9IFtxvYJreefHnWWIjI-dAfefpnpStNaTOMNJFrZ2m0TNuRSC7_-a6MvMWAKT4ywHfK_GLJtvFMnyRdvVAM2d_tsxRYQK2ovQtkN1I7zC094_vN7c4sHBV0crdqemw004_hNs0csZLZQHpecE4");'></div>
+</div>
+<div class="flex flex-col items-start w-full">
+<div class="relative bg-white border border-gray-200 text-gray-800 rounded-2xl rounded-tl-sm p-1 shadow-md w-full overflow-hidden">
+<div class="absolute left-0 top-0 bottom-0 w-[3px] bg-gradient-to-b from-primary via-indigo-300 to-transparent"></div>
+<div class="p-5">
+<p class="mb-4 leading-relaxed text-[15px]">Certainly. You can use the built-in <code class="bg-indigo-50 border border-indigo-100 px-1 py-0.5 rounded text-primary font-mono text-sm font-medium">sorted()</code> function or the <code class="bg-indigo-50 border border-indigo-100 px-1 py-0.5 rounded text-primary font-mono text-sm font-medium">list.sort()</code> method with a lambda function as the key.</p>
+<div class="rounded-lg overflow-hidden border border-gray-800/10 bg-[#1e1e24] font-mono text-sm my-4 shadow-inner">
+<div class="flex items-center justify-between px-4 py-2 bg-white/5 border-b border-white/5">
+<span class="text-xs text-gray-400">python</span>
+<button class="text-xs text-primary hover:text-white transition-colors flex items-center gap-1">
+<span class="material-symbols-outlined text-[14px]">content_copy</span> Copy
+                                </button>
+</div>
+<div class="p-4 overflow-x-auto text-gray-300">
+<pre><code>data = [
+    {'name': 'Alice', 'age': 30},
+    {'name': 'Bob', 'age': 25},
+    {'name': 'Charlie', 'age': 35}
+]
+<span class="text-gray-500"># Sort by 'age'</span>
+sorted_data = sorted(data, key=lambda x: x['age'])
+print(sorted_data)</code></pre>
+</div>
+</div>
+<p class="text-[15px] text-gray-500">Would you like to see how to do this with the <code class="bg-gray-100 px-1 py-0.5 rounded text-gray-700 font-mono text-xs border border-gray-200">itemgetter</code> module for better performance?</p>
+</div>
+<div class="flex gap-2 p-3 bg-gray-50/50 border-t border-gray-100">
+<button class="px-3 py-1.5 rounded-lg border border-gray-200 text-xs font-medium text-gray-500 hover:text-primary hover:bg-white hover:border-primary/30 transition-all flex items-center gap-2 shadow-sm">
+<span class="material-symbols-outlined text-[16px]">thumb_up</span> Helpful
+                        </button>
+<button class="px-3 py-1.5 rounded-lg border border-gray-200 text-xs font-medium text-gray-500 hover:text-primary hover:bg-white hover:border-primary/30 transition-all flex items-center gap-2 shadow-sm">
+<span class="material-symbols-outlined text-[16px]">refresh</span> Regenerate
+                        </button>
+</div>
+</div>
+<span class="text-[11px] text-gray-400 mt-1 pl-1">AI Generated • 10:25 AM</span>
+</div>
+</div>
+<div class="flex justify-end gap-4 group">
+<div class="flex flex-col items-end max-w-[70%]">
+<div class="bg-white border border-gray-100 text-gray-800 px-5 py-3.5 rounded-2xl rounded-tr-sm shadow-sm relative group-hover:shadow-md transition-all">
+<p class="leading-relaxed text-[15px]">Yes, show me the itemgetter version.</p>
+</div>
+<span class="text-[11px] text-gray-400 mt-1 pr-1">Just now</span>
+</div>
+<div class="bg-center bg-no-repeat bg-cover rounded-full size-8 mt-1 opacity-90 shadow-sm" data-alt="User Avatar Small" style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuD6NYe7Ejo_pJgSVjjPSsj57I9dz45VxV7LiYZgIkIDG3vaab8ddXycqVU0OvDYRbzFDR1s5oa317W9RDVzXPA5kzqmqoJ_qDu8n59NtlHOBQafZEKm8XekPyTKlYGf10oWCLw9ae92IWlvyldgkMnj88U17hydrQiMd0aopZuaro_tLETqyEeyYdlmhxPn0F6_BF86XzmX_YUvxSYEF3wuFj04jEteSWrmIb8wiBZ6xgeodIxpR40qBijh2WxyOAK3E6-FgqmE8DKp");'></div>
+</div>
+<div class="flex justify-start gap-4 max-w-[85%] animate-pulse">
+<div class="relative shrink-0 mt-1">
+<div class="bg-center bg-no-repeat bg-cover rounded-full size-8 opacity-60 grayscale" data-alt="AI Avatar Small" style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuDme-hXHSJg3tjb69ld6EvVtnalujErPoptifX47UzQNPOcs9Zw3CjoY81xR_dWeSUasn8VoE_sybAw--3iC7yc3tbg6ad1FTXH6r0PMmZf_XkGHW-in4yBB4a3bDoMRGdzs1bXPidNROjTRnM3Jys1Ujv0yF1O2uVuZqoqmFJa0IMVFzQtmkuviOiDY6YyGUo5YZIva2HOGc_XOnXCyMIx_cAKx8nWcZYA_FdLtF7je1rxbP3Mx7T0cS92rHuPeRzrY3Ns-p4wZf20");'></div>
+</div>
+<div class="flex items-center h-10 px-4 rounded-full bg-white border border-gray-200 shadow-sm">
+<div class="flex gap-1">
+<span class="size-1.5 bg-gray-400 rounded-full animate-bounce"></span>
+<span class="size-1.5 bg-gray-400 rounded-full animate-bounce delay-75"></span>
+<span class="size-1.5 bg-gray-400 rounded-full animate-bounce delay-150"></span>
+</div>
+</div>
+</div>
+</div>
+<div class="p-6 pb-8 bg-gradient-to-t from-background-light via-background-light/80 to-transparent shrink-0">
+<div class="relative max-w-4xl mx-auto">
+<div class="absolute inset-0 bg-primary/20 rounded-2xl blur-xl opacity-50"></div>
+<div class="relative flex items-end gap-2 bg-white border border-gray-200/80 rounded-2xl p-2 shadow-[0_8px_30px_rgb(0,0,0,0.04)] ring-1 ring-black/5 focus-within:ring-primary/50 transition-all duration-300">
+<button class="p-3 text-gray-400 hover:text-primary hover:bg-gray-50 rounded-xl transition-colors shrink-0">
+<span class="material-symbols-outlined">add_circle</span>
+</button>
+<div class="flex-1 py-3 min-h-[48px] max-h-[150px] overflow-y-auto">
+<textarea class="w-full bg-transparent border-none focus:ring-0 p-0 text-gray-800 placeholder-gray-400 resize-none leading-relaxed h-6" placeholder="Message Jarvis AI..." rows="1" style="min-height: 24px;"></textarea>
+</div>
+<div class="flex items-center gap-1 shrink-0 pb-1 pr-1">
+<button class="p-2 text-gray-400 hover:text-primary hover:bg-gray-50 rounded-lg transition-colors" title="Voice Input">
+<span class="material-symbols-outlined text-[20px]">mic</span>
+</button>
+<button class="bg-primary hover:bg-indigo-600 text-white p-2.5 rounded-xl shadow-lg shadow-primary/30 hover:shadow-primary/40 transition-all transform active:scale-95 flex items-center justify-center">
+<span class="material-symbols-outlined text-[20px] translate-x-0.5">send</span>
+</button>
+</div>
+</div>
+<p class="text-center text-[10px] text-gray-400 mt-3 font-medium">AI can make mistakes. Please verify important information.</p>
+</div>
+</div>
+</main>
+</div>
+
+</body></html>

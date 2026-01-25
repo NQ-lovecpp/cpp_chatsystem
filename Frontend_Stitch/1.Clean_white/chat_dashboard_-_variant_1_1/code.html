@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Settings - Light Mode</title>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&amp;family=Noto+Sans:wght@300;400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+    tailwind.config = {
+        theme: {
+            extend: {
+                colors: {
+                    accent: "#0B4F6C", // Deep Sea Blue
+                    "accent-light": "#E0F2F7",
+                    "surface-light": "#FFFFFF",
+                    "surface-alt": "#F9FAFB",
+                    "text-main": "#1F2937",
+                    "text-muted": "#6B7280",
+                    "border-light": "#E5E7EB"
+                },
+                fontFamily: {
+                    display: "Space Grotesk, sans-serif",
+                    body: "Noto Sans, sans-serif"
+                },
+                backgroundImage: {
+                    'wave-pattern': "url(\"data:image/svg+xml,%3Csvg width='100%25' height='100%25' id='svg2' version='1.1' xmlns='http://www.w3.org/2000/svg'%3E%3Cdefs%3E%3ClinearGradient id='grad1' x1='0%25' y1='0%25' x2='100%25' y2='100%25'%3E%3Cstop offset='0%25' style='stop-color:%23f3f4f6;stop-opacity:1' /%3E%3Cstop offset='100%25' style='stop-color:%23ffffff;stop-opacity:1' /%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='100%25' height='100%25' fill='url(%23grad1)'/%3E%3Cpath d='M0,200 C150,300 350,0 500,100 C650,200 800,0 1000,100 C1200,200 1400,0 1600,100 L1600,1000 L0,1000 Z' fill='%23f9fafb' opacity='0.5'/%3E%3Cpath d='M0,400 C200,500 400,200 600,300 C800,400 1000,200 1200,300 C1400,400 1600,200 1800,300 L1800,1000 L0,1000 Z' fill='%23f3f4f6' opacity='0.4'/%3E%3C/svg%3E\")"
+                }
+            }
+        }
+    };
+</script>
+<style>::-webkit-scrollbar {
+        width: 6px;
+    }
+    ::-webkit-scrollbar-track {
+        background: transparent;
+    }
+    ::-webkit-scrollbar-thumb {
+        background: #D1D5DB;
+        border-radius: 10px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+        background: #9CA3AF;
+    }
+    .toggle-checkbox:checked {
+        right: 0;
+        border-color: #0B4F6C;
+    }
+    .toggle-checkbox:checked + .toggle-label {
+        background-color: #0B4F6C;
+    }input[type=range] {
+        -webkit-appearance: none; 
+        background: transparent; 
+    }
+    input[type=range]::-webkit-slider-thumb {
+        -webkit-appearance: none;
+        height: 16px;
+        width: 16px;
+        border-radius: 50%;
+        background: #0B4F6C;
+        cursor: pointer;
+        margin-top: -6px; 
+        box-shadow: 0 0 0 4px rgba(11, 79, 108, 0.1);
+    }
+    input[type=range]::-webkit-slider-runnable-track {
+        width: 100%;
+        height: 4px;
+        cursor: pointer;
+        background: #E5E7EB;
+        border-radius: 2px;
+    }
+    input[type=range]:focus::-webkit-slider-thumb {
+        box-shadow: 0 0 0 6px rgba(11, 79, 108, 0.2);
+    }
+</style>
+</head>
+<body class="bg-surface-light text-text-main font-body h-screen w-screen overflow-hidden">
+<div class="fixed inset-0 z-0 bg-wave-pattern bg-cover bg-fixed opacity-60 pointer-events-none"></div>
+<div class="relative z-10 flex h-full w-full">
+<nav class="w-20 min-w-[80px] flex flex-col items-center py-6 gap-8 border-r border-border-light bg-surface-light/95 backdrop-blur-sm z-20 shadow-sm">
+<div class="mb-2">
+<div class="size-10 bg-accent rounded-xl flex items-center justify-center text-white shadow-lg shadow-accent/20">
+<span class="material-symbols-outlined">auto_awesome</span>
+</div>
+</div>
+<div class="flex flex-col gap-6 w-full px-4">
+<button class="group flex items-center justify-center w-full aspect-square rounded-xl text-text-muted hover:text-accent hover:bg-accent-light transition-all duration-300">
+<span class="material-symbols-outlined text-[24px]">chat_bubble</span>
+</button>
+<button class="group flex items-center justify-center w-full aspect-square rounded-xl text-text-muted hover:text-accent hover:bg-accent-light transition-all duration-300">
+<span class="material-symbols-outlined text-[24px]">group</span>
+</button>
+<button class="group flex items-center justify-center w-full aspect-square rounded-xl text-text-muted hover:text-accent hover:bg-accent-light transition-all duration-300">
+<span class="material-symbols-outlined text-[24px]">smart_toy</span>
+</button>
+<button class="group flex items-center justify-center w-full aspect-square rounded-xl text-text-muted hover:text-accent hover:bg-accent-light transition-all duration-300">
+<span class="material-symbols-outlined text-[24px]">folder_open</span>
+</button>
+</div>
+<div class="mt-auto flex flex-col gap-6 w-full px-4">
+<button class="group flex items-center justify-center w-full aspect-square rounded-xl bg-accent text-white shadow-md shadow-accent/30 transition-all duration-300">
+<span class="material-symbols-outlined text-[24px] fill-current">settings</span>
+</button>
+<div class="bg-center bg-no-repeat bg-cover rounded-xl size-10 ring-2 ring-gray-100 cursor-pointer hover:ring-accent transition-all" style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuD_YcSnwsjNaGf-wofQOXyfaSpOHHiwJzUPca8aS6rBfm6c4NSRh8SAby3iJiJmHPn0URRsWrHhkxCmlKrXzoFEXLWzyNOZgOCph8lYSjLEaMt4ehnN1O0m0C6DtyHWtiYv1s7OkOMSx_hB4BgVP5oqTnYJaNIKDEvKXWAVJDPYgmVpHmwdcmwUm5_Db1oqw4l-NVku3xNvUdPpqDIppV-S33lI6E17eVQ-S3MffECSIu6twhz0IpeRFKbB55iu0fs7CsDHHkRASsIA");'></div>
+</div>
+</nav>
+<aside class="w-[300px] flex flex-col border-r border-border-light bg-surface-alt/80 backdrop-blur-md z-10">
+<div class="px-6 pt-8 pb-6">
+<h1 class="text-2xl font-bold tracking-tight text-text-main font-display mb-6">Settings</h1>
+<div class="relative group">
+<div class="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-text-muted">
+<span class="material-symbols-outlined text-[20px]">search</span>
+</div>
+<input class="block w-full py-2.5 pl-10 pr-3 text-sm text-text-main border border-gray-200 rounded-lg bg-white focus:ring-2 focus:ring-accent focus:border-accent placeholder-gray-400 transition-all shadow-sm" placeholder="Search settings..." type="text"/>
+</div>
+</div>
+<nav class="flex-1 overflow-y-auto px-4 space-y-1 pb-4">
+<p class="px-2 text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2 mt-2">Account</p>
+<a class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-accent bg-accent-light" href="#">
+<span class="material-symbols-outlined text-[20px]">person</span>
+                Profile &amp; Appearance
+            </a>
+<a class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-text-muted hover:bg-white hover:text-text-main transition-colors" href="#">
+<span class="material-symbols-outlined text-[20px]">shield</span>
+                Privacy &amp; Security
+            </a>
+<a class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-text-muted hover:bg-white hover:text-text-main transition-colors" href="#">
+<span class="material-symbols-outlined text-[20px]">notifications</span>
+                Notifications
+            </a>
+<div class="h-px bg-gray-200 my-4 mx-2"></div>
+<p class="px-2 text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">App Settings</p>
+<a class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-text-muted hover:bg-white hover:text-text-main transition-colors" href="#">
+<span class="material-symbols-outlined text-[20px]">auto_awesome</span>
+                AI Preferences
+            </a>
+<a class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-text-muted hover:bg-white hover:text-text-main transition-colors" href="#">
+<span class="material-symbols-outlined text-[20px]">language</span>
+                Language
+            </a>
+<a class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-text-muted hover:bg-white hover:text-text-main transition-colors" href="#">
+<span class="material-symbols-outlined text-[20px]">database</span>
+                Data &amp; Storage
+            </a>
+</nav>
+<div class="p-4 border-t border-border-light">
+<button class="flex items-center justify-between w-full px-3 py-2 text-sm font-medium text-red-600 hover:bg-red-50 rounded-lg transition-colors">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-[20px]">logout</span>
+                    Sign Out
+                </div>
+</button>
+</div>
+</aside>
+<main class="flex-1 flex flex-col bg-white/50 relative overflow-hidden">
+<header class="h-20 shrink-0 px-10 flex items-center justify-between border-b border-border-light bg-surface-light/50 backdrop-blur-sm z-10">
+<div>
+<h2 class="text-xl font-bold text-text-main font-display">Profile &amp; Appearance</h2>
+<p class="text-sm text-text-muted">Manage your personal info and how the app looks.</p>
+</div>
+<div class="flex gap-3">
+<button class="px-4 py-2 rounded-lg text-sm font-medium text-text-muted hover:text-text-main hover:bg-gray-100 transition-all">Cancel</button>
+<button class="px-4 py-2 rounded-lg text-sm font-medium text-white bg-accent hover:bg-sky-700 shadow-md shadow-accent/20 transition-all">Save Changes</button>
+</div>
+</header>
+<div class="flex-1 overflow-y-auto p-10 space-y-10 scroll-smooth">
+<section class="max-w-3xl">
+<h3 class="text-lg font-semibold text-text-main mb-6 flex items-center gap-2">
+                    Public Profile
+                </h3>
+<div class="bg-surface-light rounded-2xl p-8 border border-border-light shadow-sm space-y-8">
+<div class="flex items-center gap-8">
+<div class="relative group cursor-pointer">
+<div class="size-24 rounded-full bg-cover bg-center ring-4 ring-white shadow-lg" style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuD_YcSnwsjNaGf-wofQOXyfaSpOHHiwJzUPca8aS6rBfm6c4NSRh8SAby3iJiJmHPn0URRsWrHhkxCmlKrXzoFEXLWzyNOZgOCph8lYSjLEaMt4ehnN1O0m0C6DtyHWtiYv1s7OkOMSx_hB4BgVP5oqTnYJaNIKDEvKXWAVJDPYgmVpHmwdcmwUm5_Db1oqw4l-NVku3xNvUdPpqDIppV-S33lI6E17eVQ-S3MffECSIu6twhz0IpeRFKbB55iu0fs7CsDHHkRASsIA");'></div>
+<div class="absolute inset-0 bg-black/40 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+<span class="material-symbols-outlined text-white">photo_camera</span>
+</div>
+<div class="absolute bottom-0 right-0 bg-white rounded-full p-1.5 shadow-md border border-gray-100 text-accent">
+<span class="material-symbols-outlined text-[16px]">edit</span>
+</div>
+</div>
+<div class="flex-1">
+<h4 class="font-bold text-text-main text-lg">Your Avatar</h4>
+<p class="text-sm text-text-muted mt-1 mb-3">This will be displayed on your profile and in chat conversations.</p>
+<div class="flex gap-3">
+<button class="px-3 py-1.5 rounded-md border border-gray-300 text-sm font-medium text-text-main hover:bg-gray-50 transition-colors">Upload New</button>
+<button class="px-3 py-1.5 rounded-md text-sm font-medium text-red-500 hover:bg-red-50 transition-colors">Delete</button>
+</div>
+</div>
+</div>
+<div class="grid grid-cols-2 gap-6">
+<div class="col-span-1">
+<label class="block text-sm font-medium text-text-main mb-2">First Name</label>
+<input class="w-full rounded-lg border-gray-300 focus:border-accent focus:ring-accent text-sm" type="text" value="Alex"/>
+</div>
+<div class="col-span-1">
+<label class="block text-sm font-medium text-text-main mb-2">Last Name</label>
+<input class="w-full rounded-lg border-gray-300 focus:border-accent focus:ring-accent text-sm" type="text" value="Morgan"/>
+</div>
+<div class="col-span-2">
+<label class="block text-sm font-medium text-text-main mb-2">Bio</label>
+<textarea class="w-full rounded-lg border-gray-300 focus:border-accent focus:ring-accent text-sm text-gray-600" rows="3">Digital explorer and AI enthusiast. Always learning something new.</textarea>
+<p class="text-xs text-gray-400 mt-1 text-right">0 / 200 characters</p>
+</div>
+</div>
+</div>
+</section>
+<section class="max-w-3xl">
+<h3 class="text-lg font-semibold text-text-main mb-6 flex items-center gap-2">
+                    Interface Theme
+                </h3>
+<div class="bg-surface-light rounded-2xl p-8 border border-border-light shadow-sm">
+<div class="grid grid-cols-3 gap-6">
+<label class="cursor-pointer group relative">
+<input checked="" class="peer sr-only" name="theme" type="radio"/>
+<div class="rounded-xl border-2 border-accent bg-gray-50 p-3 relative overflow-hidden h-32 transition-all shadow-md shadow-accent/10">
+<div class="absolute top-0 left-0 right-0 h-4 bg-gray-200"></div>
+<div class="absolute top-8 left-3 w-16 h-2 bg-gray-300 rounded"></div>
+<div class="absolute top-12 left-3 w-10 h-2 bg-gray-200 rounded"></div>
+<div class="absolute bottom-3 right-3 size-6 bg-accent rounded-full opacity-20"></div>
+</div>
+<span class="block text-center text-sm font-medium mt-3 text-accent">Light Mode</span>
+<div class="absolute top-2 right-2 text-accent">
+<span class="material-symbols-outlined text-[20px] bg-white rounded-full">check_circle</span>
+</div>
+</label>
+<label class="cursor-pointer group">
+<input class="peer sr-only" name="theme" type="radio"/>
+<div class="rounded-xl border-2 border-transparent peer-checked:border-accent bg-[#1d1a15] p-3 relative overflow-hidden h-32 hover:border-gray-400 transition-all">
+<div class="absolute top-0 left-0 right-0 h-4 bg-[#2a2723]"></div>
+<div class="absolute top-8 left-3 w-16 h-2 bg-gray-700 rounded"></div>
+<div class="absolute top-12 left-3 w-10 h-2 bg-gray-800 rounded"></div>
+<div class="absolute bottom-3 right-3 size-6 bg-blue-500 rounded-full opacity-20"></div>
+</div>
+<span class="block text-center text-sm font-medium mt-3 text-gray-500 peer-checked:text-accent">Dark Mode</span>
+</label>
+<label class="cursor-pointer group">
+<input class="peer sr-only" name="theme" type="radio"/>
+<div class="rounded-xl border-2 border-transparent peer-checked:border-accent bg-gradient-to-br from-gray-50 to-[#1d1a15] p-3 relative overflow-hidden h-32 hover:border-gray-400 transition-all">
+<div class="absolute top-0 left-0 right-0 h-4 bg-gray-300/50"></div>
+<div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-gray-500">
+<span class="material-symbols-outlined text-[32px]">settings_brightness</span>
+</div>
+</div>
+<span class="block text-center text-sm font-medium mt-3 text-gray-500 peer-checked:text-accent">System</span>
+</label>
+</div>
+<div class="mt-8 pt-6 border-t border-gray-100">
+<label class="block text-sm font-medium text-text-main mb-4">Accent Color</label>
+<div class="flex items-center gap-4">
+<button class="size-8 rounded-full bg-[#0B4F6C] ring-2 ring-offset-2 ring-[#0B4F6C]"></button>
+<button class="size-8 rounded-full bg-[#7C3AED] hover:ring-2 hover:ring-offset-2 hover:ring-[#7C3AED] transition-all"></button>
+<button class="size-8 rounded-full bg-[#EA580C] hover:ring-2 hover:ring-offset-2 hover:ring-[#EA580C] transition-all"></button>
+<button class="size-8 rounded-full bg-[#059669] hover:ring-2 hover:ring-offset-2 hover:ring-[#059669] transition-all"></button>
+<button class="size-8 rounded-full bg-[#DB2777] hover:ring-2 hover:ring-offset-2 hover:ring-[#DB2777] transition-all"></button>
+</div>
+</div>
+</div>
+</section>
+<section class="max-w-3xl pb-10">
+<h3 class="text-lg font-semibold text-text-main mb-6 flex items-center gap-2">
+                    AI Interaction
+                </h3>
+<div class="bg-surface-light rounded-2xl p-8 border border-border-light shadow-sm">
+<div class="mb-8">
+<div class="flex items-center justify-between mb-4">
+<div>
+<label class="text-sm font-medium text-text-main">Creativity Level</label>
+<p class="text-xs text-text-muted mt-0.5">Controls how imaginative the AI responses are.</p>
+</div>
+<span class="text-sm font-bold text-accent bg-accent-light px-2 py-1 rounded">Balanced</span>
+</div>
+<input class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer" max="100" min="0" type="range" value="50"/>
+<div class="flex justify-between mt-2 text-xs text-gray-400 font-medium">
+<span>Precise</span>
+<span>Creative</span>
+</div>
+</div>
+<div class="space-y-6">
+<div class="flex items-center justify-between">
+<div class="flex flex-col">
+<span class="text-sm font-medium text-text-main">Stream Responses</span>
+<span class="text-xs text-text-muted">Show answers as they are being generated.</span>
+</div>
+<div class="relative inline-block w-12 mr-2 align-middle select-none transition duration-200 ease-in">
+<input checked="" class="toggle-checkbox absolute block w-6 h-6 rounded-full bg-white border-4 appearance-none cursor-pointer border-gray-300 transition-all duration-300" id="toggle1" name="toggle" type="checkbox"/>
+<label class="toggle-label block overflow-hidden h-6 rounded-full bg-gray-300 cursor-pointer transition-colors duration-300" for="toggle1"></label>
+</div>
+</div>
+<div class="flex items-center justify-between">
+<div class="flex flex-col">
+<span class="text-sm font-medium text-text-main">Context Awareness</span>
+<span class="text-xs text-text-muted">Allow AI to remember previous messages in the session.</span>
+</div>
+<div class="relative inline-block w-12 mr-2 align-middle select-none transition duration-200 ease-in">
+<input checked="" class="toggle-checkbox absolute block w-6 h-6 rounded-full bg-white border-4 appearance-none cursor-pointer border-gray-300 transition-all duration-300" id="toggle2" name="toggle2" type="checkbox"/>
+<label class="toggle-label block overflow-hidden h-6 rounded-full bg-gray-300 cursor-pointer transition-colors duration-300" for="toggle2"></label>
+</div>
+</div>
+</div>
+</div>
+</section>
+</div>
+</main>
+</div>
+
+</body></html>

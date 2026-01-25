@@ -1,0 +1,61 @@
+/*
+    消息存储服务器的子服务注册信息： /service/message_storage/instance_id
+        服务名称：/service/message_storage
+        实例ID: instance_id     每个能够提供用户操作服务的子服务器唯一ID
+    当服务发现的时候，通过 /service/message_storage 进行服务发现，就可以发现所有的能够提供用户操作的实例信息了
+*/
+syntax = "proto3";
+package chen_im;
+import "base.proto";
+
+option cc_generic_services = true;
+
+message GetHistoryMsgReq {
+    string request_id = 1;
+    string chat_session_id = 2;
+    int64 start_time = 3;
+    int64 over_time = 4;
+     string user_id = 5;
+     string session_id = 6;
+}
+message GetHistoryMsgRsp {
+    string request_id = 1;
+    bool success = 2;
+    string errmsg = 3; 
+    repeated MessageInfo msg_list = 4;
+}
+
+message GetRecentMsgReq {
+    string request_id = 1;
+    string chat_session_id = 2;
+    int64 msg_count = 3;
+     int64 cur_time = 4;//用于扩展获取指定时间前的n条消息
+     string user_id = 5;
+     string session_id = 6;
+}
+message GetRecentMsgRsp {
+    string request_id = 1;
+    bool success = 2;
+    string errmsg = 3; 
+    repeated MessageInfo msg_list = 4;
+}
+
+message MsgSearchReq {
+    string request_id = 1;
+     string user_id = 2;
+     string session_id = 3;
+    string chat_session_id = 4;
+    string search_key = 5;
+}
+message MsgSearchRsp {
+    string request_id = 1;
+    bool success = 2;
+    string errmsg = 3; 
+    repeated MessageInfo msg_list = 4;
+}
+
+service MsgStorageService {
+    rpc GetHistoryMsg(GetHistoryMsgReq) returns (GetHistoryMsgRsp); // http GET "/service/message_storage/get_history"
+    rpc GetRecentMsg(GetRecentMsgReq) returns (GetRecentMsgRsp);    // http GET "/service/message_storage/get_recent"
+    rpc MsgSearch(MsgSearchReq) returns (MsgSearchRsp);             // http GET "/service/message_storage/search_history"
+}

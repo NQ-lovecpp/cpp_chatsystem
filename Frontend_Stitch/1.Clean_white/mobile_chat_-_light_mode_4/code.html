@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Mobile Chat Dashboard - Light Mode V2</title>
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#9000ff", // Electric Indigo
+                        "accent-mint": "#6fffcf", // Mint
+                        "background-light": "#f3f4f6", // Cool Light Grey
+                        "surface-white": "#ffffff",
+                        "text-main": "#1f2937",
+                        "text-sub": "#6b7280",
+                        "border-subtle": "rgba(255,255,255,0.6)",
+                    },
+                    fontFamily: {
+                        "display": ["Space Grotesk", "sans-serif"]
+                    },
+                    borderRadius: {
+                        "DEFAULT": "0.5rem",
+                        "lg": "1rem",
+                        "xl": "1.5rem",
+                        "2xl": "2rem",
+                        "full": "9999px"
+                    },
+                    boxShadow: {
+                        "soft-float": "0px 4px 20px rgba(0, 0, 0, 0.03)",
+                        "glass": "0 8px 32px 0 rgba(31, 38, 135, 0.07)",
+                        "glow": "0 0 15px rgba(144, 0, 255, 0.3)",
+                    }
+                },
+            },
+        }
+    </script>
+<style>
+        body {
+            font-family: "Space Grotesk", sans-serif;
+            background-color: #f3f4f6;
+            background-image: 
+                radial-gradient(circle at 15% 50%, rgba(144, 0, 255, 0.08) 0%, transparent 25%),
+                radial-gradient(circle at 85% 30%, rgba(111, 255, 207, 0.12) 0%, transparent 25%);
+            background-attachment: fixed;
+        }
+        .hide-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .hide-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+        .glass-panel {
+            background: rgba(255, 255, 255, 0.65);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.5);
+            box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.05);
+        }
+        .glass-bubble-received {
+            background: rgba(255, 255, 255, 0.5);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.6);
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.02);
+        }
+        .glass-bubble-sent {
+            background: rgba(144, 0, 255, 0.85);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            color: white;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            box-shadow: 0 4px 12px rgba(144, 0, 255, 0.25);
+        }
+        .glass-input {
+            background: rgba(255, 255, 255, 0.75);
+            backdrop-filter: blur(24px);
+            -webkit-backdrop-filter: blur(24px);
+            border: 1px solid rgba(255, 255, 255, 0.8);
+            box-shadow: 0 8px 40px rgba(0, 0, 0, 0.08);
+        }
+    </style>
+</head>
+<body class="text-text-main h-screen overflow-hidden flex flex-col selection:bg-primary/20 selection:text-primary">
+<div class="flex flex-1 h-full max-w-[1600px] mx-auto w-full p-4 lg:p-6 gap-6">
+<aside class="hidden md:flex w-[380px] flex-col glass-panel rounded-3xl h-full overflow-hidden z-10">
+<div class="p-6 pb-2">
+<div class="flex items-center justify-between mb-6">
+<div class="flex items-center gap-3">
+<div class="size-8 rounded-lg bg-primary/10 flex items-center justify-center text-primary backdrop-blur-sm">
+<span class="material-symbols-outlined">chat_bubble</span>
+</div>
+<h1 class="text-xl font-bold tracking-tight text-text-main">Messages</h1>
+</div>
+<button class="size-10 rounded-full bg-white/50 hover:bg-white/80 flex items-center justify-center transition-colors text-primary border border-white/60">
+<span class="material-symbols-outlined">edit_square</span>
+</button>
+</div>
+<div class="relative group">
+<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+<span class="material-symbols-outlined text-primary/60">search</span>
+</div>
+<input class="block w-full pl-10 pr-3 py-3 border border-white/50 rounded-2xl leading-5 bg-white/40 text-text-main placeholder-primary/40 focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all shadow-sm backdrop-blur-sm" placeholder="Search conversations..." type="text"/>
+</div>
+</div>
+<div class="px-6 py-2 flex gap-2 overflow-x-auto hide-scrollbar">
+<button class="px-4 py-1.5 rounded-full bg-primary/90 text-white text-sm font-medium whitespace-nowrap shadow-lg shadow-primary/20 backdrop-blur-md">All Chats</button>
+<button class="px-4 py-1.5 rounded-full bg-white/40 text-text-sub hover:bg-white/60 transition-colors text-sm font-medium whitespace-nowrap border border-white/50 backdrop-blur-sm">Unread</button>
+<button class="px-4 py-1.5 rounded-full bg-white/40 text-text-sub hover:bg-white/60 transition-colors text-sm font-medium whitespace-nowrap border border-white/50 backdrop-blur-sm">Groups</button>
+</div>
+<div class="flex-1 overflow-y-auto px-4 pt-2 pb-4 space-y-2 mt-2">
+<div class="group flex items-center gap-4 p-3 rounded-2xl bg-white/80 border border-white shadow-sm cursor-pointer relative overflow-hidden transition-all backdrop-blur-md">
+<div class="absolute left-0 top-3 bottom-3 w-1 bg-primary rounded-r-full"></div>
+<div class="relative">
+<div class="bg-center bg-no-repeat bg-cover rounded-full size-12 shadow-sm border-2 border-white" data-alt="Portrait of Alice Chen looking professional" style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuCK6VTK1_L2I5mjTYd_096eH4ET1HE0vpOMOmkiwy-YaZFpI4L_3ndZEdNA7ngDKCzv5ANfSm1ui_QV06yqYAuuf-ITzjDPR6P-eF_Iq87ONPE7yZjSCirJO5uC20pk-vb3m1zHRmCx6Fr7mWNwMx2uSkxm3MMwde4xh6fRGiORUavANiI0OU_bseWiEh1JPxq3EU-toCth3rIp6rnJOupF5QAFjlXfSl8tWv1ch8EjGntAOMGAWs8iwfhzcb3ggJ0H81Pkx1u9LVC7");'></div>
+<div class="absolute bottom-0 right-0 size-3 bg-accent-mint rounded-full border-2 border-white shadow-sm"></div>
+</div>
+<div class="flex-1 min-w-0">
+<div class="flex justify-between items-baseline mb-0.5">
+<h3 class="text-text-main font-bold text-base truncate">Alice Chen</h3>
+<span class="text-xs font-semibold text-primary whitespace-nowrap">Now</span>
+</div>
+<p class="text-text-main text-sm truncate font-medium">Just checking them now. Looks...</p>
+</div>
+</div>
+<div class="group flex items-center gap-4 p-3 rounded-2xl hover:bg-white/40 border border-transparent hover:border-white/50 cursor-pointer transition-all">
+<div class="relative">
+<div class="bg-center bg-no-repeat bg-cover rounded-full size-12 shadow-sm border border-white/50" data-alt="Design Team logo with colorful geometric shapes" style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuD6G_2m4a02ajp-aK7jp2buL5QoOFFeypcDsRiu6s2dEBarO_UifWeQda6EF2hC6nqTz9m97KEL6RQYO2s21eJ_m3OK8qiUoyht5cjutQih7dDPoUxAtJA5kDOc8WmGS8M76WJZEpEkJC7A9HrV5kZ3wCKkVOkkDF49iwUZdemUK7ddN4wBfa9LVeqCSG8LSJqawQZanbjDt5pj5LRPQH_Dd4r2x1WuOsT1sPYKOSggr-w4XDL_Zp9aeVk7QkFa-tAYBtCYP9S68ZEq");'></div>
+<div class="absolute bottom-0 right-0 size-3 bg-gray-300 rounded-full border-2 border-white"></div>
+</div>
+<div class="flex-1 min-w-0">
+<div class="flex justify-between items-baseline mb-0.5">
+<h3 class="text-text-main font-semibold text-base truncate">Design Team</h3>
+<span class="text-xs text-gray-400 whitespace-nowrap">2m</span>
+</div>
+<div class="flex justify-between items-center">
+<p class="text-text-sub text-sm truncate">Meeting scheduled for 3 PM</p>
+<span class="flex size-5 items-center justify-center rounded-full bg-accent-mint/90 backdrop-blur-sm text-[10px] font-bold text-primary shadow-sm">2</span>
+</div>
+</div>
+</div>
+<div class="group flex items-center gap-4 p-3 rounded-2xl hover:bg-white/40 border border-transparent hover:border-white/50 cursor-pointer transition-all">
+<div class="relative">
+<div class="bg-primary/10 rounded-full size-12 flex items-center justify-center text-primary font-bold text-lg border border-white/50 backdrop-blur-sm">
+                        MK
+                    </div>
+</div>
+<div class="flex-1 min-w-0">
+<div class="flex justify-between items-baseline mb-0.5">
+<h3 class="text-text-main font-semibold text-base truncate">Marcus King</h3>
+<span class="text-xs text-gray-400 whitespace-nowrap">1h</span>
+</div>
+<p class="text-text-sub text-sm truncate">Can you send the updated files?</p>
+</div>
+</div>
+<div class="group flex items-center gap-4 p-3 rounded-2xl hover:bg-white/40 border border-transparent hover:border-white/50 cursor-pointer transition-all">
+<div class="relative">
+<div class="bg-center bg-no-repeat bg-cover rounded-full size-12 shadow-sm border border-white/50" data-alt="Portrait of Sarah with glasses smiling" style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuBWnV-qCb-aWoDR1HqaqXDGNdSD_6kIGIGFYj35f90jcowFQasxprWe4qjCqjcKATgurOIlkw6fRkcUH1p7uCdQCmHgLKjx5g7J8C8XDkm5m_YwBtfMNE8S4iotVZ-CtekTYXXmn_I519aeyyjK5W7UE6WbgWufwFIMLxRB78H0Uskz91rzzP22GshUpptKElvdHjS78PTMjgT7_R2gkuQjZNtUxVYoTKEKJiSo_BNbEMtnDNSEuBM_n8n-BNbp6HvhrwgC21xb3RWE");'></div>
+</div>
+<div class="flex-1 min-w-0">
+<div class="flex justify-between items-baseline mb-0.5">
+<h3 class="text-text-main font-semibold text-base truncate">Sarah Jenkins</h3>
+<span class="text-xs text-gray-400 whitespace-nowrap">Yesterday</span>
+</div>
+<p class="text-text-sub text-sm truncate">Thanks for the help!</p>
+</div>
+</div>
+<div class="group flex items-center gap-4 p-3 rounded-2xl hover:bg-white/40 border border-transparent hover:border-white/50 cursor-pointer transition-all">
+<div class="relative">
+<div class="bg-gradient-to-br from-primary to-accent-mint rounded-full size-12 flex items-center justify-center text-white shadow-lg shadow-primary/20 border border-white">
+<span class="material-symbols-outlined">smart_toy</span>
+</div>
+</div>
+<div class="flex-1 min-w-0">
+<div class="flex justify-between items-baseline mb-0.5">
+<h3 class="text-text-main font-semibold text-base truncate">AI Assistant</h3>
+<span class="text-xs text-gray-400 whitespace-nowrap">2d</span>
+</div>
+<p class="text-text-sub text-sm truncate">I've summarized the weekly report.</p>
+</div>
+</div>
+</div>
+<div class="p-4 border-t border-white/30 bg-white/20 backdrop-blur-md">
+<div class="flex items-center gap-3 p-2 rounded-2xl hover:bg-white/40 transition-colors cursor-pointer">
+<div class="bg-center bg-no-repeat bg-cover rounded-full size-10 shadow-sm ring-2 ring-white/50" data-alt="Current user profile picture showing a young professional" style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuDT2YPn4RlA7JEKTNP4uzbLXZqtftmXGZmfpYCF4isKc0-oyamCHNqaIZ6NEMdPVVfeBVVZ0iyZxYItc58mzeFQMU2FPQo3gYVsxH3fScj5iiaNrlXocspMcaqKL4ReSxEonLurCzafI3yxOE0I46NyLDZWs-jGq41PwcHhW4j6IBHFa0PSUB7zWPBGgdVOM8K39GwJlul47_V2-5-zijhkemTkxjQaftYUlSj8WHlxgzFsipQBGjUvyB0EUANAJYXndsKxBCDX9qHu");'></div>
+<div class="flex-1">
+<p class="text-sm font-bold text-text-main">Alex Morgan</p>
+<p class="text-xs text-primary font-medium">Online</p>
+</div>
+<span class="material-symbols-outlined text-gray-500">settings</span>
+</div>
+</div>
+</aside>
+<main class="flex-1 flex flex-col glass-panel rounded-3xl relative overflow-hidden z-10">
+<header class="flex items-center justify-between px-6 py-4 border-b border-white/30 z-10 bg-white/30 backdrop-blur-md sticky top-0">
+<div class="flex items-center gap-4">
+<button class="md:hidden p-2 -ml-2 text-gray-500">
+<span class="material-symbols-outlined">menu</span>
+</button>
+<div class="relative">
+<div class="bg-center bg-no-repeat bg-cover rounded-full size-10 shadow-sm ring-2 ring-white" data-alt="Portrait of Alice Chen looking professional" style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuCUHpGzo84oBciieO-luPEnfo2gN-pv09X1_h7R18mzjVUCAeL0YUySbIPYjHwT8yA4h5wfu5Tmc4CYRVHIsoKAEokY8f0HUUC6-_2Vrh-AuAGqxOlHOmHr6euCmbFDyBW_5bNmlPUXCz_9F7y1MAnh4NC6nPpIvjDF0vnq2WZi6hnQEbkzdveXq1rO7L5uwr8XC18IkZ3yprqx9Fv3c6U1n6IbmVXRnObpZENo47qgXPOPviA2-ZV6hKKbbWIFh0XK2Sc61YX7PPgC");'></div>
+<div class="absolute bottom-0 right-0 size-2.5 bg-accent-mint rounded-full ring-2 ring-white shadow-sm"></div>
+</div>
+<div class="flex flex-col">
+<h2 class="text-lg font-bold text-text-main leading-tight">Alice Chen</h2>
+<span class="text-xs text-primary font-medium flex items-center gap-1">
+<span class="size-1.5 rounded-full bg-primary animate-pulse"></span>
+                        Active now
+                    </span>
+</div>
+</div>
+<div class="flex items-center gap-1 sm:gap-2">
+<button class="size-10 flex items-center justify-center rounded-full text-text-sub hover:bg-white/50 hover:text-primary transition-colors border border-transparent hover:border-white/40">
+<span class="material-symbols-outlined">call</span>
+</button>
+<button class="size-10 flex items-center justify-center rounded-full text-text-sub hover:bg-white/50 hover:text-primary transition-colors border border-transparent hover:border-white/40">
+<span class="material-symbols-outlined">videocam</span>
+</button>
+<div class="w-px h-6 bg-white/40 mx-1"></div>
+<button class="size-10 flex items-center justify-center rounded-full text-text-sub hover:bg-white/50 hover:text-primary transition-colors border border-transparent hover:border-white/40">
+<span class="material-symbols-outlined">info</span>
+</button>
+</div>
+</header>
+<div class="flex-1 overflow-y-auto p-6 space-y-8" id="chat-container">
+<div class="flex justify-center">
+<span class="text-xs font-medium text-gray-500 bg-white/40 backdrop-blur-sm border border-white/50 px-3 py-1 rounded-full shadow-sm">Today, 10:23 AM</span>
+</div>
+<div class="flex gap-4 max-w-[80%]">
+<div class="shrink-0 flex flex-col justify-end">
+<div class="bg-center bg-no-repeat bg-cover rounded-full size-10 shadow-sm border border-white" data-alt="Small portrait of Alice Chen" style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuAGA1gBuXeUgeTYoOYt-t7aoP5D9T4SK6ll0cLTVtdQAYfVknC1FzyU2x9l9mKCivRvC9Lxo0BCuSEu940PV-gWYYet7Lr5SiTk6FoXwYPdWIfW3ztMjGqHIQ3WR6s6pMRMCGQwjC7bGnAv6W1-Ko9Vj7OjAaAczNFV9WQCtqCkJkjHBTHueJwOBlY0gcdSribzIEewxhD2r19-idaW0xK-m0FNRbFJCcIsLFB61LmjaiqAfOvOpdNiDv9iL-g9hVEz0VKopoNp0yEE");'></div>
+</div>
+<div class="flex flex-col gap-1">
+<div class="glass-bubble-received p-4 rounded-3xl rounded-bl-none text-text-main text-base leading-relaxed">
+<p>Hey! Did you see the new design specs for the dashboard update?</p>
+</div>
+<span class="text-xs text-gray-400 ml-1 font-medium">10:23 AM</span>
+</div>
+</div>
+<div class="flex gap-4 max-w-[80%]">
+<div class="shrink-0 flex flex-col justify-end">
+<div class="bg-center bg-no-repeat bg-cover rounded-full size-10 shadow-sm border border-white" data-alt="Small portrait of Alice Chen" style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuAo90wv_SJbruZyrdR0DEjjY41LYVioEG_u-9cvLWbM42wxCPY-ITBa8J6sxOkA4mTzXnHvyS0uBQ6tbbLyLPxAKyP9GRf7haRSyXILmCWE4YSJ0YmVO896PJL4y62BfKgYoDEzNcxzzRuBXtv2wM6swl2NTZ-rKIBqjbla2LDfUhyhU4p11Oxbljrc-MA5l6OzIvguOeJPJ9JWbbkQekuGRaNxjpVXrz4arjJu2_P_RoXEBAbu_-BNrKPn9A9TKKh_MXZWm-w0pi8e");'></div>
+</div>
+<div class="flex flex-col gap-1 w-full max-w-sm">
+<div class="glass-bubble-received p-2 rounded-3xl rounded-bl-none overflow-hidden group cursor-pointer hover:shadow-lg transition-all duration-300">
+<div class="w-full aspect-[4/3] bg-cover bg-center rounded-2xl shadow-inner" data-alt="UI Mockup showing a clean dashboard interface with charts" style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuAasg63CXYGfHA-C6BBXNF3fuzZNgXMJNdJqY4jXayDlhpBqRfxNamjK9AuBPPn2V5L-7FpIrWkxHRhOnqz7beNC_Lyq7LhoukkYbo6XXsaZEnez0DXYwwatp-qHvmGds2vUihzW4BtMuIsasxzsoWrIFRgZ-yXbBP5ixBYR5Fgrn5lw65_HXulp78wrZ5-9CCiqPqpdALMFNqHqGZAknMcNp_baRDlOkfuu_HOi_bvyQO5oDSsgmTrzdm7Jp4siAL-zIJbeWJQqkOO");'></div>
+<div class="px-3 py-2 flex justify-between items-center">
+<span class="text-sm font-medium text-text-main">Dashboard_v2.fig</span>
+<span class="material-symbols-outlined text-primary text-sm bg-primary/10 p-1.5 rounded-full hover:bg-primary hover:text-white transition-colors">download</span>
+</div>
+</div>
+<span class="text-xs text-gray-400 ml-1 font-medium">10:24 AM</span>
+</div>
+</div>
+<div class="flex gap-4 max-w-[80%] ml-auto flex-row-reverse">
+<div class="shrink-0 flex flex-col justify-end">
+<div class="bg-center bg-no-repeat bg-cover rounded-full size-10 shadow-sm border border-white" data-alt="Current user profile" style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuCJgW-XtPxU3sbdL1oXT5pD8fANxpoI51iqW4lxV5IWO4766LIzjzi2DJLLPXSjykc9FRQKq08KVRrWp9KOdCcZXrTNp60srjfvGRlyPrUS5f6gSPXf4UaR3QCRKjCJ6dEMC6-YheKJ54AWqi_btRTBZP04RzPONVI9VJg5Qplu-WsqcVfx5sMZKYE8JxxrDtGdHJff4yhRf-eoBJ8CQVz-9PtJYOf7a5n4tpc1sqKhQUm5L31r9Y1tGTx_uzhV0LjMg1b6DCZKec4l");'></div>
+</div>
+<div class="flex flex-col gap-1 items-end">
+<div class="glass-bubble-sent p-4 rounded-3xl rounded-br-none text-base leading-relaxed relative overflow-hidden">
+<div class="absolute inset-0 bg-gradient-to-br from-white/20 to-transparent pointer-events-none"></div>
+<p class="relative z-10 font-medium">Just checking them now. The new color palette looks incredibly clean!</p>
+</div>
+<div class="flex items-center gap-1 mr-1">
+<span class="text-xs text-gray-500 font-medium">10:25 AM</span>
+<span class="material-symbols-outlined text-[14px] text-primary">done_all</span>
+</div>
+</div>
+</div>
+<div class="flex gap-4 max-w-[80%]">
+<div class="shrink-0 flex flex-col justify-end">
+<div class="bg-center bg-no-repeat bg-cover rounded-full size-10 shadow-sm border border-white" data-alt="Small portrait of Alice Chen" style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuDACMxWtvmlLFFKLY7wyNCA59ACkUxySkmMxtXWBBKeglMIYjJYh5uofb1s61DyE5pDlzG5-hxOKgxOezET0L9VXSXjzw4mZZQPhAxkMQcBCURZCPKLmp51avT0iD30OB-H-lJC9p_a8IyueTVTcQ4JaBwOvaTQPFqNvXFUdcOHI_fu5mNl2OCygl5nqK1tFWKdAdoRtrd6bSvsLhvw6tH3DBb1otU8mFUeNAqvZaZbLQGy_CHYcOhrVmmcGsQS14vMMg-4IgpIstgI");'></div>
+</div>
+<div class="flex flex-col gap-1">
+<div class="glass-bubble-received p-4 rounded-3xl rounded-bl-none text-text-main text-base leading-relaxed">
+<p>Great! Can we hop on a quick call to discuss the implementation details?</p>
+</div>
+<span class="text-xs text-gray-400 ml-1 font-medium">10:26 AM</span>
+</div>
+</div>
+<div class="flex gap-4 max-w-[80%]">
+<div class="shrink-0 flex flex-col justify-end">
+<div class="bg-center bg-no-repeat bg-cover rounded-full size-10 shadow-sm opacity-60 border border-white" data-alt="Small portrait of Alice Chen" style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuAMmTnA_Ctx8SE8IvrlvdKwanemA8ipLIWf4nl9NE5oKGbMsB5bZM_XiBaJS7XLoq21-G6WDBGE9eFj_Oh_2f0zgdFlgW3_OAK1xyzEN9wvTlDYhA9RLKr5y_CKUdnA1-FWMyVpyRBpHa84-OFnQzRHviCBuXIriJVq2eAfGrOUZtwj9R3N9uTxOwcVHkwGCIbfZKA891Cl6lk9cLp9bq0XIdcPHFIJ3eP7KTkoE6OJH4slI66ER-9cjjzsyfMm-uDn2uRjjQEozh13");'></div>
+</div>
+<div class="glass-bubble-received px-5 py-4 rounded-3xl rounded-bl-none flex items-center gap-1.5">
+<div class="size-2 rounded-full bg-primary/60 animate-bounce" style="animation-delay: 0ms"></div>
+<div class="size-2 rounded-full bg-primary/60 animate-bounce" style="animation-delay: 150ms"></div>
+<div class="size-2 rounded-full bg-primary/60 animate-bounce" style="animation-delay: 300ms"></div>
+</div>
+</div>
+<div class="h-10"></div>
+</div>
+<div class="p-6 relative">
+<div class="glass-input rounded-full p-2 pl-3 flex items-center gap-2 relative z-20">
+<button class="size-11 flex items-center justify-center rounded-full text-text-sub hover:bg-white/60 hover:text-primary transition-all active:scale-95">
+<span class="material-symbols-outlined text-[26px]">add_circle</span>
+</button>
+<input class="flex-1 bg-transparent border-none focus:ring-0 text-text-main placeholder-gray-500 h-11 px-2 font-medium" placeholder="Type a message..." type="text"/>
+<button class="flex items-center gap-1.5 h-9 px-3 rounded-full bg-gradient-to-r from-primary via-purple-500 to-pink-500 text-white font-bold text-xs shadow-lg shadow-purple-500/30 hover:shadow-purple-500/50 hover:scale-105 transition-all group border border-white/20 mr-1">
+<span class="material-symbols-outlined text-[18px] animate-pulse">spark</span>
+<span class="hidden sm:inline">AI Assist</span>
+</button>
+<div class="w-px h-6 bg-gray-300 mx-1"></div>
+<button class="size-11 flex items-center justify-center rounded-full text-text-sub hover:bg-white/60 hover:text-primary transition-colors">
+<span class="material-symbols-outlined text-[24px]">mic</span>
+</button>
+<button class="size-11 rounded-full bg-primary text-white shadow-lg shadow-primary/30 hover:shadow-primary/50 hover:scale-105 transition-all flex items-center justify-center">
+<span class="material-symbols-outlined text-[20px]">send</span>
+</button>
+</div>
+</div>
+</main>
+</div>
+
+</body></html>

@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Mobile Requests - Light Mode</title>
+<!-- Fonts -->
+<link href="https://fonts.googleapis.com/css2?family=Spline+Sans:wght@300;400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<!-- Tailwind CSS -->
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<!-- Tailwind Config -->
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#8a2ce2",
+                        "background-light": "#fafafa",
+                        "background-dark": "#242428",
+                        "surface-light": "#ffffff",
+                    },
+                    fontFamily: {
+                        "display": ["Spline Sans", "sans-serif"]
+                    },
+                    borderRadius: {
+                        "DEFAULT": "0.5rem",
+                        "lg": "1rem",
+                        "xl": "1.5rem",
+                        "2xl": "2rem",
+                        "full": "9999px"
+                    },
+                    boxShadow: {
+                        'soft': '0 4px 20px -2px rgba(0, 0, 0, 0.05)',
+                        'glow': '0 0 15px rgba(138, 44, 226, 0.3)',
+                    }
+                },
+            },
+        }
+    </script>
+<style>
+        /* Custom Scrollbar for a cleaner look */
+        ::-webkit-scrollbar {
+            width: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #e5e7eb;
+            border-radius: 10px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #d1d5db;
+        }
+        
+        /* Haptic-like button press effect */
+        .btn-press:active {
+            transform: scale(0.97);
+            box-shadow: inset 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        /* Subtle glass effect for sticky headers */
+        .glass-header {
+            background: rgba(250, 250, 250, 0.85);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+        }
+    </style>
+</head>
+<body class="bg-background-light text-[#151117] font-display antialiased overflow-hidden">
+<div class="flex h-screen w-full">
+<!-- Desktop Sidebar (Navigation) -->
+<nav class="hidden md:flex w-[280px] flex-col border-r border-gray-100 bg-surface-light h-full p-6 justify-between shrink-0 z-20 shadow-[4px_0_24px_rgba(0,0,0,0.02)]">
+<div class="flex flex-col gap-8">
+<!-- User Profile Summary -->
+<div class="flex items-center gap-3 pb-6 border-b border-gray-100">
+<div class="relative group cursor-pointer">
+<div class="size-12 rounded-full bg-cover bg-center shadow-sm" data-alt="User profile picture of a woman" style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuCUJUr9JNH5TxMAj0U2vawmcF1x31-c0NOt2kaRvCqTWR5uvEN4MSoNp2lwsi-B_K_JVOuUK2WK4lvoXnQz67C3k0V-JP1DfrWPqWDK7mKVU8zVc1RfPD73gJgGq1JifdaGJ0UlT6k9g5YgN0g0RHyTk_vl6FyGu9Gz_cEFII9MusR3Z68Z0ePFVBuLEj7go0IKZShOiid0x96uSUzAyVPIGQUH7YIlzOaK0uZoXncYDAoDd7dqhYTa4hm9affJmfnmg5FBPdhBB5EC');"></div>
+<div class="absolute bottom-0 right-0 size-3 bg-green-500 border-2 border-white rounded-full"></div>
+</div>
+<div class="flex flex-col">
+<h2 class="text-base font-bold text-[#151117]">Alex Morgan</h2>
+<p class="text-[#766487] text-xs font-medium">Online</p>
+</div>
+</div>
+<!-- Nav Links -->
+<div class="flex flex-col gap-2">
+<a class="flex items-center gap-4 px-4 py-3 rounded-xl text-[#766487] hover:bg-gray-50 transition-colors group" href="#">
+<span class="material-symbols-outlined text-[24px] group-hover:text-primary transition-colors">chat_bubble</span>
+<span class="font-medium">Chats</span>
+</a>
+<a class="flex items-center gap-4 px-4 py-3 rounded-xl bg-primary/10 text-primary transition-colors" href="#">
+<span class="material-symbols-outlined text-[24px] font-variation-settings-'FILL'1">group_add</span>
+<span class="font-medium">Requests</span>
+<span class="ml-auto bg-primary text-white text-[10px] font-bold px-2 py-0.5 rounded-full">3</span>
+</a>
+<a class="flex items-center gap-4 px-4 py-3 rounded-xl text-[#766487] hover:bg-gray-50 transition-colors group" href="#">
+<span class="material-symbols-outlined text-[24px] group-hover:text-primary transition-colors">contacts</span>
+<span class="font-medium">Contacts</span>
+</a>
+<a class="flex items-center gap-4 px-4 py-3 rounded-xl text-[#766487] hover:bg-gray-50 transition-colors group" href="#">
+<span class="material-symbols-outlined text-[24px] group-hover:text-primary transition-colors">explore</span>
+<span class="font-medium">Discover</span>
+</a>
+</div>
+</div>
+<!-- Bottom Settings -->
+<a class="flex items-center gap-4 px-4 py-3 rounded-xl text-[#766487] hover:bg-gray-50 transition-colors" href="#">
+<span class="material-symbols-outlined text-[24px]">settings</span>
+<span class="font-medium">Settings</span>
+</a>
+</nav>
+<!-- Main Content Area - Simulating Mobile Viewport -->
+<main class="flex-1 relative flex justify-center overflow-y-auto bg-background-light">
+<!-- Decorative background elements -->
+<div class="absolute top-0 left-0 w-full h-64 bg-gradient-to-b from-primary/5 to-transparent pointer-events-none"></div>
+<div class="w-full max-w-[520px] pb-20 pt-8 px-4 sm:px-6 flex flex-col gap-6">
+<!-- Page Header -->
+<header class="flex flex-col gap-4 sticky top-0 z-10 glass-header -mx-6 px-6 py-4 border-b border-gray-100/50">
+<div class="flex items-center justify-between">
+<div class="flex flex-col gap-1">
+<h1 class="text-3xl font-black tracking-tight text-[#151117]">Friend Requests</h1>
+<p class="text-[#766487] text-sm">Review your pending connections.</p>
+</div>
+<button class="size-10 flex items-center justify-center rounded-full bg-white border border-gray-100 shadow-sm text-[#151117] hover:bg-gray-50 active:scale-95 transition-all">
+<span class="material-symbols-outlined">tune</span>
+</button>
+</div>
+<!-- Filter Chips -->
+<div class="flex gap-3 overflow-x-auto no-scrollbar pb-1">
+<button class="flex h-9 shrink-0 items-center justify-center px-5 rounded-full bg-[#151117] text-white shadow-lg shadow-black/10 btn-press transition-all">
+<span class="text-sm font-medium">All (3)</span>
+</button>
+<button class="flex h-9 shrink-0 items-center justify-center gap-2 px-5 rounded-full bg-white border border-gray-100 text-[#766487] hover:border-primary/30 hover:text-primary transition-all btn-press">
+<span class="material-symbols-outlined text-[18px] text-primary">auto_awesome</span>
+<span class="text-sm font-medium">AI Matched</span>
+</button>
+<button class="flex h-9 shrink-0 items-center justify-center px-5 rounded-full bg-white border border-gray-100 text-[#766487] hover:border-gray-200 transition-all btn-press">
+<span class="text-sm font-medium">Recent</span>
+</button>
+</div>
+</header>
+<!-- Request List -->
+<div class="flex flex-col gap-5">
+<!-- Card 1: High Match -->
+<div class="group relative flex flex-col gap-4 rounded-2xl bg-white p-5 shadow-soft border border-transparent hover:border-primary/10 transition-all hover:-translate-y-1 duration-300">
+<!-- AI Insight Badge -->
+<div class="absolute top-5 right-5 flex items-center gap-1.5 bg-gradient-to-r from-purple-50 to-pink-50 text-primary px-2.5 py-1 rounded-lg border border-purple-100">
+<span class="material-symbols-outlined text-[14px]">auto_awesome</span>
+<span class="text-xs font-bold">98% Match</span>
+</div>
+<div class="flex gap-4">
+<div class="relative shrink-0">
+<div class="size-16 rounded-2xl bg-cover bg-center shadow-inner" data-alt="Portrait of Sarah Chen" style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuBSGpM_PBwKPIA31s6zwO0NhQ-nO9KQHfYMinK-dJRvN6Oo3WhSyvWOuW960npIYiO56O59E5P2zMASw2_kdr-eo9WFPkWVPV1eVzJ805-3ozgyN_bE5p1Zmj67AmYHGs2gpAzwxGGyb3RLUhLwdTJ-Tb3ekdUCFQBolh0sqv0ZINlUq96CI1RjyQppDjPDf0OjuYvVLo8jg8B2I1EIDCZN-0cMpGTNJDszbImtVX3Zm-fC9X6g2eaKRpze1xf4CYKhB1FQ5ukByx7R');"></div>
+<div class="absolute -bottom-1 -right-1 flex items-center justify-center size-6 bg-white rounded-full shadow-sm">
+<span class="material-symbols-outlined text-[14px] text-primary">psychology</span>
+</div>
+</div>
+<div class="flex flex-col justify-center pt-1">
+<h3 class="text-lg font-bold text-[#151117] leading-tight">Sarah Chen</h3>
+<p class="text-[#766487] text-sm">UX Researcher @ TechFlow</p>
+<p class="text-xs text-gray-400 mt-1 flex items-center gap-1">
+<span class="material-symbols-outlined text-[12px]">group</span> 12 Mutual friends
+                                </p>
+</div>
+</div>
+<!-- Action Buttons -->
+<div class="grid grid-cols-[1fr_auto] gap-3 mt-1">
+<button class="relative overflow-hidden flex h-12 items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-[#8a2ce2] to-[#6A0DAD] text-white font-semibold text-sm shadow-lg shadow-primary/25 hover:shadow-primary/40 transition-all btn-press group/btn">
+<span class="material-symbols-outlined text-[20px] group-hover/btn:scale-110 transition-transform">check</span>
+<span>Accept Request</span>
+<!-- Shine effect -->
+<div class="absolute inset-0 bg-white/20 translate-x-[-100%] group-hover/btn:translate-x-[100%] transition-transform duration-700 pointer-events-none skew-x-12"></div>
+</button>
+<button class="flex size-12 items-center justify-center rounded-xl bg-gray-50 text-gray-400 hover:bg-gray-100 hover:text-red-500 transition-colors btn-press">
+<span class="material-symbols-outlined text-[24px]">close</span>
+</button>
+</div>
+</div>
+<!-- Card 2: Medium Match -->
+<div class="group relative flex flex-col gap-4 rounded-2xl bg-white p-5 shadow-soft border border-transparent hover:border-primary/10 transition-all hover:-translate-y-1 duration-300">
+<div class="absolute top-5 right-5 flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-gray-50 text-gray-500">
+<span class="text-xs font-semibold">New</span>
+</div>
+<div class="flex gap-4">
+<div class="relative shrink-0">
+<div class="size-16 rounded-2xl bg-cover bg-center shadow-inner" data-alt="Portrait of Marcus O'Neil" style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuDpb_qRV-S3BHnAfoMg4pjWLfThUIBZvzlwUcobtL_tKWYWlE-1PZmWqKKMBAYlwrnt_YwVkRbIq-rG5j9Ewmss3OKRjMwgrgd5IoxRMCLMeDwhjt_pphgPAYRqxFKLlV-LOM1DJl0WYY621LE4VTNpYpbgDwPVzQCVtfQmX3H91pLfwR-lxgUIO02WqF_st_Etwb7mJd2ujZerrMhXaBmw8lzBsVxnKb4ELKDmjOacFOlewuqznktGOy32ebTkx-le4oE9FW30r49V');"></div>
+</div>
+<div class="flex flex-col justify-center pt-1">
+<h3 class="text-lg font-bold text-[#151117] leading-tight">Marcus O'Neil</h3>
+<p class="text-[#766487] text-sm">Prompt Engineer</p>
+<p class="text-xs text-gray-400 mt-1 flex items-center gap-1">
+<span class="material-symbols-outlined text-[12px]">location_on</span> San Francisco, CA
+                                </p>
+</div>
+</div>
+<div class="grid grid-cols-[1fr_auto] gap-3 mt-1">
+<button class="relative overflow-hidden flex h-12 items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-[#8a2ce2] to-[#6A0DAD] text-white font-semibold text-sm shadow-lg shadow-primary/25 hover:shadow-primary/40 transition-all btn-press group/btn">
+<span class="material-symbols-outlined text-[20px] group-hover/btn:scale-110 transition-transform">check</span>
+<span>Accept Request</span>
+</button>
+<button class="flex size-12 items-center justify-center rounded-xl bg-gray-50 text-gray-400 hover:bg-gray-100 hover:text-red-500 transition-colors btn-press">
+<span class="material-symbols-outlined text-[24px]">close</span>
+</button>
+</div>
+</div>
+<!-- Card 3: Lower Match/Generic -->
+<div class="group relative flex flex-col gap-4 rounded-2xl bg-white p-5 shadow-soft border border-transparent hover:border-primary/10 transition-all hover:-translate-y-1 duration-300 opacity-90 hover:opacity-100">
+<div class="flex gap-4">
+<div class="relative shrink-0">
+<div class="size-16 rounded-2xl bg-cover bg-center shadow-inner grayscale opacity-80 group-hover:grayscale-0 group-hover:opacity-100 transition-all" data-alt="Portrait of Anya Petrova" style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuD91YWFr4mhVTFSVbUbJNE2EKQ_3skhsrHFFYitfRuKY-5bUjfwGk8rGvwIe43wYZA8qwfFJFSA0e01MRHCWCDu9DNnEfQA_WPWIB5_e4315OCgOWFQtqGerdB5qM2InHtcL7gux9NF7VGNEo4sxBn0Z5DlRwS6Qjy8QpJusaUtsMAy6EFe2_iR9WJR8JhSGYwLIeU_-6VlX56CPCfrwWxdW4wp1q9GdUvNrODi2LeB4r5blKR4SxznZuOPuwD-KYOu_Ira_87zwDUm');"></div>
+</div>
+<div class="flex flex-col justify-center pt-1">
+<h3 class="text-lg font-bold text-[#151117] leading-tight">Anya Petrova</h3>
+<p class="text-[#766487] text-sm">Digital Artist</p>
+<p class="text-xs text-gray-400 mt-1">Found via Global Search</p>
+</div>
+</div>
+<div class="grid grid-cols-[1fr_auto] gap-3 mt-1">
+<button class="relative overflow-hidden flex h-12 items-center justify-center gap-2 rounded-xl bg-white border-2 border-primary/10 text-primary font-bold text-sm hover:bg-primary/5 hover:border-primary transition-all btn-press">
+<span>Accept Request</span>
+</button>
+<button class="flex size-12 items-center justify-center rounded-xl bg-gray-50 text-gray-400 hover:bg-gray-100 hover:text-red-500 transition-colors btn-press">
+<span class="material-symbols-outlined text-[24px]">close</span>
+</button>
+</div>
+</div>
+<!-- Empty State Placeholder (for visual balance) -->
+<div class="flex flex-col items-center justify-center py-10 opacity-50">
+<div class="size-16 bg-gray-100 rounded-full flex items-center justify-center mb-3">
+<span class="material-symbols-outlined text-gray-400 text-2xl">done_all</span>
+</div>
+<p class="text-sm text-gray-500 font-medium">That's all for now</p>
+</div>
+</div>
+</div>
+<!-- Mobile Bottom Nav (Visible only on small screens) -->
+<div class="fixed bottom-0 left-0 w-full bg-white/90 backdrop-blur-md border-t border-gray-100 md:hidden pb-safe px-6 py-3 z-30">
+<div class="flex justify-between items-center max-w-md mx-auto">
+<button class="flex flex-col items-center gap-1 text-gray-400">
+<span class="material-symbols-outlined">chat_bubble</span>
+</button>
+<button class="flex flex-col items-center gap-1 text-primary">
+<span class="material-symbols-outlined font-variation-settings-'FILL'1">group_add</span>
+<div class="size-1.5 bg-primary rounded-full"></div>
+</button>
+<button class="flex flex-col items-center gap-1 text-gray-400">
+<span class="material-symbols-outlined">explore</span>
+</button>
+<button class="flex flex-col items-center gap-1 text-gray-400">
+<div class="size-7 rounded-full bg-gray-200 bg-cover bg-center" data-alt="User profile thumbnail" style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuB_jOQbW7WPsExMGlziU1ynT6qJgy5OMe_KeaPbQqPUQ6zyxt16pr-Pm4N0b8uMd7Z8pl-alLzg7VYiUl8C-hoWvOAiRX4fGC5YjLqzVRjCAG44fX0r06HMyh_qxk5n7GG8bowFmr5k-kBtSQL-uSh8nT2qw-io_iADJhKRi5nbZMvBzS7rTQxQVbNHMIUzpXumQlLR3uvmk25ujogH_VjjkhradKYzhX7-txC99pvk_lFJ9HyV8GTVUrtV3ihUi_2e17DxBODCh485');"></div>
+</button>
+</div>
+</div>
+</main>
+</div>
+</body></html>
