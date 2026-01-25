@@ -5,12 +5,8 @@ networks:
     driver: overlay
     attachable: true
 
-volumes:
-  mysql-data:
-  redis-data:
-  es-data:
-  rabbitmq-data:
-  etcd-data:
+# 所有中间件数据都使用本地目录绑定，不再使用 Docker volume
+# 数据存储在 ./docker_image_data/ 目录下
 
 services:
   # ========== 基础设施服务 ==========
@@ -25,7 +21,7 @@ services:
       - "2379:2379"
       - "2380:2380"
     volumes:
-      - etcd-data:/etcd-data
+      - ./docker_image_data/etcd:/etcd-data
     environment:
       - ETCD_NAME=etcd-node
       - ETCD_DATA_DIR=/etcd-data
@@ -58,7 +54,7 @@ services:
     ports:
       - "3306:3306"
     volumes:
-      - mysql-data:/var/lib/mysql
+      - ./docker_image_data/mysql:/var/lib/mysql
       - ./SQL_Code/init_all.sql:/docker-entrypoint-initdb.d/init.sql:ro
     environment:
       - MYSQL_ROOT_PASSWORD=Cydia4384!
@@ -84,7 +80,7 @@ services:
     ports:
       - "6379:6379"
     volumes:
-      - redis-data:/data
+      - ./docker_image_data/redis:/data
     command: redis-server --appendonly yes
     deploy:
       replicas: 1
@@ -106,11 +102,12 @@ services:
       - "9200:9200"
       - "9300:9300"
     volumes:
-      - es-data:/usr/share/elasticsearch/data
+      - ./docker_image_data/elasticsearch:/usr/share/elasticsearch/data
     environment:
       - discovery.type=single-node
       - xpack.security.enabled=false
-      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+      # 降低 JVM 内存以适配主机资源
+      - "ES_JAVA_OPTS=-Xms256m -Xmx256m"
     deploy:
       replicas: 1
       restart_policy:
@@ -134,7 +131,7 @@ services:
       - "5672:5672"
       - "15672:15672"
     volumes:
-      - rabbitmq-data:/var/lib/rabbitmq
+      - ./docker_image_data/rabbitmq:/var/lib/rabbitmq
     environment:
       - RABBITMQ_DEFAULT_USER=root
       - RABBITMQ_DEFAULT_PASS=czhuowen

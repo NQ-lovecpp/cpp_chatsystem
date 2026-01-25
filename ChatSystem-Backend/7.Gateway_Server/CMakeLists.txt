@@ -60,5 +60,12 @@ include_directories(${CMAKE_CURRENT_BINARY_DIR})
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/../Common)
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/../Third-party)
 
+# 测试客户端
+set(test_client "gateway_api_test")
+set(test_files "")
+aux_source_directory(${CMAKE_CURRENT_SOURCE_DIR}/test test_files)
+add_executable(${test_client} ${test_files} ${proto_srcs})
+target_link_libraries(${test_client} -pthread -lgtest -lgflags -lspdlog -lfmt -lbrpc -lssl -lcrypto -lprotobuf -lleveldb -letcd-cpp-api -lcpprest -lcurl -ldl)
+
 #8. 设置安装路径
-INSTALL(TARGETS ${target} RUNTIME DESTINATION bin)
+INSTALL(TARGETS ${target} ${test_client} RUNTIME DESTINATION bin)
