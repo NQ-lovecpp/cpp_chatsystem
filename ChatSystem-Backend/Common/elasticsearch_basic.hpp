@@ -295,6 +295,8 @@ private:
 
     Json::Value _must;
 
+    // ES 主机地址，用于直接构造 _search 请求
+    std::string _es_host;
     std::shared_ptr<elasticlient::Client> _client; // ES客户端
 public:
     ESSearch(const std::string &index_name, 
@@ -303,7 +305,13 @@ public:
         :_name(index_name)
         , _type(index_type)
         , _client(es_client_ptr)
-    {}
+         , _es_host("http://127.0.0.1:9200")
+    {
+        // 允许通过环境变量覆盖 ES 主机地址（例如 http://es:9200）
+        if (const char* env = std::getenv("ES_HOST")) {
+            _es_host = env;
+        }
+    }
     ~ESSearch() {}
 
     ESSearch& append_must_term(const std::string &key, const std::string &value)
@@ -381,18 +389,24 @@ public:
         }
 
         try {
-            // 2. 发起搜索请求
-            auto resp = _client->search(_name, _type, body);
-            if (resp.status_code < 200 | resp.status_code >= 300) {
-                LOG_ERROR("查找数据 {} 失败，响应状态码：", body, resp.status_code);
+            // 2. 发起搜索请求（使用 HTTP POST 而不是 elasticlient 的 PUT 误用）
+            auto resp = cpr::Post(
+                cpr::Url{_es_host + "/" + _name + "/_search"},
+                cpr::Header{{"Content-Type", "application/json"}},
+                cpr::Body{body});
+            if (resp.error) {
+                LOG_ERROR("查找数据 {} 失败，HTTP 错误：{}", _name, resp.error.message);
+                return Json::Value();
+            }
+            if (resp.status_code < 200 || resp.status_code >= 300) {
+                LOG_ERROR("查找数据 {} 失败，响应状态码：{}", _name, resp.status_code);
                 LOG_DEBUG("响应正文：\n{}", resp.text);
                 return Json::Value();
-            } else {
-                // 3. 打印响应状态码和响应正文
-                LOG_DEBUG("查找数据 {} 成功，查询query：{}", _name, body);
-                LOG_DEBUG("ES服务器发回响应，状态码: {}", resp.status_code);
-                LOG_DEBUG("响应正文：\n{}", resp.text);
             }
+            // 3. 打印响应状态码和响应正文
+            LOG_DEBUG("查找数据 {} 成功，查询query：{}", _name, body);
+            LOG_DEBUG("ES服务器发回响应，状态码: {}", resp.status_code);
+            LOG_DEBUG("响应正文：\n{}", resp.text);
             // 4. 反序列化
             Json::Value json_result;
             ret = Deserialize(resp.text, &json_result);
