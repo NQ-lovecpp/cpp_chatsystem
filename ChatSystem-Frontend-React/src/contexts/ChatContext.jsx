@@ -7,7 +7,8 @@ import { createContext, useContext, useState, useCallback, useEffect } from 'rea
 import { useAuth } from './AuthContext';
 import { getChatSessionList } from '../api/sessionApi';
 import { getFriendList, getPendingFriendEvents } from '../api/friendApi';
-import { getRecentMessages } from '../api/messageApi';
+import { getHistoryMessages } from '../api/messageApi';
+import { decodeMessageInfo } from '../api/httpClient';
 import wsClient from '../api/wsClient';
 
 const ChatContext = createContext(null);
@@ -61,16 +62,27 @@ export function ChatProvider({ children }) {
         }
     }, [sessionId, userId]);
 
-    // 加载会话消息
+    // 加载会话消息 (获取历史记录)
     const loadMessages = useCallback(async (chatSessionId) => {
         if (!sessionId || !chatSessionId || !userId) return;
 
-        const result = await getRecentMessages(sessionId, userId, chatSessionId);
-        if (result.success && result.msg_list) {
-            setMessages(prev => ({
-                ...prev,
-                [chatSessionId]: result.msg_list,
-            }));
+        // 获取最近 24 小时的消息，或者所有消息 (时间戳 0 - 当前时间)
+        const now = Math.floor(Date.now() / 1000); // 秒级时间戳? Protobuf 通常是秒或毫秒，需确认。
+        // 假设后端使用秒或毫秒。查看 base.proto 或现有代码。
+        // 既然不确定，先传当前时间戳 (毫秒) 和 0
+        const overTime = Date.now();
+        const startTime = 0;
+
+        try {
+            const result = await getHistoryMessages(sessionId, userId, chatSessionId, startTime, overTime);
+            if (result.success && result.msg_list) {
+                setMessages(prev => ({
+                    ...prev,
+                    [chatSessionId]: result.msg_list,
+                }));
+            }
+        } catch (error) {
+            console.error('获取历史消息失败:', error);
         }
     }, [sessionId, userId]);
 
@@ -96,9 +108,66 @@ export function ChatProvider({ children }) {
 
         // 处理新消息
         wsClient.onMessage(NotifyType.CHAT_MESSAGE, (data) => {
+            console.log('[ChatContext] 收到新消息通知:', data);
+
+            let msg = null;
+
+            // 1. 尝试直接获取 (如果 wsClient 已经解析)
             if (data.new_message_info?.message_info) {
-                const msg = data.new_message_info.message_info;
+                msg = data.new_message_info.message_info;
+            }
+            // 2. 尝试从 field_6_data 解码 (new_message_info) -> message_info
+            else if (data.field_6_data) {
+                try {
+                    // NotifyNewMessage { MessageInfo message_info = 1; }
+                    // field_6_data 是 NotifyNewMessage 的 bytes
+                    // 我们需要解码 field 1
+
+                    const bytes = new Uint8Array(data.field_6_data);
+                    // 简单的手动解码: tag(1<<3|2) + length + bytes
+                    let pos = 0;
+                    while (pos < bytes.length) {
+                        const [tag, newPos] = wsClient.decodeVarint(bytes, pos);
+                        pos = newPos;
+                        const fieldNum = tag >> 3;
+                        const wireType = tag & 7;
+
+                        if (wireType === 2) {
+                            const [len, newPos2] = wsClient.decodeVarint(bytes, pos);
+                            pos = newPos2;
+                            const fieldData = bytes.slice(pos, pos + len);
+                            pos += len;
+
+                            if (fieldNum === 1) { // message_info
+                                msg = decodeMessageInfo(fieldData);
+                                break;
+                            }
+                        } else {
+                            break; // 暂不支持其他类型跳过
+                        }
+                    }
+                } catch (e) {
+                    console.error('解码新消息通知失败:', e);
+                }
+            }
+
+            if (msg) {
+                console.log('[ChatContext] 解析出新消息:', msg);
                 addMessage(msg.chat_session_id, msg);
+
+                // 如果不是当前会话，显示通知
+                if (msg.chat_session_id !== currentSessionId) {
+                    // TODO: 使用 Toast 或 Notification API
+                    console.log(`收到来自会话 ${msg.chat_session_id} 的新消息`);
+                    // 简单的浏览器通知
+                    if (Notification.permission === 'granted') {
+                        new Notification(`新消息: ${msg.sender?.nickname || '用户'}`, {
+                            body: msg.message?.string_message?.content || '[消息]',
+                        });
+                    } else if (Notification.permission !== 'denied') {
+                        Notification.requestPermission();
+                    }
+                }
             }
         });
 

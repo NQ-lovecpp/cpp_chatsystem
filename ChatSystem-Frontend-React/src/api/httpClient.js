@@ -618,7 +618,7 @@ function decodeUserInfo(bytes) {
  * 解码 MessageInfo 消息 (用于 prev_message)
  * message MessageInfo { message_id=1, chat_session_id=2, timestamp=3, sender=4, message=5 }
  */
-function decodeMessageInfo(bytes) {
+export function decodeMessageInfo(bytes) {
     const result = {};
     let pos = 0;
 
