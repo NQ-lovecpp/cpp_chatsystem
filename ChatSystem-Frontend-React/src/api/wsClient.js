@@ -194,7 +194,12 @@ class WebSocketClient {
                 // Varint
                 const [value, newPos2] = this.decodeVarint(bytes, pos);
                 pos = newPos2;
-                if (fieldNum === 1) result.notify_type = value;
+                if (fieldNum === 2) {
+                    result.notify_type = value;
+                    console.log('[WebSocket] Parsed notify_type:', value);
+                } else {
+                    console.log('[WebSocket] Ignored varint field:', fieldNum, value);
+                }
             } else if (wireType === 2) {
                 // Length-delimited
                 const [length, newPos2] = this.decodeVarint(bytes, pos);
