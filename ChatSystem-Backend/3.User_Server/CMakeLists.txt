@@ -96,7 +96,18 @@ target_link_libraries(${target}
 
 # 新增三个可执行文件：es_test、mysql_test、redis_test
 add_executable(es_test ${CMAKE_CURRENT_SOURCE_DIR}/test/es_test/main.cc)
-target_link_libraries(es_test -lgflags -ljsoncpp -lspdlog -lelasticlient /usr/lib/x86_64-linux-gnu/libjsoncpp.so.19 -ldl)
+# es_test 需要 elasticlient 与 cpr（cpr 依赖 curl/ssl），否则会出现 DSO missing 错误
+target_link_libraries(es_test
+    -lgflags
+    -ljsoncpp
+    -lspdlog
+    -lelasticlient
+    -lcpr
+    -lcurl
+    -lssl
+    -lcrypto
+    /usr/lib/x86_64-linux-gnu/libjsoncpp.so.19
+    -ldl)
 
 add_executable(mysql_test
     ${CMAKE_CURRENT_SOURCE_DIR}/test/mysql_test/main.cc
