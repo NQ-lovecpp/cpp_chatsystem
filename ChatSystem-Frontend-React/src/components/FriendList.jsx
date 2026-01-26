@@ -6,6 +6,7 @@ import { useState } from 'react';
 import { useChat } from '../contexts/ChatContext';
 import { useAuth } from '../contexts/AuthContext';
 import { searchFriend, addFriendApply, addFriendProcess } from '../api/friendApi';
+import FriendInfoModal from './FriendInfoModal';
 
 export default function FriendList() {
     const { friends, friendRequests, loadFriends, loadFriendRequests } = useChat();
@@ -16,6 +17,7 @@ export default function FriendList() {
     const [searchResults, setSearchResults] = useState([]);
     const [searching, setSearching] = useState(false);
     const [activeTab, setActiveTab] = useState('friends'); // friends, requests, search
+    const [selectedFriend, setSelectedFriend] = useState(null);
 
     // 搜索好友
     const handleSearch = async () => {
@@ -25,7 +27,11 @@ export default function FriendList() {
         setActiveTab('search');
         const result = await searchFriend(sessionId, userId, searchQuery);
         if (result.success && result.user_info) {
-            setSearchResults(result.user_info);
+            // 确保 user_info 始终是数组（后端可能返回单个对象或数组）
+            const users = Array.isArray(result.user_info)
+                ? result.user_info
+                : [result.user_info];
+            setSearchResults(users);
         } else {
             setSearchResults([]);
         }
@@ -153,7 +159,11 @@ export default function FriendList() {
                             </div>
                         ) : (
                             friends.map((friend) => (
-                                <div key={friend.user_id} className="flex items-center gap-3 p-3 hover:bg-gray-50 rounded-xl transition-colors cursor-pointer">
+                                <div
+                                    key={friend.user_id}
+                                    onClick={() => setSelectedFriend(friend)}
+                                    className="flex items-center gap-3 p-3 hover:bg-gray-50 rounded-xl transition-colors cursor-pointer"
+                                >
                                     <div className="w-10 h-10 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-white font-medium">
                                         {friend.nickname?.charAt(0)?.toUpperCase() || 'U'}
                                     </div>
@@ -204,6 +214,14 @@ export default function FriendList() {
                     </div>
                 )}
             </div>
+            {/* 好友信息弹窗 */}
+            {selectedFriend && (
+                <FriendInfoModal
+                    friend={selectedFriend}
+                    onClose={() => setSelectedFriend(null)}
+                    onStartChat={() => setActiveTab('friends')}
+                />
+            )}
         </div>
     );
 }

@@ -468,6 +468,69 @@ function encodeNewMessageReq(data) {
     );
 }
 
+/**
+ * 编码 SetUserNicknameReq (修改昵称)
+ * message SetUserNicknameReq {
+ *   string request_id = 1;
+ *   string user_id = 2;
+ *   string session_id = 3;
+ *   string nickname = 4;
+ * }
+ */
+function encodeSetUserNicknameReq(data) {
+    return concatArrays(
+        encodeStringField(1, data.request_id),
+        encodeStringField(2, data.user_id || ''),
+        encodeStringField(3, data.session_id || ''),
+        encodeStringField(4, data.nickname || '')
+    );
+}
+
+/**
+ * 编码 SetUserDescriptionReq (修改签名)
+ * message SetUserDescriptionReq {
+ *   string request_id = 1;
+ *   string user_id = 2;
+ *   string session_id = 3;
+ *   string description = 4;
+ * }
+ */
+function encodeSetUserDescriptionReq(data) {
+    return concatArrays(
+        encodeStringField(1, data.request_id),
+        encodeStringField(2, data.user_id || ''),
+        encodeStringField(3, data.session_id || ''),
+        encodeStringField(4, data.description || '')
+    );
+}
+
+/**
+ * 编码 SetUserAvatarReq (修改头像)
+ * message SetUserAvatarReq {
+ *   string request_id = 1;
+ *   string user_id = 2;
+ *   string session_id = 3;
+ *   bytes avatar = 4;
+ * }
+ */
+function encodeSetUserAvatarReq(data) {
+    const parts = [
+        encodeStringField(1, data.request_id),
+        encodeStringField(2, data.user_id || ''),
+        encodeStringField(3, data.session_id || ''),
+    ];
+    // avatar 是 bytes 字段
+    if (data.avatar) {
+        const avatarData = typeof data.avatar === 'string'
+            ? new TextEncoder().encode(data.avatar)
+            : data.avatar;
+        const avatarTag = encodeVarint((4 << 3) | 2);
+        const avatarLen = encodeVarint(avatarData.length);
+        parts.push(concatArrays(avatarTag, avatarLen, avatarData));
+    }
+    return concatArrays(...parts);
+}
+
 // 消息编码器映射
 const encoders = {
     // 用户相关
@@ -475,6 +538,9 @@ const encoders = {
     '/service/user/username_register': encodeUserRegisterReq,
     '/service/user/get_user_info': encodeGetUserInfoReq,
     '/service/user/get_multi_user_info': encodeGetMultiUserInfoReq,
+    '/service/user/set_nickname': encodeSetUserNicknameReq,
+    '/service/user/set_description': encodeSetUserDescriptionReq,
+    '/service/user/set_avatar': encodeSetUserAvatarReq,
     // 好友相关
     '/service/friend/get_friend_list': encodeGetFriendListReq,
     '/service/friend/search_friend': encodeFriendSearchReq,
@@ -509,9 +575,50 @@ function decodeVarint(bytes, pos) {
 }
 
 /**
- * 解码嵌套的 protobuf 消息 (如 UserInfo)
+ * 解码 UserInfo 消息
+ * message UserInfo { user_id=1, nickname=2, description=3, phone=4, avatar_id=5 }
  */
-function decodeNestedMessage(bytes) {
+function decodeUserInfo(bytes) {
+    const result = {};
+    let pos = 0;
+
+    while (pos < bytes.length) {
+        const [tagValue, newPos1] = decodeVarint(bytes, pos);
+        pos = newPos1;
+        const fieldNum = tagValue >> 3;
+        const wireType = tagValue & 0x07;
+
+        if (wireType === 2) {
+            const [length, newPos2] = decodeVarint(bytes, pos);
+            pos = newPos2;
+            if (pos + length > bytes.length) break;
+            const data = bytes.slice(pos, pos + length);
+            pos += length;
+
+            try {
+                const str = new TextDecoder().decode(data);
+                if (fieldNum === 1) result.user_id = str;
+                else if (fieldNum === 2) result.nickname = str;
+                else if (fieldNum === 3) result.description = str;
+                else if (fieldNum === 4) result.phone = str;
+                else if (fieldNum === 5) result.avatar_id = str;
+            } catch {
+                // ignore
+            }
+        } else if (wireType === 0) {
+            const [value, newPos2] = decodeVarint(bytes, pos);
+            pos = newPos2;
+        } else {
+            break;
+        }
+    }
+}
+
+/**
+ * 解码 MessageInfo 消息 (用于 prev_message)
+ * message MessageInfo { message_id=1, chat_session_id=2, timestamp=3, sender=4, message=5 }
+ */
+function decodeMessageInfo(bytes) {
     const result = {};
     let pos = 0;
 
@@ -522,30 +629,226 @@ function decodeNestedMessage(bytes) {
         const wireType = tagValue & 0x07;
 
         if (wireType === 0) {
-            // Varint
+            // Varint (timestamp)
             const [value, newPos2] = decodeVarint(bytes, pos);
             pos = newPos2;
-            result[`field${fieldNum}`] = value;
+            if (fieldNum === 3) result.timestamp = value;
         } else if (wireType === 2) {
-            // Length-delimited
             const [length, newPos2] = decodeVarint(bytes, pos);
             pos = newPos2;
             if (pos + length > bytes.length) break;
             const data = bytes.slice(pos, pos + length);
             pos += length;
 
-            try {
-                const str = new TextDecoder().decode(data);
-                // 根据字段号映射到具体字段名
-                // UserInfo: user_id=1, nickname=2, description=3, phone=4, avatar_id=5
-                if (fieldNum === 1) result.user_id = str;
-                else if (fieldNum === 2) result.nickname = str;
-                else if (fieldNum === 3) result.description = str;
-                else if (fieldNum === 4) result.phone = str;
-                else if (fieldNum === 5) result.avatar_id = str;
-                else result[`field${fieldNum}`] = str;
-            } catch {
-                result[`field${fieldNum}_bytes`] = Array.from(data);
+            if (fieldNum === 1) {
+                result.message_id = new TextDecoder().decode(data);
+            } else if (fieldNum === 2) {
+                result.chat_session_id = new TextDecoder().decode(data);
+            } else if (fieldNum === 4) {
+                result.sender = decodeUserInfo(data);
+            } else if (fieldNum === 5) {
+                result.message = decodeMessageContent(data);
+            }
+        } else {
+            break;
+        }
+    }
+    return result;
+}
+
+/**
+ * 解码 MessageContent 消息
+ */
+function decodeMessageContent(bytes) {
+    const result = {};
+    let pos = 0;
+
+    while (pos < bytes.length) {
+        const [tagValue, newPos1] = decodeVarint(bytes, pos);
+        pos = newPos1;
+        const fieldNum = tagValue >> 3;
+        const wireType = tagValue & 0x07;
+
+        if (wireType === 0) {
+            const [value, newPos2] = decodeVarint(bytes, pos);
+            pos = newPos2;
+            if (fieldNum === 1) result.message_type = value;
+        } else if (wireType === 2) {
+            const [length, newPos2] = decodeVarint(bytes, pos);
+            pos = newPos2;
+            if (pos + length > bytes.length) break;
+            const data = bytes.slice(pos, pos + length);
+            pos += length;
+
+            if (fieldNum === 2) {
+                // StringMessageInfo
+                result.string_message = decodeStringMessage(data);
+            } else if (fieldNum === 3) {
+                result.file_message = { file_name: new TextDecoder().decode(data) };
+            } else if (fieldNum === 5) {
+                result.image_message = { file_id: new TextDecoder().decode(data) };
+            }
+        } else {
+            break;
+        }
+    }
+    return result;
+}
+
+/**
+ * 解码 StringMessageInfo
+ */
+function decodeStringMessage(bytes) {
+    let pos = 0;
+    while (pos < bytes.length) {
+        const [tagValue, newPos1] = decodeVarint(bytes, pos);
+        pos = newPos1;
+        const fieldNum = tagValue >> 3;
+        const wireType = tagValue & 0x07;
+
+        if (wireType === 2 && fieldNum === 1) {
+            const [length, newPos2] = decodeVarint(bytes, pos);
+            pos = newPos2;
+            if (pos + length > bytes.length) break;
+            const data = bytes.slice(pos, pos + length);
+            return { content: new TextDecoder().decode(data) };
+        } else {
+            break;
+        }
+    }
+    return { content: '' };
+}
+
+/**
+ * 解码 ChatSessionInfo 消息
+ * message ChatSessionInfo { 
+ *   single_chat_friend_id=1, chat_session_id=2, chat_session_name=3, 
+ *   prev_message=4, avatar=5 
+ * }
+ */
+function decodeChatSessionInfo(bytes) {
+    const result = {};
+    let pos = 0;
+
+    while (pos < bytes.length) {
+        const [tagValue, newPos1] = decodeVarint(bytes, pos);
+        pos = newPos1;
+        const fieldNum = tagValue >> 3;
+        const wireType = tagValue & 0x07;
+
+        if (wireType === 2) {
+            const [length, newPos2] = decodeVarint(bytes, pos);
+            pos = newPos2;
+            if (pos + length > bytes.length) break;
+            const data = bytes.slice(pos, pos + length);
+            pos += length;
+
+            if (fieldNum === 1) {
+                result.single_chat_friend_id = new TextDecoder().decode(data);
+            } else if (fieldNum === 2) {
+                result.chat_session_id = new TextDecoder().decode(data);
+            } else if (fieldNum === 3) {
+                result.chat_session_name = new TextDecoder().decode(data);
+            } else if (fieldNum === 4) {
+                result.prev_message = decodeMessageInfo(data);
+            }
+            // field 5 (avatar) is bytes, skip for now
+        } else if (wireType === 0) {
+            const [, newPos2] = decodeVarint(bytes, pos);
+            pos = newPos2;
+        } else {
+            break;
+        }
+    }
+    return result;
+}
+
+/**
+ * 解码嵌套的 protobuf 消息
+ * 自动检测是 UserInfo 还是 FriendEvent
+ * 
+ * FriendEvent: event_id=1, sender=3(nested UserInfo) -- 没有字段2!
+ * UserInfo: user_id=1, nickname=2, description=3, phone=4, avatar_id=5 -- 有字段2
+ */
+function decodeNestedMessage(bytes) {
+    const result = {};
+    let pos = 0;
+    let hasField2 = false;
+    let hasNestedField3 = false;
+
+    // 第一遍扫描：检测字段结构
+    let scanPos = 0;
+    while (scanPos < bytes.length) {
+        const [tagValue, newPos1] = decodeVarint(bytes, scanPos);
+        scanPos = newPos1;
+        const fieldNum = tagValue >> 3;
+        const wireType = tagValue & 0x07;
+
+        if (wireType === 2) {
+            const [length, newPos2] = decodeVarint(bytes, scanPos);
+            scanPos = newPos2;
+            if (scanPos + length > bytes.length) break;
+
+            if (fieldNum === 2) {
+                hasField2 = true;
+            }
+            if (fieldNum === 3) {
+                // 检查字段3的内容是否是嵌套消息
+                const data = bytes.slice(scanPos, scanPos + length);
+                if (data.length > 0 && (data[0] & 0x07) <= 2) {
+                    hasNestedField3 = true;
+                }
+            }
+            scanPos += length;
+        } else if (wireType === 0) {
+            const [, newPos2] = decodeVarint(bytes, scanPos);
+            scanPos = newPos2;
+        } else {
+            break;
+        }
+    }
+
+    // 判断消息类型：没有字段2且有嵌套字段3的是 FriendEvent
+    const isFriendEvent = !hasField2 && hasNestedField3;
+
+    // 第二遍解析
+    while (pos < bytes.length) {
+        const [tagValue, newPos1] = decodeVarint(bytes, pos);
+        pos = newPos1;
+        const fieldNum = tagValue >> 3;
+        const wireType = tagValue & 0x07;
+
+        if (wireType === 0) {
+            const [value, newPos2] = decodeVarint(bytes, pos);
+            pos = newPos2;
+            result[`field${fieldNum}`] = value;
+        } else if (wireType === 2) {
+            const [length, newPos2] = decodeVarint(bytes, pos);
+            pos = newPos2;
+            if (pos + length > bytes.length) break;
+            const data = bytes.slice(pos, pos + length);
+            pos += length;
+
+            if (isFriendEvent) {
+                // FriendEvent 格式: event_id=1, sender=3
+                if (fieldNum === 1) {
+                    result.event_id = new TextDecoder().decode(data);
+                } else if (fieldNum === 3) {
+                    result.sender = decodeUserInfo(data);
+                }
+            } else {
+                // UserInfo 格式
+                try {
+                    const str = new TextDecoder().decode(data);
+                    if (fieldNum === 1) result.user_id = str;
+                    else if (fieldNum === 2) result.nickname = str;
+                    else if (fieldNum === 3) result.description = str;
+                    else if (fieldNum === 4) result.phone = str;
+                    else if (fieldNum === 5) result.avatar_id = str;
+                    else result[`field${fieldNum}`] = str;
+                } catch {
+                    result[`field${fieldNum}_bytes`] = Array.from(data);
+                }
             }
         } else {
             break;
@@ -556,8 +859,10 @@ function decodeNestedMessage(bytes) {
 
 /**
  * 解码 protobuf 响应
+ * @param {ArrayBuffer} buffer - 响应数据
+ * @param {string} apiPath - API 路径，用于确定正确的解码器
  */
-function decodeProtobufResponse(buffer) {
+function decodeProtobufResponse(buffer, apiPath = '') {
     try {
         const bytes = new Uint8Array(buffer);
         const result = { _rawFields: {} };
@@ -616,9 +921,16 @@ function decodeProtobufResponse(buffer) {
                         // 第一次遇到字段4且是可读字符串，认为是 login_session_id
                         result.login_session_id = strValue;
                     } else {
-                        // 否则尝试解析为嵌套消息
+                        // 根据 API 路径选择正确的解码器
                         try {
-                            const nested = decodeNestedMessage(data);
+                            let nested;
+                            if (apiPath.includes('get_chat_session_list') || apiPath.includes('create_chat_session')) {
+                                // 会话列表使用 ChatSessionInfo 解码器
+                                nested = decodeChatSessionInfo(data);
+                            } else {
+                                // 其他使用通用解码器
+                                nested = decodeNestedMessage(data);
+                            }
                             if (!repeatedFields[fieldNum]) {
                                 repeatedFields[fieldNum] = [];
                             }
@@ -717,7 +1029,7 @@ export async function httpPost(path, data) {
         const buffer = await response.arrayBuffer();
         console.log('[HTTP] Response buffer length:', buffer.byteLength);
 
-        const decoded = decodeProtobufResponse(buffer);
+        const decoded = decodeProtobufResponse(buffer, path);
         console.log('[HTTP] Decoded response:', decoded);
 
         if (decoded) {

@@ -5,13 +5,19 @@
 import { useState, useRef, useEffect } from 'react';
 import { useChat } from '../contexts/ChatContext';
 import { useAuth } from '../contexts/AuthContext';
-import { sendTextMessage } from '../api/messageApi';
+import { sendTextMessage, searchMessages } from '../api/messageApi';
 import MessageInput from './MessageInput';
+import SessionInfoModal from './SessionInfoModal';
 
 export default function MessageArea() {
-    const { currentSession, currentMessages } = useChat();
+    const { currentSession, currentMessages, addMessage } = useChat();
     const { user, sessionId } = useAuth();
     const messagesEndRef = useRef(null);
+    const [showSessionInfo, setShowSessionInfo] = useState(false);
+    const [showSearch, setShowSearch] = useState(false);
+    const [searchQuery, setSearchQuery] = useState('');
+    const [searchResults, setSearchResults] = useState([]);
+    const [searching, setSearching] = useState(false);
 
     // 自动滚动到底部
     useEffect(() => {
@@ -20,9 +26,34 @@ export default function MessageArea() {
 
     // 发送消息
     const handleSendMessage = async (content) => {
-        if (!content.trim() || !currentSession) return;
+        if (!content.trim() || !currentSession || !user?.user_id) return;
 
-        await sendTextMessage(sessionId, currentSession.chat_session_id, content);
+        // 创建本地消息用于即时显示（乐观更新）
+        const localMessage = {
+            message_id: `local_${Date.now()}`,
+            chat_session_id: currentSession.chat_session_id,
+            timestamp: Date.now(),
+            sender: {
+                user_id: user.user_id,
+                nickname: user.nickname,
+            },
+            message: {
+                message_type: 0, // STRING
+                string_message: { content },
+            },
+            _pending: true, // 标记为发送中
+        };
+
+        // 立即添加到本地消息列表
+        addMessage(currentSession.chat_session_id, localMessage);
+
+        try {
+            // 发送到服务器 - 注意参数顺序：sessionId, userId, chatSessionId, content
+            await sendTextMessage(sessionId, user.user_id, currentSession.chat_session_id, content);
+        } catch (error) {
+            console.error('发送消息失败:', error);
+            // TODO: 可以标记消息发送失败
+        }
     };
 
     // 格式化时间
@@ -32,6 +63,30 @@ export default function MessageArea() {
             hour: '2-digit',
             minute: '2-digit',
         });
+    };
+
+    // 消息搜索
+    const handleSearch = async () => {
+        if (!searchQuery.trim() || !currentSession) return;
+
+        setSearching(true);
+        try {
+            const result = await searchMessages(
+                sessionId,
+                user?.user_id,
+                currentSession.chat_session_id,
+                searchQuery
+            );
+            if (result.success && result.msg_list) {
+                setSearchResults(result.msg_list);
+            } else {
+                setSearchResults([]);
+            }
+        } catch (error) {
+            console.error('搜索失败:', error);
+            setSearchResults([]);
+        }
+        setSearching(false);
     };
 
     // 渲染消息内容
@@ -96,19 +151,25 @@ export default function MessageArea() {
     }
 
     return (
-        <div className="h-full flex flex-col">
+        <div className="h-full flex flex-col relative">
             {/* 头部 */}
             <div className="h-16 px-6 flex items-center justify-between border-b border-gray-100 bg-white/80 backdrop-blur-sm shrink-0">
                 <div>
                     <h2 className="font-semibold text-gray-900">{currentSession.chat_session_name}</h2>
                 </div>
                 <div className="flex items-center gap-2">
-                    <button className="p-2 hover:bg-gray-100 rounded-lg transition-colors">
+                    <button
+                        onClick={() => setShowSearch(!showSearch)}
+                        className={`p-2 hover:bg-gray-100 rounded-lg transition-colors ${showSearch ? 'bg-[#E0F2F7] text-[#0B4F6C]' : ''}`}
+                    >
                         <svg className="w-5 h-5 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                         </svg>
                     </button>
-                    <button className="p-2 hover:bg-gray-100 rounded-lg transition-colors">
+                    <button
+                        onClick={() => setShowSessionInfo(true)}
+                        className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                    >
                         <svg className="w-5 h-5 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z" />
                         </svg>
@@ -172,6 +233,54 @@ export default function MessageArea() {
 
             {/* 消息输入区 */}
             <MessageInput onSend={handleSendMessage} />
+
+            {/* 搜索栏 */}
+            {showSearch && (
+                <div className="absolute top-16 left-0 right-0 bg-white border-b border-gray-100 p-3 shadow-md z-10">
+                    <div className="flex gap-2">
+                        <input
+                            type="text"
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                            onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
+                            placeholder="搜索消息..."
+                            className="flex-1 px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#0B4F6C]/20 focus:border-[#0B4F6C]"
+                        />
+                        <button
+                            onClick={handleSearch}
+                            disabled={searching}
+                            className="px-4 py-2 bg-[#0B4F6C] text-white rounded-lg text-sm hover:bg-[#0a4560] transition-colors disabled:opacity-50"
+                        >
+                            {searching ? '...' : '搜索'}
+                        </button>
+                        <button
+                            onClick={() => { setShowSearch(false); setSearchResults([]); setSearchQuery(''); }}
+                            className="px-3 py-2 text-gray-500 hover:bg-gray-100 rounded-lg text-sm"
+                        >
+                            取消
+                        </button>
+                    </div>
+                    {searchResults.length > 0 && (
+                        <div className="mt-2 max-h-60 overflow-y-auto">
+                            <p className="text-xs text-gray-400 mb-2">找到 {searchResults.length} 条结果</p>
+                            {searchResults.map((msg, idx) => (
+                                <div key={idx} className="p-2 hover:bg-gray-50 rounded text-sm">
+                                    <span className="text-gray-400">{msg.sender?.nickname}: </span>
+                                    <span>{msg.message?.string_message?.content || '[消息]'}</span>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                </div>
+            )}
+
+            {/* 会话信息弹窗 */}
+            {showSessionInfo && (
+                <SessionInfoModal
+                    session={currentSession}
+                    onClose={() => setShowSessionInfo(false)}
+                />
+            )}
         </div>
     );
 }

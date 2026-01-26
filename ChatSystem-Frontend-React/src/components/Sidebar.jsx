@@ -2,7 +2,9 @@
  * 左侧导航栏
  */
 
+import { useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
+import UserProfileModal from './UserProfileModal';
 
 const navItems = [
     { id: 'chat', icon: 'chat', label: '消息' },
@@ -31,60 +33,68 @@ const icons = {
 
 export default function Sidebar({ activeTab, onTabChange, user }) {
     const { logout } = useAuth();
+    const [showProfile, setShowProfile] = useState(false);
 
     return (
-        <nav className="w-20 min-w-[80px] flex flex-col items-center py-6 gap-4 border-r border-gray-200 bg-white/95 backdrop-blur-sm z-20 shadow-sm">
-            {/* Logo */}
-            <div className="mb-4">
-                <div className="w-10 h-10 bg-[#0B4F6C] rounded-xl flex items-center justify-center text-white shadow-lg shadow-[#0B4F6C]/30">
-                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-                    </svg>
+        <>
+            <nav className="w-20 min-w-[80px] flex flex-col items-center py-6 gap-4 border-r border-gray-200 bg-white/95 backdrop-blur-sm z-20 shadow-sm">
+                {/* Logo */}
+                <div className="mb-4">
+                    <div className="w-10 h-10 bg-[#0B4F6C] rounded-xl flex items-center justify-center text-white shadow-lg shadow-[#0B4F6C]/30">
+                        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                        </svg>
+                    </div>
                 </div>
-            </div>
 
-            {/* 导航项 */}
-            <div className="flex flex-col gap-3 w-full px-3">
-                {navItems.map((item) => (
-                    <button
-                        key={item.id}
-                        onClick={() => onTabChange(item.id)}
-                        className={`
+                {/* 导航项 */}
+                <div className="flex flex-col gap-3 w-full px-3">
+                    {navItems.map((item) => (
+                        <button
+                            key={item.id}
+                            onClick={() => onTabChange(item.id)}
+                            className={`
               group flex items-center justify-center w-full aspect-square rounded-xl
               transition-all duration-200
               ${activeTab === item.id
-                                ? 'bg-[#0B4F6C] text-white shadow-md shadow-[#0B4F6C]/30'
-                                : 'text-gray-500 hover:text-[#0B4F6C] hover:bg-[#E0F2F7]'
-                            }
+                                    ? 'bg-[#0B4F6C] text-white shadow-md shadow-[#0B4F6C]/30'
+                                    : 'text-gray-500 hover:text-[#0B4F6C] hover:bg-[#E0F2F7]'
+                                }
             `}
-                        title={item.label}
-                    >
-                        {icons[item.icon]}
-                    </button>
-                ))}
-            </div>
-
-            {/* 底部区域 */}
-            <div className="mt-auto flex flex-col gap-3 w-full px-3">
-                {/* 用户头像 */}
-                <div
-                    className="w-10 h-10 mx-auto rounded-xl bg-gradient-to-br from-[#0B4F6C] to-[#0a4560] flex items-center justify-center text-white font-medium cursor-pointer hover:ring-2 hover:ring-[#0B4F6C]/30 transition-all"
-                    title={user?.nickname || '用户'}
-                >
-                    {user?.nickname?.charAt(0)?.toUpperCase() || 'U'}
+                            title={item.label}
+                        >
+                            {icons[item.icon]}
+                        </button>
+                    ))}
                 </div>
 
-                {/* 登出按钮 */}
-                <button
-                    onClick={logout}
-                    className="group flex items-center justify-center w-full aspect-square rounded-xl text-gray-400 hover:text-red-500 hover:bg-red-50 transition-all"
-                    title="退出登录"
-                >
-                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-                    </svg>
-                </button>
-            </div>
-        </nav>
+                {/* 底部区域 */}
+                <div className="mt-auto flex flex-col gap-3 w-full px-3">
+                    {/* 用户头像 */}
+                    <button
+                        onClick={() => setShowProfile(true)}
+                        className="w-10 h-10 mx-auto rounded-xl bg-gradient-to-br from-[#0B4F6C] to-[#0a4560] flex items-center justify-center text-white font-medium cursor-pointer hover:ring-2 hover:ring-[#0B4F6C]/30 transition-all"
+                        title={user?.nickname || '用户'}
+                    >
+                        {user?.nickname?.charAt(0)?.toUpperCase() || 'U'}
+                    </button>
+
+                    {/* 登出按钮 */}
+                    <button
+                        onClick={logout}
+                        className="group flex items-center justify-center w-full aspect-square rounded-xl text-gray-400 hover:text-red-500 hover:bg-red-50 transition-all"
+                        title="退出登录"
+                    >
+                        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                        </svg>
+                    </button>
+                </div>
+            </nav>
+
+            {/* 个人资料弹窗 */}
+            {showProfile && <UserProfileModal onClose={() => setShowProfile(false)} />}
+        </>
     );
 }
+
