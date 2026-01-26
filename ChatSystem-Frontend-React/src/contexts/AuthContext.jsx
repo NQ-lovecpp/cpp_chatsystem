@@ -16,19 +16,39 @@ export function AuthProvider({ children }) {
     const [sessionId, setSessionId] = useState(null);
     const [loading, setLoading] = useState(true);
 
-    // 从 localStorage 恢复会话
+    // 从 localStorage 恢复会话并验证
     useEffect(() => {
-        const stored = localStorage.getItem(AUTH_STORAGE_KEY);
-        if (stored) {
-            try {
-                const data = JSON.parse(stored);
-                setSessionId(data.sessionId);
-                setUser(data.user);
-            } catch (e) {
-                console.error('Failed to restore auth:', e);
+        const initAuth = async () => {
+            const stored = localStorage.getItem(AUTH_STORAGE_KEY);
+            if (stored) {
+                try {
+                    const data = JSON.parse(stored);
+                    if (data.sessionId) {
+                        // 验证 Session 是否有效
+                        console.log('[Auth] Verifying session:', data.sessionId);
+                        const result = await getUserInfo(data.sessionId);
+
+                        if (result.success && result.user_info) {
+                            console.log('[Auth] Session valid, restoring user');
+                            setSessionId(data.sessionId);
+                            setUser(result.user_info);
+
+                            // 恢复 WebSocket 连接
+                            wsClient.connect(data.sessionId);
+                        } else {
+                            console.warn('[Auth] Session invalid or expired, clearing auth');
+                            localStorage.removeItem(AUTH_STORAGE_KEY);
+                        }
+                    }
+                } catch (e) {
+                    console.error('[Auth] Failed to restore auth:', e);
+                    localStorage.removeItem(AUTH_STORAGE_KEY);
+                }
             }
-        }
-        setLoading(false);
+            setLoading(false);
+        };
+
+        initAuth();
     }, []);
 
     // 登录
