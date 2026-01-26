@@ -10,7 +10,7 @@ networks:
 
 services:
   # ========== 基础设施服务 ==========
-  
+
   etcd:
     image: quay.io/coreos/etcd:v3.5.9
     container_name: etcd
@@ -40,7 +40,7 @@ services:
         constraints:
           - node.role == manager
     healthcheck:
-      test: ["CMD", "etcdctl", "endpoint", "health"]
+      test: [ "CMD", "etcdctl", "endpoint", "health" ]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -66,7 +66,7 @@ services:
       restart_policy:
         condition: on-failure
     healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-pCydia4384!"]
+      test: [ "CMD", "mysqladmin", "ping", "-h", "localhost", "-pCydia4384!" ]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -87,7 +87,7 @@ services:
       restart_policy:
         condition: on-failure
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test: [ "CMD", "redis-cli", "ping" ]
       interval: 10s
       timeout: 3s
       retries: 5
@@ -116,7 +116,7 @@ services:
         limits:
           memory: 1G
     healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost:9200/_cluster/health || exit 1"]
+      test: [ "CMD-SHELL", "curl -f http://localhost:9200/_cluster/health || exit 1" ]
       interval: 30s
       timeout: 10s
       retries: 5
@@ -140,7 +140,7 @@ services:
       restart_policy:
         condition: on-failure
     healthcheck:
-      test: ["CMD", "rabbitmq-diagnostics", "ping"]
+      test: [ "CMD", "rabbitmq-diagnostics", "ping" ]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -166,7 +166,7 @@ services:
       etcd:
         condition: service_healthy
     healthcheck:
-      test: ["CMD-SHELL", "nc -z localhost 10001 || exit 1"]
+      test: [ "CMD-SHELL", "nc -z localhost 10001 || exit 1" ]
       interval: 10s
       timeout: 5s
       retries: 3
@@ -190,7 +190,7 @@ services:
       etcd:
         condition: service_healthy
     healthcheck:
-      test: ["CMD-SHELL", "nc -z localhost 10002 || exit 1"]
+      test: [ "CMD-SHELL", "nc -z localhost 10002 || exit 1" ]
       interval: 10s
       timeout: 5s
       retries: 3
@@ -205,6 +205,8 @@ services:
     volumes:
       - ./Configs/user_server.conf:/im/conf/user_server.conf:ro
       - ./docker_image_data/logs:/im/logs:rw
+    environment:
+      - ES_HOST=http://elasticsearch:9200
     deploy:
       replicas: 1
       restart_policy:
@@ -219,7 +221,7 @@ services:
       elasticsearch:
         condition: service_healthy
     healthcheck:
-      test: ["CMD-SHELL", "nc -z localhost 10003 || exit 1"]
+      test: [ "CMD-SHELL", "nc -z localhost 10003 || exit 1" ]
       interval: 10s
       timeout: 5s
       retries: 3
@@ -247,7 +249,7 @@ services:
       rabbitmq:
         condition: service_healthy
     healthcheck:
-      test: ["CMD-SHELL", "nc -z localhost 10004 || exit 1"]
+      test: [ "CMD-SHELL", "nc -z localhost 10004 || exit 1" ]
       interval: 10s
       timeout: 5s
       retries: 3
@@ -263,6 +265,8 @@ services:
       - ./Configs/message_store_server.conf:/im/conf/message_store_server.conf:ro
       - ./docker_image_data/logs:/im/logs:rw
       - ./docker_image_data/data:/im/data:rw
+    environment:
+      - ES_HOST=http://elasticsearch:9200
     deploy:
       replicas: 1
       restart_policy:
@@ -277,7 +281,7 @@ services:
       rabbitmq:
         condition: service_healthy
     healthcheck:
-      test: ["CMD-SHELL", "nc -z localhost 10005 || exit 1"]
+      test: [ "CMD-SHELL", "nc -z localhost 10005 || exit 1" ]
       interval: 10s
       timeout: 5s
       retries: 3
@@ -293,6 +297,8 @@ services:
       - ./Configs/friend_server.conf:/im/conf/friend_server.conf:ro
       - ./docker_image_data/logs:/im/logs:rw
       - ./docker_image_data/data:/im/data:rw
+    environment:
+      - ES_HOST=http://elasticsearch:9200
     deploy:
       replicas: 1
       restart_policy:
@@ -305,7 +311,7 @@ services:
       elasticsearch:
         condition: service_healthy
     healthcheck:
-      test: ["CMD-SHELL", "nc -z localhost 10006 || exit 1"]
+      test: [ "CMD-SHELL", "nc -z localhost 10006 || exit 1" ]
       interval: 10s
       timeout: 5s
       retries: 3
@@ -346,7 +352,7 @@ services:
       friend_server:
         condition: service_healthy
     healthcheck:
-      test: ["CMD-SHELL", "nc -z localhost 9000 || exit 1"]
+      test: [ "CMD-SHELL", "nc -z localhost 9000 || exit 1" ]
       interval: 10s
       timeout: 5s
       retries: 3
