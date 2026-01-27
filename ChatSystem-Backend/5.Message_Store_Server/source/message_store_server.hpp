@@ -347,7 +347,15 @@ namespace chen_im
         // 优化后的双写策略：优先写MySQL，ES写入失败时发送到同步队列
         void when_get_an_message(const char *body, size_t sz)
         {
-            LOG_DEBUG("收到新消息，进行存储处理！");
+            LOG_DEBUG("收到新消息，进行存储处理！消息大小: {} 字节", sz);
+            
+            // 打印消息前20字节的十六进制
+            std::stringstream hex_ss;
+            for (size_t i = 0; i < std::min(sz, (size_t)20); i++) {
+                hex_ss << std::hex << std::setfill('0') << std::setw(2) 
+                       << (int)(unsigned char)body[i] << " ";
+            }
+            LOG_DEBUG("消息内容(前20字节): {}", hex_ss.str());
 
             bool ret;
             
@@ -356,7 +364,12 @@ namespace chen_im
 
             ret = message.ParseFromArray(body, sz);
             if (!ret) {
-                LOG_ERROR("消息反序列化失败！");
+                LOG_ERROR("消息反序列化失败！消息大小: {} 字节", sz);
+                // 保存失败的消息到文件
+                std::ofstream ofs("./buglog_consumer.bin", std::ios::binary);
+                ofs.write(body, sz);
+                ofs.close();
+                LOG_ERROR("失败消息已保存到 buglog_consumer.bin");
                 return;
             }
 

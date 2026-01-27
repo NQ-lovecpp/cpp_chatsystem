@@ -10,11 +10,11 @@ export default defineConfig({
     // 开发时代理后端 API，避免 CORS 问题
     proxy: {
       '/service': {
-        target: 'http://117.72.15.209:9000',
+        target: 'http://127.0.0.1:9000',
         changeOrigin: true,
       },
       '/ws': {
-        target: 'ws://117.72.15.209:9001',
+        target: 'ws://127.0.0.1:9001',
         ws: true,
         changeOrigin: true,
       },

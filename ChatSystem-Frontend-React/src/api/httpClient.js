@@ -10,11 +10,13 @@ import { getHttpBaseUrl, makeRequestId } from './config';
  */
 function encodeVarint(value) {
     const bytes = [];
-    while (value > 127) {
-        bytes.push((value & 0x7f) | 0x80);
-        value >>>= 7;
+    // 使用 BigInt 处理大数值，避免 JavaScript 位运算的 32 位截断问题
+    let bigValue = BigInt(Math.floor(value));
+    while (bigValue > 127n) {
+        bytes.push(Number((bigValue & 0x7fn) | 0x80n));
+        bigValue >>= 7n;
     }
-    bytes.push(value);
+    bytes.push(Number(bigValue));
     return new Uint8Array(bytes);
 }
 
@@ -385,11 +387,11 @@ function encodeNestedField(fieldNumber, bytes) {
  * 编码 MessageContent
  * message MessageContent {
  *   MessageType message_type = 1;
- *   oneof content {
+ *   oneof msg_content {
  *     StringMessageInfo string_message = 2;
- *     ImageMessageInfo image_message = 3;
- *     FileMessageInfo file_message = 4;
- *     SpeechMessageInfo speech_message = 5;
+ *     FileMessageInfo file_message = 3;
+ *     SpeechMessageInfo speech_message = 4;
+ *     ImageMessageInfo image_message = 5;
  *   }
  * }
  */
@@ -402,46 +404,46 @@ function encodeMessageContent(message) {
     const typeVal = encodeVarint(message.message_type || 0);
     parts.push(concatArrays(typeTag, typeVal));
 
-    // 根据类型编码内容
+    // 根据类型编码内容 - 字段编号必须与 proto 定义匹配！
     if (message.message_type === 0 && message.string_message) {
-        // StringMessageInfo: { content: string }
+        // StringMessageInfo: { content: string } -> field 2
         const contentBytes = encodeStringField(1, message.string_message.content || '');
         parts.push(encodeNestedField(2, contentBytes));
     } else if (message.message_type === 1 && message.image_message) {
-        // ImageMessageInfo: { image_content: bytes, file_id: string }
+        // ImageMessageInfo: { file_id = 1, image_content = 2 } -> field 5
         const imgParts = [];
+        if (message.image_message.file_id) {
+            imgParts.push(encodeStringField(1, message.image_message.file_id));
+        }
         if (message.image_message.image_content) {
-            // 编码 bytes 字段
+            // 编码 bytes 字段 (field 2)
             const imgData = typeof message.image_message.image_content === 'string'
                 ? new TextEncoder().encode(message.image_message.image_content)
                 : message.image_message.image_content;
-            const imgTag = encodeVarint((1 << 3) | 2);
+            const imgTag = encodeVarint((2 << 3) | 2);
             const imgLen = encodeVarint(imgData.length);
             imgParts.push(concatArrays(imgTag, imgLen, imgData));
         }
-        if (message.image_message.file_id) {
-            imgParts.push(encodeStringField(2, message.image_message.file_id));
-        }
         if (imgParts.length > 0) {
-            parts.push(encodeNestedField(3, concatArrays(...imgParts)));
+            parts.push(encodeNestedField(5, concatArrays(...imgParts))); // field 5!
         }
     } else if (message.message_type === 2 && message.file_message) {
-        // FileMessageInfo: { file_name: string, file_size: int64, file_contents: bytes, file_id: string }
+        // FileMessageInfo: { file_id = 1, file_size = 2, file_name = 3, file_contents = 4 } -> field 3
         const fileParts = [];
-        fileParts.push(encodeStringField(1, message.file_message.file_name || ''));
+        if (message.file_message.file_id) {
+            fileParts.push(encodeStringField(1, message.file_message.file_id));
+        }
         fileParts.push(encodeInt64Field(2, message.file_message.file_size || 0));
+        fileParts.push(encodeStringField(3, message.file_message.file_name || ''));
         if (message.file_message.file_contents) {
             const fileData = typeof message.file_message.file_contents === 'string'
                 ? new TextEncoder().encode(message.file_message.file_contents)
                 : message.file_message.file_contents;
-            const fileTag = encodeVarint((3 << 3) | 2);
+            const fileTag = encodeVarint((4 << 3) | 2);
             const fileLen = encodeVarint(fileData.length);
             fileParts.push(concatArrays(fileTag, fileLen, fileData));
         }
-        if (message.file_message.file_id) {
-            fileParts.push(encodeStringField(4, message.file_message.file_id));
-        }
-        parts.push(encodeNestedField(4, concatArrays(...fileParts)));
+        parts.push(encodeNestedField(3, concatArrays(...fileParts))); // field 3!
     }
 
     return concatArrays(...parts);
@@ -612,6 +614,7 @@ function decodeUserInfo(bytes) {
             break;
         }
     }
+    return result;
 }
 
 /**
@@ -621,12 +624,17 @@ function decodeUserInfo(bytes) {
 export function decodeMessageInfo(bytes) {
     const result = {};
     let pos = 0;
+    
+    // 调试：记录接收到的字段
+    const debugFields = [];
 
     while (pos < bytes.length) {
         const [tagValue, newPos1] = decodeVarint(bytes, pos);
         pos = newPos1;
         const fieldNum = tagValue >> 3;
         const wireType = tagValue & 0x07;
+        
+        debugFields.push({ fieldNum, wireType, pos });
 
         if (wireType === 0) {
             // Varint (timestamp)
@@ -646,9 +654,102 @@ export function decodeMessageInfo(bytes) {
                 result.chat_session_id = new TextDecoder().decode(data);
             } else if (fieldNum === 4) {
                 result.sender = decodeUserInfo(data);
+                console.log('[DEBUG decodeMessageInfo] field 4 (sender) 解码结果:', result.sender);
             } else if (fieldNum === 5) {
                 result.message = decodeMessageContent(data);
+                console.log('[DEBUG decodeMessageInfo] field 5 (message) 解码结果:', result.message);
             }
+        } else {
+            break;
+        }
+    }
+    
+    console.log('[DEBUG decodeMessageInfo] 解码字段:', debugFields, '结果:', result);
+    return result;
+}
+
+/**
+ * 解码 FileMessageInfo
+ * message FileMessageInfo { file_id=1, file_size=2, file_name=3, file_contents=4 }
+ */
+function decodeFileMessage(bytes) {
+    const result = {};
+    let pos = 0;
+    while (pos < bytes.length) {
+        const [tagValue, newPos1] = decodeVarint(bytes, pos);
+        pos = newPos1;
+        const fieldNum = tagValue >> 3;
+        const wireType = tagValue & 0x07;
+
+        if (wireType === 0) {
+            const [value, newPos2] = decodeVarint(bytes, pos);
+            pos = newPos2;
+            if (fieldNum === 2) result.file_size = value;
+        } else if (wireType === 2) {
+            const [length, newPos2] = decodeVarint(bytes, pos);
+            pos = newPos2;
+            if (pos + length > bytes.length) break;
+            const data = bytes.slice(pos, pos + length);
+            pos += length;
+            if (fieldNum === 1) result.file_id = new TextDecoder().decode(data);
+            else if (fieldNum === 3) result.file_name = new TextDecoder().decode(data);
+            // field 4 (file_contents) 是 bytes，暂不解码
+        } else {
+            break;
+        }
+    }
+    return result;
+}
+
+/**
+ * 解码 ImageMessageInfo
+ * message ImageMessageInfo { file_id=1, image_content=2 }
+ */
+function decodeImageMessage(bytes) {
+    const result = {};
+    let pos = 0;
+    while (pos < bytes.length) {
+        const [tagValue, newPos1] = decodeVarint(bytes, pos);
+        pos = newPos1;
+        const fieldNum = tagValue >> 3;
+        const wireType = tagValue & 0x07;
+
+        if (wireType === 2) {
+            const [length, newPos2] = decodeVarint(bytes, pos);
+            pos = newPos2;
+            if (pos + length > bytes.length) break;
+            const data = bytes.slice(pos, pos + length);
+            pos += length;
+            if (fieldNum === 1) result.file_id = new TextDecoder().decode(data);
+            else if (fieldNum === 2) result.image_content = data; // bytes
+        } else {
+            break;
+        }
+    }
+    return result;
+}
+
+/**
+ * 解码 SpeechMessageInfo
+ * message SpeechMessageInfo { file_id=1, file_contents=2 }
+ */
+function decodeSpeechMessage(bytes) {
+    const result = {};
+    let pos = 0;
+    while (pos < bytes.length) {
+        const [tagValue, newPos1] = decodeVarint(bytes, pos);
+        pos = newPos1;
+        const fieldNum = tagValue >> 3;
+        const wireType = tagValue & 0x07;
+
+        if (wireType === 2) {
+            const [length, newPos2] = decodeVarint(bytes, pos);
+            pos = newPos2;
+            if (pos + length > bytes.length) break;
+            const data = bytes.slice(pos, pos + length);
+            pos += length;
+            if (fieldNum === 1) result.file_id = new TextDecoder().decode(data);
+            // field 2 (file_contents) 是 bytes，暂不解码
         } else {
             break;
         }
@@ -658,6 +759,15 @@ export function decodeMessageInfo(bytes) {
 
 /**
  * 解码 MessageContent 消息
+ * message MessageContent {
+ *   MessageType message_type = 1;
+ *   oneof msg_content {
+ *     StringMessageInfo string_message = 2;
+ *     FileMessageInfo file_message = 3;
+ *     SpeechMessageInfo speech_message = 4;
+ *     ImageMessageInfo image_message = 5;
+ *   }
+ * }
  */
 function decodeMessageContent(bytes) {
     const result = {};
@@ -672,7 +782,9 @@ function decodeMessageContent(bytes) {
         if (wireType === 0) {
             const [value, newPos2] = decodeVarint(bytes, pos);
             pos = newPos2;
-            if (fieldNum === 1) result.message_type = value;
+            if (fieldNum === 1) {
+                result.message_type = value;
+            }
         } else if (wireType === 2) {
             const [length, newPos2] = decodeVarint(bytes, pos);
             pos = newPos2;
@@ -684,14 +796,26 @@ function decodeMessageContent(bytes) {
                 // StringMessageInfo
                 result.string_message = decodeStringMessage(data);
             } else if (fieldNum === 3) {
-                result.file_message = { file_name: new TextDecoder().decode(data) };
+                // FileMessageInfo
+                result.file_message = decodeFileMessage(data);
+            } else if (fieldNum === 4) {
+                // SpeechMessageInfo
+                result.speech_message = decodeSpeechMessage(data);
             } else if (fieldNum === 5) {
-                result.image_message = { file_id: new TextDecoder().decode(data) };
+                // ImageMessageInfo
+                result.image_message = decodeImageMessage(data);
             }
         } else {
             break;
         }
     }
+    
+    // 如果 message_type 不存在，默认为 0 (STRING)
+    // Protobuf 特性：当字段值是默认值(0)时不会被序列化
+    if (result.message_type === undefined) {
+        result.message_type = 0;
+    }
+    
     return result;
 }
 
@@ -914,6 +1038,7 @@ function decodeProtobufResponse(buffer, apiPath = '') {
                     // 字段4可能是:
                     // - login_session_id (UserLoginRsp - 可读字符串)
                     // - user_info / friend_list / chat_session_info_list (嵌套消息)
+                    // - msg_list (GetHistoryMsgRsp / GetRecentMsgRsp / MsgSearchRsp)
                     // 判断标准: 如果字符串以可读字符开头且不包含不可打印字符，则是字符串
                     const isReadableString = strValue && /^[\x20-\x7E]+$/.test(strValue.substring(0, 20));
 
@@ -927,6 +1052,9 @@ function decodeProtobufResponse(buffer, apiPath = '') {
                             if (apiPath.includes('get_chat_session_list') || apiPath.includes('create_chat_session')) {
                                 // 会话列表使用 ChatSessionInfo 解码器
                                 nested = decodeChatSessionInfo(data);
+                            } else if (apiPath.includes('message_storage') || apiPath.includes('get_history') || apiPath.includes('get_recent') || apiPath.includes('search_history')) {
+                                // 消息列表使用 MessageInfo 解码器
+                                nested = decodeMessageInfo(data);
                             } else {
                                 // 其他使用通用解码器
                                 nested = decodeNestedMessage(data);
@@ -967,6 +1095,7 @@ function decodeProtobufResponse(buffer, apiPath = '') {
             result.chat_session_info_list = repeatedFields[4]; // 会话列表
             result.member_info_list = repeatedFields[4]; // 成员列表
             result.event = repeatedFields[4]; // 好友申请事件列表
+            result.msg_list = repeatedFields[4]; // 消息列表
         }
 
         // 确保有 success 字段

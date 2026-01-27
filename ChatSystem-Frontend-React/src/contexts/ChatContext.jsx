@@ -66,12 +66,11 @@ export function ChatProvider({ children }) {
     const loadMessages = useCallback(async (chatSessionId) => {
         if (!sessionId || !chatSessionId || !userId) return;
 
-        // 获取最近 24 小时的消息，或者所有消息 (时间戳 0 - 当前时间)
-        const now = Math.floor(Date.now() / 1000); // 秒级时间戳? Protobuf 通常是秒或毫秒，需确认。
-        // 假设后端使用秒或毫秒。查看 base.proto 或现有代码。
-        // 既然不确定，先传当前时间戳 (毫秒) 和 0
-        const overTime = Date.now();
-        const startTime = 0;
+        // 获取历史消息：时间戳使用秒级（后端期望秒级时间戳）
+        const overTime = Math.floor(Date.now() / 1000); // 转换为秒级时间戳
+        // 使用 2000-01-01 00:00:00 作为起始时间，避免 ODB/MySQL 边界问题
+        // 946684800 = 2000-01-01 00:00:00 UTC
+        const startTime = 946684800;
 
         try {
             const result = await getHistoryMessages(sessionId, userId, chatSessionId, startTime, overTime);
@@ -124,6 +123,7 @@ export function ChatProvider({ children }) {
                     // 我们需要解码 field 1
 
                     const bytes = new Uint8Array(data.field_6_data);
+                    console.log('[DEBUG] field_6_data 字节:', Array.from(bytes.slice(0, 50)).map(b => b.toString(16).padStart(2, '0')).join(' '));
                     // 简单的手动解码: tag(1<<3|2) + length + bytes
                     let pos = 0;
                     while (pos < bytes.length) {
@@ -139,7 +139,9 @@ export function ChatProvider({ children }) {
                             pos += len;
 
                             if (fieldNum === 1) { // message_info
+                                console.log('[DEBUG] 解码 message_info, 数据长度:', fieldData.length);
                                 msg = decodeMessageInfo(fieldData);
+                                console.log('[DEBUG] 解码结果:', JSON.stringify(msg, null, 2));
                                 break;
                             }
                         } else {

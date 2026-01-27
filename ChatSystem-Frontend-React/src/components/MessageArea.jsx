@@ -59,7 +59,10 @@ export default function MessageArea() {
     // 格式化时间
     const formatTime = (timestamp) => {
         if (!timestamp) return '';
-        return new Date(timestamp).toLocaleTimeString('zh-CN', {
+        // 后端返回秒级时间戳，需要转换为毫秒
+        // 如果时间戳小于 1e12，认为是秒级时间戳
+        const ms = timestamp < 1e12 ? timestamp * 1000 : timestamp;
+        return new Date(ms).toLocaleTimeString('zh-CN', {
             hour: '2-digit',
             minute: '2-digit',
         });
@@ -92,6 +95,7 @@ export default function MessageArea() {
     // 渲染消息内容
     const renderMessageContent = (msg) => {
         const content = msg.message;
+        console.log('[DEBUG] 渲染消息:', { msg_id: msg.message_id, content, type: content?.message_type, typeof_type: typeof content?.message_type });
         if (!content) return null;
 
         switch (content.message_type) {

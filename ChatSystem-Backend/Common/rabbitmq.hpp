@@ -31,7 +31,8 @@ public:
     MQClient(const std::string &user, const std::string &password, const std::string &mq_host) 
     {
         // 1.实例化底层网络通信框架的I/O事件监控句柄
-        _loop = EV_DEFAULT;
+        // 使用 ev_loop_new 创建独立的事件循环，避免多个 MQClient 共享 EV_DEFAULT 导致递归冲突
+        _loop = ev_loop_new(0);
 
         // 2.实例化libEventHandler句柄，将AMQP框架与事件监控关联起来
         _handler = std::make_unique<AMQP::LibEvHandler>(_loop);
@@ -126,7 +127,7 @@ public:
                     LOG_ERROR("Callback function is empty!");
                     abort();
                 }
-                callback(message.body(), message.size());
+                callback(message.body(), message.bodySize());
                 _channel->ack(deliveryTag);
             })
             .onError([&](const char* msg) {
@@ -142,7 +143,8 @@ public:
         ev_async_start(_loop, &async_wather);
         ev_async_send(_loop, &async_wather);
         _loop_thread.join();
-        // ev_loop_destroy(_loop); // 二次释放错误
+        // 释放独立创建的事件循环（使用 ev_loop_new 创建的需要手动销毁）
+        ev_loop_destroy(_loop);
     }
 
 private:
