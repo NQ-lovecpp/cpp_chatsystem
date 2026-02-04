@@ -17,7 +17,7 @@ namespace chen_im
     class ChatSession
     {
     public:
-        ChatSession() {}
+        ChatSession() {} //The ODB-generated database support code will use this constructor when instantiating an object from the persistent state. 
         ChatSession(const std::string &ssid,
                     const std::string &ssname, const ChatSessionType sstype) : _chat_session_id(ssid),
                                                                                _chat_session_name(ssname),

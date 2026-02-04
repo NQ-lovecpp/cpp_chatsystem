@@ -74,13 +74,17 @@ namespace chen_im
     {
     public:
         using ptr = std::shared_ptr<Session>;
+        // 默认 TTL：24 小时（支持用户一天内免登录恢复）
+        static constexpr auto DEFAULT_TTL = std::chrono::hours(24);
+
         Session(const std::shared_ptr<sw::redis::Redis> &redis_client) 
             : _redis_client(redis_client) 
         {}
 
         void append(const std::string &ssid, const std::string &uid)
         {
-            _redis_client->set(ssid, uid);
+            // 添加 TTL 防止异常退出时数据残留
+            _redis_client->set(ssid, uid, DEFAULT_TTL);
         }
 
         void remove(const std::string &ssid)
@@ -93,6 +97,12 @@ namespace chen_im
             return _redis_client->get(ssid);
         }
 
+        // 刷新 TTL（用于 keepAlive 时调用）
+        void refresh(const std::string &ssid)
+        {
+            _redis_client->expire(ssid, DEFAULT_TTL);
+        }
+
     private:
         std::shared_ptr<sw::redis::Redis> _redis_client;
     };
@@ -102,10 +112,15 @@ namespace chen_im
     {
     public:
         using ptr = std::shared_ptr<Status>;
+        // 默认 TTL：2 小时（略大于连接异常检测时间，确保异常断开后能自动清理）
+        static constexpr auto DEFAULT_TTL = std::chrono::hours(2);
+
         Status(const std::shared_ptr<sw::redis::Redis> &redis_client) : _redis_client(redis_client) {}
+        
         void append(const std::string &uid)
         {
-            _redis_client->set(uid, "");
+            // 添加 TTL 防止异常退出时数据残留
+            _redis_client->set(uid, "", DEFAULT_TTL);
         }
 
         void remove(const std::string &uid)
@@ -119,6 +134,12 @@ namespace chen_im
             if (res)
                 return true;
             return false;
+        }
+
+        // 刷新 TTL（用于 keepAlive 时调用）
+        void refresh(const std::string &uid)
+        {
+            _redis_client->expire(uid, DEFAULT_TTL);
         }
 
     private:

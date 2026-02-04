@@ -55,12 +55,20 @@ namespace chen_im
                 odb::transaction trans(_db->begin());
                 typedef odb::query<SingleChatSession> query;
                 typedef odb::result<SingleChatSession> result;
-                auto res = _db->query_one<SingleChatSession>(
-                    query::csm1::user_id == uid &&
-                    query::csm2::user_id == pid &&
-                    query::css::chat_session_type == ChatSessionType::SINGLE);
-
-                std::string cssid = res->chat_session_id;
+                
+                // 修复：使用 query + begin() 代替 query_one，避免断言失败
+                result r(_db->query<SingleChatSession>(query::csm1::user_id == uid &&
+                                                       query::csm2::user_id == pid &&
+                                                       query::css::chat_session_type == ChatSessionType::SINGLE));
+                    
+                auto it = r.begin();
+                if (it == r.end()) {
+                    LOG_WARN("未找到 {}-{} 对应的单聊会话，无需删除", uid, pid);
+                    trans.commit();
+                    return true;  // 没有找到也视为成功（幂等性）
+                }
+                
+                std::string cssid = it->chat_session_id;
                 typedef odb::query<ChatSession> cquery;
                 _db->erase_query<ChatSession>(cquery::chat_session_id == cssid);
 

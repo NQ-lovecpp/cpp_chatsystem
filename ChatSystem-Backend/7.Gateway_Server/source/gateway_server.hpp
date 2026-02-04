@@ -220,16 +220,41 @@ namespace chen_im
             LOG_DEBUG("长连接断开，清理缓存数据! 会话id：{}，用户id：{}，长连接句柄：{}", ssid, uid, (size_t)conn.get());
         }
 
-        // 
+        // keepAlive: 定时检查连接状态并刷新 Redis TTL
         void keepAlive(websocket_server_t::connection_ptr conn)
         {
             if (!conn || conn->get_state() != websocketpp::session::state::value::open)
             {
                 LOG_DEBUG("非正常连接状态，结束连接保活");
+                // 主动清理异常连接的资源
+                cleanupDeadConnection(conn);
                 return;
             }
+            
+            // 刷新 Redis TTL，防止正常连接的 session/status 过期
+            std::string uid, ssid;
+            if (_connections->get_client_info(conn, uid, ssid)) {
+                _redis_session->refresh(ssid);
+                _redis_status->refresh(uid);
+            }
+            
             conn->ping("");
             _ws_server.set_timer(60000, std::bind(&GatewayServer::keepAlive, this, conn));
+        }
+
+        // 清理异常断开的连接资源
+        void cleanupDeadConnection(websocket_server_t::connection_ptr conn)
+        {
+            if (!conn) return;
+            
+            std::string uid, ssid;
+            bool ret = _connections->get_client_info(conn, uid, ssid);
+            if (ret) {
+                _redis_session->remove(ssid);
+                _redis_status->remove(uid);
+                _connections->remove_connection(conn);
+                LOG_INFO("清理异常断开连接的资源，用户id：{}，会话id：{}", uid, ssid);
+            }
         }
 
         // 长连接建一旦建立，客户端会向服务器发送一条消息（唯一一次客户端向服务器发消息），包含客户端自己的身份信息，

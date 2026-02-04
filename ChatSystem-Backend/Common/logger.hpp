@@ -22,7 +22,7 @@ void init_logger(bool mode, const std::string &file_name, int log_level)
     if(mode == false) {
         // 如果是调试模式，则创建标准输出的同步日志器，输出等级为最低
         // 1. 创建同步日志器
-        g_default_logger = spdlog::stdout_color_mt("global_sync_logger", spdlog::color_mode::automatic);
+        g_default_logger = spdlog::stdout_color_mt("micro_service", spdlog::color_mode::automatic);
 
         // 2. 设置等级(刷新阈值)
         g_default_logger->set_level(spdlog::level::level_enum::trace);
