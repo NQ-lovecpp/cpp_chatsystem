@@ -7,6 +7,7 @@ import { useState } from 'react';
 import { useChat } from '../contexts/ChatContext';
 import { useAuth } from '../contexts/AuthContext';
 import { removeFriend } from '../api/friendApi';
+import Avatar from './Avatar';
 
 export default function FriendInfoModal({ friend, onClose, onStartChat }) {
     const { sessionId, user } = useAuth();
@@ -69,9 +70,12 @@ export default function FriendInfoModal({ friend, onClose, onStartChat }) {
 
                 {/* 头像 */}
                 <div className="relative -mt-10 flex justify-center">
-                    <div className="w-20 h-20 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-white text-2xl font-bold border-4 border-white shadow-lg">
-                        {friend.nickname?.charAt(0)?.toUpperCase() || 'U'}
-                    </div>
+                    <Avatar
+                        src={friend.avatar}
+                        name={friend.nickname}
+                        size="xl"
+                        className="border-4 border-white shadow-lg"
+                    />
                 </div>
 
                 {/* 内容 */}

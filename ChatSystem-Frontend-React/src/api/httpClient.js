@@ -6,6 +6,36 @@
 import { getHttpBaseUrl, makeRequestId } from './config';
 
 /**
+ * base64 字符串转 Uint8Array（用于上传图片/附件时正确编码 bytes 字段）
+ */
+function base64ToUint8Array(base64) {
+    // 移除可能的 data URL 前缀
+    const cleaned = base64.replace(/^data:[^;]+;base64,/, '');
+    const binary = atob(cleaned);
+    const bytes = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i++) {
+        bytes[i] = binary.charCodeAt(i);
+    }
+    return bytes;
+}
+
+/**
+ * Uint8Array 转 base64 字符串（用于接收图片/附件时正确解码 bytes 字段）
+ */
+function uint8ArrayToBase64(bytes) {
+    if (!bytes || bytes.length === 0) return '';
+    const arr = bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes);
+    let binary = '';
+    // 使用分块处理避免 call stack overflow
+    const chunkSize = 8192;
+    for (let i = 0; i < arr.length; i += chunkSize) {
+        const chunk = arr.subarray(i, Math.min(i + chunkSize, arr.length));
+        binary += String.fromCharCode.apply(null, chunk);
+    }
+    return btoa(binary);
+}
+
+/**
  * 编码 varint
  */
 function encodeVarint(value) {
@@ -327,7 +357,8 @@ function encodeGetRecentMsgReq(data) {
         encodeInt64Field(3, data.msg_count || 50),
         encodeInt64Field(4, data.cur_time || 0),
         encodeStringField(5, data.user_id || ''),
-        encodeStringField(6, data.session_id || '')
+        encodeStringField(6, data.session_id || ''),
+        encodeBoolField(7, data.exclude_file_content)
     );
 }
 
@@ -349,7 +380,8 @@ function encodeGetHistoryMsgReq(data) {
         encodeInt64Field(3, data.start_time || 0),
         encodeInt64Field(4, data.over_time || 0),
         encodeStringField(5, data.user_id || ''),
-        encodeStringField(6, data.session_id || '')
+        encodeStringField(6, data.session_id || ''),
+        encodeBoolField(7, data.exclude_file_content)
     );
 }
 
@@ -416,9 +448,9 @@ function encodeMessageContent(message) {
             imgParts.push(encodeStringField(1, message.image_message.file_id));
         }
         if (message.image_message.image_content) {
-            // 编码 bytes 字段 (field 2)
+            // 编码 bytes 字段 (field 2) - base64 需要先解码为二进制
             const imgData = typeof message.image_message.image_content === 'string'
-                ? new TextEncoder().encode(message.image_message.image_content)
+                ? base64ToUint8Array(message.image_message.image_content)
                 : message.image_message.image_content;
             const imgTag = encodeVarint((2 << 3) | 2);
             const imgLen = encodeVarint(imgData.length);
@@ -437,7 +469,7 @@ function encodeMessageContent(message) {
         fileParts.push(encodeStringField(3, message.file_message.file_name || ''));
         if (message.file_message.file_contents) {
             const fileData = typeof message.file_message.file_contents === 'string'
-                ? new TextEncoder().encode(message.file_message.file_contents)
+                ? base64ToUint8Array(message.file_message.file_contents)
                 : message.file_message.file_contents;
             const fileTag = encodeVarint((4 << 3) | 2);
             const fileLen = encodeVarint(fileData.length);
@@ -524,13 +556,31 @@ function encodeSetUserAvatarReq(data) {
     // avatar 是 bytes 字段
     if (data.avatar) {
         const avatarData = typeof data.avatar === 'string'
-            ? new TextEncoder().encode(data.avatar)
+            ? base64ToUint8Array(data.avatar)
             : data.avatar;
         const avatarTag = encodeVarint((4 << 3) | 2);
         const avatarLen = encodeVarint(avatarData.length);
         parts.push(concatArrays(avatarTag, avatarLen, avatarData));
     }
     return concatArrays(...parts);
+}
+
+/**
+ * 编码 GetSingleFileReq (单文件下载)
+ * message GetSingleFileReq {
+ *   string request_id = 1;
+ *   string file_id = 2;
+ *   string user_id = 3;
+ *   string session_id = 4;
+ * }
+ */
+function encodeGetSingleFileReq(data) {
+    return concatArrays(
+        encodeStringField(1, data.request_id),
+        encodeStringField(2, data.file_id || ''),
+        encodeStringField(3, data.user_id || ''),
+        encodeStringField(4, data.session_id || '')
+    );
 }
 
 // 消息编码器映射
@@ -559,6 +609,8 @@ const encoders = {
     '/service/message_storage/get_history': encodeGetHistoryMsgReq,
     '/service/message_storage/search_history': encodeMsgSearchReq,
     '/service/message_transmit/new_message': encodeNewMessageReq,
+    // 文件相关
+    '/service/file/get_single_file': encodeGetSingleFileReq,
 };
 
 /**
@@ -598,12 +650,16 @@ function decodeUserInfo(bytes) {
             pos += length;
 
             try {
-                const str = new TextDecoder().decode(data);
-                if (fieldNum === 1) result.user_id = str;
-                else if (fieldNum === 2) result.nickname = str;
-                else if (fieldNum === 3) result.description = str;
-                else if (fieldNum === 4) result.phone = str;
-                else if (fieldNum === 5) result.avatar_id = str;
+                if (fieldNum === 5 && data.length > 0) {
+                    // avatar 是 bytes 字段，转为 base64 data URL（空数据不设置，避免无效 img src）
+                    result.avatar = 'data:image/png;base64,' + uint8ArrayToBase64(data);
+                } else if (fieldNum !== 5) {
+                    const str = new TextDecoder().decode(data);
+                    if (fieldNum === 1) result.user_id = str;
+                    else if (fieldNum === 2) result.nickname = str;
+                    else if (fieldNum === 3) result.description = str;
+                    else if (fieldNum === 4) result.phone = str;
+                }
             } catch {
                 // ignore
             }
@@ -721,7 +777,7 @@ function decodeImageMessage(bytes) {
             const data = bytes.slice(pos, pos + length);
             pos += length;
             if (fieldNum === 1) result.file_id = new TextDecoder().decode(data);
-            else if (fieldNum === 2) result.image_content = data; // bytes
+            else if (fieldNum === 2) result.image_content = uint8ArrayToBase64(data); // bytes -> base64
         } else {
             break;
         }
@@ -844,6 +900,37 @@ function decodeStringMessage(bytes) {
 }
 
 /**
+ * 解码 FileDownloadData 消息
+ * message FileDownloadData { file_id=1, file_content=2 }
+ */
+function decodeFileDownloadData(bytes) {
+    const result = {};
+    let pos = 0;
+    while (pos < bytes.length) {
+        const [tagValue, newPos1] = decodeVarint(bytes, pos);
+        pos = newPos1;
+        const fieldNum = tagValue >> 3;
+        const wireType = tagValue & 0x07;
+
+        if (wireType === 2) {
+            const [length, newPos2] = decodeVarint(bytes, pos);
+            pos = newPos2;
+            if (pos + length > bytes.length) break;
+            const data = bytes.slice(pos, pos + length);
+            pos += length;
+            if (fieldNum === 1) {
+                result.file_id = new TextDecoder().decode(data);
+            } else if (fieldNum === 2) {
+                result.file_content = uint8ArrayToBase64(data);
+            }
+        } else {
+            break;
+        }
+    }
+    return result;
+}
+
+/**
  * 解码 ChatSessionInfo 消息
  * message ChatSessionInfo { 
  *   single_chat_friend_id=1, chat_session_id=2, chat_session_name=3, 
@@ -876,7 +963,10 @@ function decodeChatSessionInfo(bytes) {
             } else if (fieldNum === 4) {
                 result.prev_message = decodeMessageInfo(data);
             }
-            // field 5 (avatar) is bytes, skip for now
+            else if (fieldNum === 5 && data.length > 0) {
+                // avatar bytes -> base64 data URL
+                result.avatar = 'data:image/png;base64,' + uint8ArrayToBase64(data);
+            }
         } else if (wireType === 0) {
             const [, newPos2] = decodeVarint(bytes, pos);
             pos = newPos2;
@@ -962,16 +1052,20 @@ function decodeNestedMessage(bytes) {
                 }
             } else {
                 // UserInfo 格式
-                try {
-                    const str = new TextDecoder().decode(data);
-                    if (fieldNum === 1) result.user_id = str;
-                    else if (fieldNum === 2) result.nickname = str;
-                    else if (fieldNum === 3) result.description = str;
-                    else if (fieldNum === 4) result.phone = str;
-                    else if (fieldNum === 5) result.avatar_id = str;
-                    else result[`field${fieldNum}`] = str;
-                } catch {
-                    result[`field${fieldNum}_bytes`] = Array.from(data);
+                if (fieldNum === 5 && data.length > 0) {
+                    // avatar 是 bytes 字段，空数据不设置
+                    result.avatar = 'data:image/png;base64,' + uint8ArrayToBase64(data);
+                } else if (fieldNum !== 5) {
+                    try {
+                        const str = new TextDecoder().decode(data);
+                        if (fieldNum === 1) result.user_id = str;
+                        else if (fieldNum === 2) result.nickname = str;
+                        else if (fieldNum === 3) result.description = str;
+                        else if (fieldNum === 4) result.phone = str;
+                        else result[`field${fieldNum}`] = str;
+                    } catch {
+                        result[`field${fieldNum}_bytes`] = Array.from(data);
+                    }
                 }
             }
         } else {
@@ -1035,38 +1129,40 @@ function decodeProtobufResponse(buffer, apiPath = '') {
                 } else if (fieldNum === 3) {
                     result.errmsg = strValue;
                 } else if (fieldNum === 4) {
-                    // 字段4可能是:
-                    // - login_session_id (UserLoginRsp - 可读字符串)
-                    // - user_info / friend_list / chat_session_info_list (嵌套消息)
-                    // - msg_list (GetHistoryMsgRsp / GetRecentMsgRsp / MsgSearchRsp)
-                    // 判断标准: 如果字符串以可读字符开头且不包含不可打印字符，则是字符串
-                    const isReadableString = strValue && /^[\x20-\x7E]+$/.test(strValue.substring(0, 20));
-
-                    if (isReadableString && !repeatedFields[4]) {
-                        // 第一次遇到字段4且是可读字符串，认为是 login_session_id
-                        result.login_session_id = strValue;
-                    } else {
-                        // 根据 API 路径选择正确的解码器
+                    // get_single_file 的 field 4 是 FileDownloadData
+                    if (apiPath.includes('get_single_file')) {
                         try {
-                            let nested;
-                            if (apiPath.includes('get_chat_session_list') || apiPath.includes('create_chat_session')) {
-                                // 会话列表使用 ChatSessionInfo 解码器
-                                nested = decodeChatSessionInfo(data);
-                            } else if (apiPath.includes('message_storage') || apiPath.includes('get_history') || apiPath.includes('get_recent') || apiPath.includes('search_history')) {
-                                // 消息列表使用 MessageInfo 解码器
-                                nested = decodeMessageInfo(data);
-                            } else {
-                                // 其他使用通用解码器
-                                nested = decodeNestedMessage(data);
-                            }
-                            if (!repeatedFields[fieldNum]) {
-                                repeatedFields[fieldNum] = [];
-                            }
-                            repeatedFields[fieldNum].push(nested);
+                            result.file_data = decodeFileDownloadData(data);
                         } catch {
-                            // 解析失败，保存字符串
-                            if (!result.login_session_id) {
-                                result.login_session_id = strValue;
+                            // ignore
+                        }
+                    } else {
+                        // 字段4可能是:
+                        // - login_session_id (UserLoginRsp - 可读字符串)
+                        // - user_info / friend_list / chat_session_info_list (嵌套消息)
+                        // - msg_list (GetHistoryMsgRsp / GetRecentMsgRsp / MsgSearchRsp)
+                        const isReadableString = strValue && /^[\x20-\x7E]+$/.test(strValue.substring(0, 20));
+
+                        if (isReadableString && !repeatedFields[4]) {
+                            result.login_session_id = strValue;
+                        } else {
+                            try {
+                                let nested;
+                                if (apiPath.includes('get_chat_session_list') || apiPath.includes('create_chat_session')) {
+                                    nested = decodeChatSessionInfo(data);
+                                } else if (apiPath.includes('message_storage') || apiPath.includes('get_history') || apiPath.includes('get_recent') || apiPath.includes('search_history')) {
+                                    nested = decodeMessageInfo(data);
+                                } else {
+                                    nested = decodeNestedMessage(data);
+                                }
+                                if (!repeatedFields[fieldNum]) {
+                                    repeatedFields[fieldNum] = [];
+                                }
+                                repeatedFields[fieldNum].push(nested);
+                            } catch {
+                                if (!result.login_session_id) {
+                                    result.login_session_id = strValue;
+                                }
                             }
                         }
                     }
@@ -1188,3 +1284,5 @@ export async function httpPostWithSession(path, data, sessionId, userId) {
         user_id: userId,
     });
 }
+
+export { uint8ArrayToBase64, base64ToUint8Array };

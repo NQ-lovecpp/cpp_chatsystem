@@ -1,11 +1,13 @@
 /**
  * 用户个人资料弹窗组件
  * 显示和编辑当前登录用户的信息
+ * 支持上传头像或选择系统默认头像
  */
 
 import { useState, useRef } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { setNickname, setDescription, setAvatar, getUserInfo } from '../api/userApi';
+import Avatar, { DEFAULT_AVATARS } from './Avatar';
 
 export default function UserProfileModal({ onClose }) {
     const { user, sessionId, updateUser } = useAuth();
@@ -14,6 +16,7 @@ export default function UserProfileModal({ onClose }) {
     const [description, setDescriptionValue] = useState(user?.description || '');
     const [saving, setSaving] = useState(false);
     const [error, setError] = useState('');
+    const [showAvatarPicker, setShowAvatarPicker] = useState(false);
     const fileInputRef = useRef(null);
 
     // 保存修改
@@ -22,7 +25,6 @@ export default function UserProfileModal({ onClose }) {
         setError('');
 
         try {
-            // 修改昵称
             if (nickname !== user?.nickname && nickname.trim()) {
                 const res = await setNickname(sessionId, nickname.trim());
                 if (!res.success) {
@@ -32,7 +34,6 @@ export default function UserProfileModal({ onClose }) {
                 }
             }
 
-            // 修改签名
             if (description !== user?.description) {
                 const res = await setDescription(sessionId, description);
                 if (!res.success) {
@@ -42,7 +43,6 @@ export default function UserProfileModal({ onClose }) {
                 }
             }
 
-            // 刷新用户信息
             const userRes = await getUserInfo(sessionId);
             if (userRes.success && userRes.user_info) {
                 updateUser?.(userRes.user_info);
@@ -57,11 +57,10 @@ export default function UserProfileModal({ onClose }) {
     };
 
     // 处理头像上传
-    const handleAvatarChange = async (e) => {
+    const handleAvatarUpload = async (e) => {
         const file = e.target.files?.[0];
         if (!file) return;
 
-        // 检查文件类型和大小
         if (!file.type.startsWith('image/')) {
             setError('请选择图片文件');
             return;
@@ -75,18 +74,17 @@ export default function UserProfileModal({ onClose }) {
         setError('');
 
         try {
-            // 将图片转为 base64
             const reader = new FileReader();
             reader.onload = async () => {
                 const base64 = reader.result.split(',')[1];
                 const res = await setAvatar(sessionId, base64);
 
                 if (res.success) {
-                    // 刷新用户信息
                     const userRes = await getUserInfo(sessionId);
                     if (userRes.success && userRes.user_info) {
                         updateUser?.(userRes.user_info);
                     }
+                    setShowAvatarPicker(false);
                 } else {
                     setError(res.errmsg || '上传头像失败');
                 }
@@ -99,6 +97,38 @@ export default function UserProfileModal({ onClose }) {
             reader.readAsDataURL(file);
         } catch (err) {
             setError('上传失败: ' + err.message);
+            setSaving(false);
+        }
+    };
+
+    // 选择默认头像
+    const handleSelectDefaultAvatar = async (avatarUrl) => {
+        setSaving(true);
+        setError('');
+
+        try {
+            // 下载默认头像图片并转为 base64
+            const response = await fetch(avatarUrl);
+            const blob = await response.blob();
+            const reader = new FileReader();
+            reader.onload = async () => {
+                const base64 = reader.result.split(',')[1];
+                const res = await setAvatar(sessionId, base64);
+
+                if (res.success) {
+                    const userRes = await getUserInfo(sessionId);
+                    if (userRes.success && userRes.user_info) {
+                        updateUser?.(userRes.user_info);
+                    }
+                    setShowAvatarPicker(false);
+                } else {
+                    setError(res.errmsg || '设置头像失败');
+                }
+                setSaving(false);
+            };
+            reader.readAsDataURL(blob);
+        } catch (err) {
+            setError('设置头像失败: ' + err.message);
             setSaving(false);
         }
     };
@@ -120,21 +150,68 @@ export default function UserProfileModal({ onClose }) {
 
                 {/* 头像 */}
                 <div className="relative -mt-12 flex justify-center">
-                    <div
-                        className="w-24 h-24 rounded-full bg-gradient-to-br from-[#0B4F6C] to-[#0a4560] flex items-center justify-center text-white text-3xl font-bold border-4 border-white shadow-lg cursor-pointer hover:opacity-90 transition-opacity"
-                        onClick={() => fileInputRef.current?.click()}
-                        title="点击更换头像"
-                    >
-                        {user?.nickname?.charAt(0)?.toUpperCase() || 'U'}
+                    <div className="relative">
+                        <Avatar
+                            src={user?.avatar}
+                            name={user?.nickname}
+                            size="2xl"
+                            className="border-4 border-white shadow-lg"
+                            onClick={() => setShowAvatarPicker(true)}
+                        />
+                        <div className="absolute bottom-0 right-0 w-8 h-8 bg-[#0B4F6C] rounded-full flex items-center justify-center text-white shadow-md cursor-pointer hover:bg-[#0a4560] transition-colors"
+                             onClick={() => setShowAvatarPicker(true)}>
+                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
+                            </svg>
+                        </div>
                     </div>
                     <input
                         ref={fileInputRef}
                         type="file"
                         accept="image/*"
-                        onChange={handleAvatarChange}
+                        onChange={handleAvatarUpload}
                         className="hidden"
                     />
                 </div>
+
+                {/* 头像选择面板 */}
+                {showAvatarPicker && (
+                    <div className="mx-6 mt-4 p-4 bg-gray-50 rounded-xl">
+                        <div className="flex items-center justify-between mb-3">
+                            <h3 className="text-sm font-medium text-gray-700">选择头像</h3>
+                            <button
+                                onClick={() => setShowAvatarPicker(false)}
+                                className="text-gray-400 hover:text-gray-600 text-xs"
+                            >
+                                关闭
+                            </button>
+                        </div>
+                        
+                        {/* 默认头像网格 */}
+                        <div className="grid grid-cols-5 gap-2 mb-3">
+                            {DEFAULT_AVATARS.map((url, idx) => (
+                                <button
+                                    key={idx}
+                                    onClick={() => handleSelectDefaultAvatar(url)}
+                                    disabled={saving}
+                                    className="w-12 h-12 rounded-full overflow-hidden border-2 border-transparent hover:border-[#0B4F6C] transition-colors disabled:opacity-50"
+                                >
+                                    <img src={url} alt={`默认头像 ${idx + 1}`} className="w-full h-full object-cover" />
+                                </button>
+                            ))}
+                        </div>
+
+                        {/* 上传按钮 */}
+                        <button
+                            onClick={() => fileInputRef.current?.click()}
+                            disabled={saving}
+                            className="w-full py-2 text-sm text-[#0B4F6C] bg-white border border-[#0B4F6C]/20 rounded-lg hover:bg-[#E0F2F7] transition-colors disabled:opacity-50"
+                        >
+                            {saving ? '上传中...' : '上传自定义头像'}
+                        </button>
+                    </div>
+                )}
 
                 {/* 内容 */}
                 <div className="p-6">

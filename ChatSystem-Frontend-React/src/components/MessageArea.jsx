@@ -2,15 +2,146 @@
  * 消息区域组件
  */
 
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import { useChat } from '../contexts/ChatContext';
 import { useAuth } from '../contexts/AuthContext';
-import { sendTextMessage, searchMessages } from '../api/messageApi';
+import { sendTextMessage, sendImageMessage, sendFileMessage, searchMessages } from '../api/messageApi';
 import MessageInput from './MessageInput';
 import SessionInfoModal from './SessionInfoModal';
 
+// 文件图标配置
+const FILE_ICONS = {
+    pdf: { color: 'text-red-500', bg: 'bg-red-50', label: 'PDF' },
+    doc: { color: 'text-blue-600', bg: 'bg-blue-50', label: 'DOC' },
+    docx: { color: 'text-blue-600', bg: 'bg-blue-50', label: 'DOC' },
+    xls: { color: 'text-green-600', bg: 'bg-green-50', label: 'XLS' },
+    xlsx: { color: 'text-green-600', bg: 'bg-green-50', label: 'XLS' },
+    ppt: { color: 'text-orange-500', bg: 'bg-orange-50', label: 'PPT' },
+    pptx: { color: 'text-orange-500', bg: 'bg-orange-50', label: 'PPT' },
+    zip: { color: 'text-yellow-600', bg: 'bg-yellow-50', label: 'ZIP' },
+    rar: { color: 'text-yellow-600', bg: 'bg-yellow-50', label: 'RAR' },
+    '7z': { color: 'text-yellow-600', bg: 'bg-yellow-50', label: '7Z' },
+    txt: { color: 'text-gray-500', bg: 'bg-gray-50', label: 'TXT' },
+    mp4: { color: 'text-purple-500', bg: 'bg-purple-50', label: 'MP4' },
+    mp3: { color: 'text-pink-500', bg: 'bg-pink-50', label: 'MP3' },
+};
+
+function getFileIcon(fileName) {
+    const ext = fileName?.split('.').pop()?.toLowerCase() || '';
+    return FILE_ICONS[ext] || { color: 'text-gray-400', bg: 'bg-gray-50', label: ext.toUpperCase() || 'FILE' };
+}
+
+function formatFileSize(bytes) {
+    if (!bytes) return '0 B';
+    if (bytes < 1024) return bytes + ' B';
+    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+    return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+}
+
+// 图片预览器组件
+function ImagePreview({ src, onClose }) {
+    useEffect(() => {
+        const handleKey = (e) => { if (e.key === 'Escape') onClose(); };
+        document.addEventListener('keydown', handleKey);
+        return () => document.removeEventListener('keydown', handleKey);
+    }, [onClose]);
+
+    return (
+        <div className="fixed inset-0 z-[100] bg-black/80 flex items-center justify-center" onClick={onClose}>
+            <button onClick={onClose} className="absolute top-4 right-4 text-white/80 hover:text-white p-2 z-10">
+                <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+            </button>
+            <img
+                src={src}
+                alt="预览"
+                className="max-w-[90vw] max-h-[90vh] object-contain rounded-lg"
+                onClick={(e) => e.stopPropagation()}
+            />
+        </div>
+    );
+}
+
+// 懒加载图片消息组件
+function LazyImageMessage({ fileId, imageContent, fetchImage, getCachedImage }) {
+    const [src, setSrc] = useState(null);
+    const [previewSrc, setPreviewSrc] = useState(null);
+    const [loading, setLoading] = useState(false);
+    const imgRef = useRef(null);
+
+    useEffect(() => {
+        // 如果已有 imageContent（新消息或旧接口），直接使用
+        if (imageContent) {
+            const url = imageContent.startsWith('data:') ? imageContent : `data:image/png;base64,${imageContent}`;
+            setSrc(url);
+            return;
+        }
+        
+        // 检查缓存
+        const cached = getCachedImage(fileId);
+        if (cached) {
+            const url = cached.startsWith('data:') ? cached : `data:image/png;base64,${cached}`;
+            setSrc(url);
+            return;
+        }
+
+        // 使用 IntersectionObserver 懒加载
+        const observer = new IntersectionObserver(
+            (entries) => {
+                if (entries[0].isIntersecting && !src && !loading) {
+                    setLoading(true);
+                    fetchImage(fileId).then((base64) => {
+                        if (base64) {
+                            const url = base64.startsWith('data:') ? base64 : `data:image/png;base64,${base64}`;
+                            setSrc(url);
+                        }
+                        setLoading(false);
+                    });
+                    observer.disconnect();
+                }
+            },
+            { threshold: 0.1 }
+        );
+
+        if (imgRef.current) {
+            observer.observe(imgRef.current);
+        }
+        return () => observer.disconnect();
+    }, [fileId, imageContent, fetchImage, getCachedImage, src, loading]);
+
+    return (
+        <>
+            <div ref={imgRef} className="max-w-[280px] cursor-pointer" onClick={() => src && setPreviewSrc(src)}>
+                {src ? (
+                    <img
+                        src={src}
+                        alt="图片"
+                        className="rounded-xl max-w-full object-cover"
+                        style={{ border: 'none' }}
+                    />
+                ) : loading ? (
+                    <div className="w-48 h-36 rounded-xl bg-gray-100 flex items-center justify-center animate-pulse">
+                        <svg className="w-8 h-8 text-gray-300 animate-spin" fill="none" viewBox="0 0 24 24">
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                        </svg>
+                    </div>
+                ) : (
+                    <div className="w-48 h-36 rounded-xl bg-gray-100 flex items-center justify-center">
+                        <svg className="w-10 h-10 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                        </svg>
+                    </div>
+                )}
+            </div>
+            {previewSrc && <ImagePreview src={previewSrc} onClose={() => setPreviewSrc(null)} />}
+        </>
+    );
+}
+
 export default function MessageArea() {
-    const { currentSession, currentMessages, addMessage } = useChat();
+    const { currentSession, currentMessages, addMessage, fetchImage, getCachedImage } = useChat();
     const { user, sessionId } = useAuth();
     const messagesEndRef = useRef(null);
     const [showSessionInfo, setShowSessionInfo] = useState(false);
@@ -24,11 +155,10 @@ export default function MessageArea() {
         messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
     }, [currentMessages]);
 
-    // 发送消息
+    // 发送文本消息
     const handleSendMessage = async (content) => {
         if (!content.trim() || !currentSession || !user?.user_id) return;
 
-        // 创建本地消息用于即时显示（乐观更新）
         const localMessage = {
             message_id: `local_${Date.now()}`,
             chat_session_id: currentSession.chat_session_id,
@@ -36,31 +166,99 @@ export default function MessageArea() {
             sender: {
                 user_id: user.user_id,
                 nickname: user.nickname,
+                avatar: user.avatar,
             },
             message: {
-                message_type: 0, // STRING
+                message_type: 0,
                 string_message: { content },
             },
-            _pending: true, // 标记为发送中
+            _pending: true,
         };
 
-        // 立即添加到本地消息列表
         addMessage(currentSession.chat_session_id, localMessage);
 
         try {
-            // 发送到服务器 - 注意参数顺序：sessionId, userId, chatSessionId, content
             await sendTextMessage(sessionId, user.user_id, currentSession.chat_session_id, content);
         } catch (error) {
             console.error('发送消息失败:', error);
-            // TODO: 可以标记消息发送失败
         }
     };
+
+    // 发送图片
+    const handleSendImage = useCallback(async (file) => {
+        if (!currentSession || !user?.user_id) return;
+
+        const reader = new FileReader();
+        reader.onload = async () => {
+            const base64 = reader.result.split(',')[1];
+
+            // 乐观更新
+            const localMessage = {
+                message_id: `local_${Date.now()}`,
+                chat_session_id: currentSession.chat_session_id,
+                timestamp: Date.now(),
+                sender: {
+                    user_id: user.user_id,
+                    nickname: user.nickname,
+                    avatar: user.avatar,
+                },
+                message: {
+                    message_type: 1,
+                    image_message: { image_content: base64 },
+                },
+                _pending: true,
+            };
+            addMessage(currentSession.chat_session_id, localMessage);
+
+            try {
+                await sendImageMessage(sessionId, user.user_id, currentSession.chat_session_id, base64);
+            } catch (error) {
+                console.error('发送图片失败:', error);
+            }
+        };
+        reader.readAsDataURL(file);
+    }, [currentSession, user, sessionId, addMessage]);
+
+    // 发送文件
+    const handleSendFile = useCallback(async (file) => {
+        if (!currentSession || !user?.user_id) return;
+
+        const reader = new FileReader();
+        reader.onload = async () => {
+            const base64 = reader.result.split(',')[1];
+
+            const localMessage = {
+                message_id: `local_${Date.now()}`,
+                chat_session_id: currentSession.chat_session_id,
+                timestamp: Date.now(),
+                sender: {
+                    user_id: user.user_id,
+                    nickname: user.nickname,
+                    avatar: user.avatar,
+                },
+                message: {
+                    message_type: 2,
+                    file_message: {
+                        file_name: file.name,
+                        file_size: file.size,
+                    },
+                },
+                _pending: true,
+            };
+            addMessage(currentSession.chat_session_id, localMessage);
+
+            try {
+                await sendFileMessage(sessionId, user.user_id, currentSession.chat_session_id, file.name, file.size, base64);
+            } catch (error) {
+                console.error('发送文件失败:', error);
+            }
+        };
+        reader.readAsDataURL(file);
+    }, [currentSession, user, sessionId, addMessage]);
 
     // 格式化时间
     const formatTime = (timestamp) => {
         if (!timestamp) return '';
-        // 后端返回秒级时间戳，需要转换为毫秒
-        // 如果时间戳小于 1e12，认为是秒级时间戳
         const ms = timestamp < 1e12 ? timestamp * 1000 : timestamp;
         return new Date(ms).toLocaleTimeString('zh-CN', {
             hour: '2-digit',
@@ -95,49 +293,57 @@ export default function MessageArea() {
     // 渲染消息内容
     const renderMessageContent = (msg) => {
         const content = msg.message;
-        console.log('[DEBUG] 渲染消息:', { msg_id: msg.message_id, content, type: content?.message_type, typeof_type: typeof content?.message_type });
         if (!content) return null;
 
         switch (content.message_type) {
             case 0: // STRING
                 return (
-                    <p className="break-words">{content.string_message?.content}</p>
+                    <p className="break-words whitespace-pre-wrap">{content.string_message?.content}</p>
                 );
             case 1: // IMAGE
                 return (
-                    <div className="max-w-[200px]">
-                        <img
-                            src={`data:image/png;base64,${content.image_message?.image_content}`}
-                            alt="图片"
-                            className="rounded-lg max-w-full"
-                        />
-                    </div>
+                    <LazyImageMessage
+                        fileId={content.image_message?.file_id}
+                        imageContent={content.image_message?.image_content}
+                        fetchImage={fetchImage}
+                        getCachedImage={getCachedImage}
+                    />
                 );
-            case 2: // FILE
+            case 2: { // FILE
+                const fileName = content.file_message?.file_name || '未知文件';
+                const fileSize = content.file_message?.file_size || 0;
+                const icon = getFileIcon(fileName);
                 return (
-                    <div className="flex items-center gap-2 p-2 bg-white/50 rounded-lg">
-                        <svg className="w-8 h-8 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                        </svg>
-                        <div>
-                            <p className="text-sm font-medium">{content.file_message?.file_name}</p>
-                            <p className="text-xs text-gray-500">
-                                {Math.round((content.file_message?.file_size || 0) / 1024)} KB
-                            </p>
+                    <div className="flex items-center gap-3 p-3 bg-white/80 rounded-xl min-w-[200px]">
+                        <div className={`w-10 h-10 ${icon.bg} rounded-lg flex items-center justify-center shrink-0`}>
+                            <span className={`text-xs font-bold ${icon.color}`}>{icon.label}</span>
                         </div>
+                        <div className="flex-1 min-w-0">
+                            <p className="text-sm font-medium truncate text-gray-900">{fileName}</p>
+                            <p className="text-xs text-gray-400">{formatFileSize(fileSize)}</p>
+                        </div>
+                        <button
+                            className="p-1.5 text-gray-400 hover:text-[#0B4F6C] hover:bg-[#E0F2F7] rounded-lg transition-colors shrink-0"
+                            title="下载文件"
+                        >
+                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                            </svg>
+                        </button>
                     </div>
                 );
+            }
             case 3: // SPEECH
                 return (
-                    <div className="flex items-center gap-2">
-                        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <div className="flex items-center gap-2 py-1">
+                        <svg className="w-5 h-5 text-current opacity-70" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
                         </svg>
                         <span className="text-sm">[语音消息]</span>
                     </div>
                 );
             default:
-                return <p className="text-gray-500">未知消息类型</p>;
+                return <p className="text-gray-500 text-sm">未知消息类型</p>;
         }
     };
 
@@ -190,6 +396,7 @@ export default function MessageArea() {
                 ) : (
                     currentMessages.map((msg, index) => {
                         const isMe = msg.sender?.user_id === user?.user_id;
+                        const isImageMsg = msg.message?.message_type === 1;
 
                         return (
                             <div
@@ -198,15 +405,18 @@ export default function MessageArea() {
                             >
                                 {/* 头像 */}
                                 <div className={`
-                  w-8 h-8 rounded-full flex items-center justify-center text-white text-sm font-medium shrink-0
-                  ${isMe ? 'bg-[#0B4F6C]' : 'bg-gradient-to-br from-purple-500 to-pink-500'}
-                `}>
-                                    {msg.sender?.nickname?.charAt(0)?.toUpperCase() || 'U'}
+                                    w-8 h-8 rounded-full flex items-center justify-center text-white text-sm font-medium shrink-0 overflow-hidden
+                                    ${isMe ? 'bg-[#0B4F6C]' : 'bg-gradient-to-br from-purple-500 to-pink-500'}
+                                `}>
+                                    {msg.sender?.avatar ? (
+                                        <img src={msg.sender.avatar} alt="" className="w-full h-full object-cover" />
+                                    ) : (
+                                        msg.sender?.nickname?.charAt(0)?.toUpperCase() || 'U'
+                                    )}
                                 </div>
 
                                 {/* 消息气泡 */}
                                 <div className={`max-w-[60%] ${isMe ? 'items-end' : 'items-start'}`}>
-                                    {/* 发送者名称 */}
                                     {!isMe && (
                                         <p className="text-xs text-gray-400 mb-1 ml-1">
                                             {msg.sender?.nickname}
@@ -214,18 +424,19 @@ export default function MessageArea() {
                                     )}
 
                                     <div className={`
-                    px-4 py-2.5 rounded-2xl
-                    ${isMe
-                                            ? 'bg-[#0B4F6C] text-white rounded-br-md'
-                                            : 'bg-white text-gray-900 shadow-sm rounded-bl-md'
+                                        ${isImageMsg ? '' : 'px-4 py-2.5'}
+                                        rounded-2xl
+                                        ${isMe
+                                            ? (isImageMsg ? '' : 'bg-[#0B4F6C] text-white') + ' rounded-br-md'
+                                            : (isImageMsg ? '' : 'bg-white text-gray-900 shadow-sm') + ' rounded-bl-md'
                                         }
-                  `}>
+                                    `}>
                                         {renderMessageContent(msg)}
                                     </div>
 
-                                    {/* 时间 */}
                                     <p className={`text-xs text-gray-400 mt-1 ${isMe ? 'text-right mr-1' : 'ml-1'}`}>
                                         {formatTime(msg.timestamp)}
+                                        {msg._pending && <span className="ml-1 opacity-50">发送中...</span>}
                                     </p>
                                 </div>
                             </div>
@@ -236,7 +447,11 @@ export default function MessageArea() {
             </div>
 
             {/* 消息输入区 */}
-            <MessageInput onSend={handleSendMessage} />
+            <MessageInput
+                onSend={handleSendMessage}
+                onSendImage={handleSendImage}
+                onSendFile={handleSendFile}
+            />
 
             {/* 搜索栏 */}
             {showSearch && (

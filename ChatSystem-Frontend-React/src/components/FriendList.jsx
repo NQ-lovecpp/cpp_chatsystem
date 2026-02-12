@@ -7,6 +7,7 @@ import { useChat } from '../contexts/ChatContext';
 import { useAuth } from '../contexts/AuthContext';
 import { searchFriend, addFriendApply, addFriendProcess } from '../api/friendApi';
 import FriendInfoModal from './FriendInfoModal';
+import Avatar from './Avatar';
 
 export default function FriendList() {
     const { friends, friendRequests, loadFriends, loadFriendRequests } = useChat();
@@ -131,9 +132,7 @@ export default function FriendList() {
                         ) : (
                             searchResults.map((user) => (
                                 <div key={user.user_id} className="flex items-center gap-3 p-3 bg-white rounded-xl">
-                                    <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[#0B4F6C] to-[#0a4560] flex items-center justify-center text-white font-medium">
-                                        {user.nickname?.charAt(0)?.toUpperCase() || 'U'}
-                                    </div>
+                                    <Avatar src={user.avatar} name={user.nickname} size="md" />
                                     <div className="flex-1">
                                         <p className="font-medium text-gray-900">{user.nickname}</p>
                                         <p className="text-sm text-gray-500">{user.description || '暂无签名'}</p>
@@ -164,9 +163,7 @@ export default function FriendList() {
                                     onClick={() => setSelectedFriend(friend)}
                                     className="flex items-center gap-3 p-3 hover:bg-gray-50 rounded-xl transition-colors cursor-pointer"
                                 >
-                                    <div className="w-10 h-10 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-white font-medium">
-                                        {friend.nickname?.charAt(0)?.toUpperCase() || 'U'}
-                                    </div>
+                                    <Avatar src={friend.avatar} name={friend.nickname} size="md" />
                                     <div className="flex-1">
                                         <p className="font-medium text-gray-900">{friend.nickname}</p>
                                         <p className="text-sm text-gray-500 truncate">{friend.description || '暂无签名'}</p>
@@ -187,9 +184,7 @@ export default function FriendList() {
                         ) : (
                             friendRequests.map((request) => (
                                 <div key={request.event_id} className="flex items-center gap-3 p-3 bg-white rounded-xl">
-                                    <div className="w-10 h-10 rounded-full bg-gradient-to-br from-orange-400 to-red-500 flex items-center justify-center text-white font-medium">
-                                        {request.sender?.nickname?.charAt(0)?.toUpperCase() || 'U'}
-                                    </div>
+                                    <Avatar src={request.sender?.avatar} name={request.sender?.nickname} size="md" />
                                     <div className="flex-1">
                                         <p className="font-medium text-gray-900">{request.sender?.nickname}</p>
                                         <p className="text-sm text-gray-500">请求添加你为好友</p>

@@ -5,6 +5,7 @@
 import { useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import UserProfileModal from './UserProfileModal';
+import Avatar from './Avatar';
 
 const navItems = [
     { id: 'chat', icon: 'chat', label: '消息' },
@@ -71,13 +72,14 @@ export default function Sidebar({ activeTab, onTabChange, user }) {
                 {/* 底部区域 */}
                 <div className="mt-auto flex flex-col gap-3 w-full px-3">
                     {/* 用户头像 */}
-                    <button
+                    <Avatar
+                        src={user?.avatar}
+                        name={user?.nickname}
+                        size="md"
+                        rounded="xl"
                         onClick={() => setShowProfile(true)}
-                        className="w-10 h-10 mx-auto rounded-xl bg-gradient-to-br from-[#0B4F6C] to-[#0a4560] flex items-center justify-center text-white font-medium cursor-pointer hover:ring-2 hover:ring-[#0B4F6C]/30 transition-all"
-                        title={user?.nickname || '用户'}
-                    >
-                        {user?.nickname?.charAt(0)?.toUpperCase() || 'U'}
-                    </button>
+                        className="mx-auto hover:ring-2 hover:ring-[#0B4F6C]/30 transition-all"
+                    />
 
                     {/* 登出按钮 */}
                     <button

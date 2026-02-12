@@ -82,6 +82,7 @@ namespace chen_im
             std::string chat_ssid = request->chat_session_id();
             boost::posix_time::ptime stime = boost::posix_time::from_time_t(request->start_time());
             boost::posix_time::ptime etime = boost::posix_time::from_time_t(request->over_time());
+            bool exclude_file = request->exclude_file_content();
 
             // 2. 在数据库中，查询指定chat_session_id下，指定时间段内的所有消息(发起mysql事务)
             std::vector<chen_im::Message> msg_lists = _mysql_message_table->range(chat_ssid, stime, etime);
@@ -94,20 +95,22 @@ namespace chen_im
 
             // 从mysql中获取到的消息对象中，没有文件内容，只有文件id，因此要调用文件子服务把文件正真的内容塞进去
             // 3. 统计所有文件类型消息的文件ID，并从文件子服务进行批量文件下载
-            std::unordered_set<std::string> file_id_lists;
-            for (const auto &msg : msg_lists)
-            {
-                if (msg.file_id().empty()) // 如果文件id存在的话，说明该消息是文件消息
-                    continue;
-                LOG_DEBUG("需要从文件管理子服务下载的文件ID： {}", msg.file_id());
-                file_id_lists.insert(msg.file_id());
-            }
             std::unordered_map<std::string, std::string> file_data_lists;
-            bool ret = _get_files(request_id, file_id_lists, &file_data_lists);
-            if (ret == false)
-            {
-                LOG_ERROR("{} 批量文件数据下载失败！", request_id);
-                return err_response(request_id, "批量文件数据下载失败!");
+            if (!exclude_file) {
+                std::unordered_set<std::string> file_id_lists;
+                for (const auto &msg : msg_lists)
+                {
+                    if (msg.file_id().empty())
+                        continue;
+                    LOG_DEBUG("需要从文件管理子服务下载的文件ID： {}", msg.file_id());
+                    file_id_lists.insert(msg.file_id());
+                }
+                bool ret = _get_files(request_id, file_id_lists, &file_data_lists);
+                if (ret == false)
+                {
+                    LOG_ERROR("{} 批量文件数据下载失败！", request_id);
+                    return err_response(request_id, "批量文件数据下载失败!");
+                }
             }
 
 
@@ -141,7 +144,7 @@ namespace chen_im
                 user_id_lists.insert(msg.user_id());
             }
             std::unordered_map<std::string, UserInfo> user_lists;
-            ret = _get_user_info(request_id, user_id_lists, &user_lists);
+            bool ret = _get_user_info(request_id, user_id_lists, &user_lists);
             if (ret == false)
             {
                 LOG_ERROR("{} 批量用户数据获取失败！", request_id);
@@ -167,19 +170,25 @@ namespace chen_im
                 case MessageType::IMAGE:
                     message_info->mutable_message()->set_message_type(MessageType::IMAGE);
                     message_info->mutable_message()->mutable_image_message()->set_file_id(msg.file_id());
-                    message_info->mutable_message()->mutable_image_message()->set_image_content(file_data_lists[msg.file_id()]);
+                    if (!exclude_file) {
+                        message_info->mutable_message()->mutable_image_message()->set_image_content(file_data_lists[msg.file_id()]);
+                    }
                     break;
                 case MessageType::FILE:
                     message_info->mutable_message()->set_message_type(MessageType::FILE);
                     message_info->mutable_message()->mutable_file_message()->set_file_id(msg.file_id());
                     message_info->mutable_message()->mutable_file_message()->set_file_size(msg.file_size());
                     message_info->mutable_message()->mutable_file_message()->set_file_name(msg.file_name());
-                    message_info->mutable_message()->mutable_file_message()->set_file_contents(file_data_lists[msg.file_id()]);
+                    if (!exclude_file) {
+                        message_info->mutable_message()->mutable_file_message()->set_file_contents(file_data_lists[msg.file_id()]);
+                    }
                     break;
                 case MessageType::SPEECH:
                     message_info->mutable_message()->set_message_type(MessageType::SPEECH);
                     message_info->mutable_message()->mutable_speech_message()->set_file_id(msg.file_id());
-                    message_info->mutable_message()->mutable_speech_message()->set_file_contents(file_data_lists[msg.file_id()]);
+                    if (!exclude_file) {
+                        message_info->mutable_message()->mutable_speech_message()->set_file_contents(file_data_lists[msg.file_id()]);
+                    }
                     break;
                 default:
                     LOG_ERROR("消息类型错误！！");
@@ -208,6 +217,7 @@ namespace chen_im
             std::string request_id = request->request_id();
             std::string chat_ssid = request->chat_session_id();
             int msg_count = request->msg_count();
+            bool exclude_file = request->exclude_file_content();
             // 2. 从数据库，获取最近的消息元信息
             auto msg_lists = _mysql_message_table->recent(chat_ssid, msg_count);
             if (msg_lists.empty())
@@ -217,20 +227,22 @@ namespace chen_im
                 return;
             }
             // 3. 统计所有消息中文件类型消息的文件ID列表，从文件子服务下载文件
-            std::unordered_set<std::string> file_id_lists;
-            for (const auto &msg : msg_lists)
-            {
-                if (msg.file_id().empty())
-                    continue;
-                LOG_DEBUG("需要下载的文件ID: {}", msg.file_id());
-                file_id_lists.insert(msg.file_id());
-            }
             std::unordered_map<std::string, std::string> file_data_lists;
-            bool ret = _get_files(request_id, file_id_lists, &file_data_lists);
-            if (ret == false)
-            {
-                LOG_ERROR("{} 批量文件数据下载失败！", request_id);
-                return err_response(request_id, "批量文件数据下载失败!");
+            if (!exclude_file) {
+                std::unordered_set<std::string> file_id_lists;
+                for (const auto &msg : msg_lists)
+                {
+                    if (msg.file_id().empty())
+                        continue;
+                    LOG_DEBUG("需要下载的文件ID: {}", msg.file_id());
+                    file_id_lists.insert(msg.file_id());
+                }
+                bool ret = _get_files(request_id, file_id_lists, &file_data_lists);
+                if (ret == false)
+                {
+                    LOG_ERROR("{} 批量文件数据下载失败！", request_id);
+                    return err_response(request_id, "批量文件数据下载失败!");
+                }
             }
             // 4. 统计所有消息的发送者用户ID，从用户子服务进行批量用户信息获取
             std::unordered_set<std::string> user_id_lists;
@@ -239,8 +251,8 @@ namespace chen_im
                 user_id_lists.insert(msg.user_id());
             }
             std::unordered_map<std::string, UserInfo> user_lists;
-            ret = _get_user_info(request_id, user_id_lists, &user_lists);
-            if (ret == false)
+            bool ret2 = _get_user_info(request_id, user_id_lists, &user_lists);
+            if (ret2 == false)
             {
                 LOG_ERROR("{} 批量用户数据获取失败！", request_id);
                 return err_response(request_id, "批量用户数据获取失败!");
@@ -264,19 +276,25 @@ namespace chen_im
                 case MessageType::IMAGE:
                     message_info->mutable_message()->set_message_type(MessageType::IMAGE);
                     message_info->mutable_message()->mutable_image_message()->set_file_id(msg.file_id());
-                    message_info->mutable_message()->mutable_image_message()->set_image_content(file_data_lists[msg.file_id()]);
+                    if (!exclude_file) {
+                        message_info->mutable_message()->mutable_image_message()->set_image_content(file_data_lists[msg.file_id()]);
+                    }
                     break;
                 case MessageType::FILE:
                     message_info->mutable_message()->set_message_type(MessageType::FILE);
                     message_info->mutable_message()->mutable_file_message()->set_file_id(msg.file_id());
                     message_info->mutable_message()->mutable_file_message()->set_file_size(msg.file_size());
                     message_info->mutable_message()->mutable_file_message()->set_file_name(msg.file_name());
-                    message_info->mutable_message()->mutable_file_message()->set_file_contents(file_data_lists[msg.file_id()]);
+                    if (!exclude_file) {
+                        message_info->mutable_message()->mutable_file_message()->set_file_contents(file_data_lists[msg.file_id()]);
+                    }
                     break;
                 case MessageType::SPEECH:
                     message_info->mutable_message()->set_message_type(MessageType::SPEECH);
                     message_info->mutable_message()->mutable_speech_message()->set_file_id(msg.file_id());
-                    message_info->mutable_message()->mutable_speech_message()->set_file_contents(file_data_lists[msg.file_id()]);
+                    if (!exclude_file) {
+                        message_info->mutable_message()->mutable_speech_message()->set_file_contents(file_data_lists[msg.file_id()]);
+                    }
                     break;
                 default:
                     LOG_ERROR("消息类型错误！！");

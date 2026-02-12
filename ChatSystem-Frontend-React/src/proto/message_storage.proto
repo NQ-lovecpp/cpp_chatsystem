@@ -17,6 +17,7 @@ message GetHistoryMsgReq {
     int64 over_time = 4;
      string user_id = 5;
      string session_id = 6;
+     bool exclude_file_content = 7; // 若为true则不返回文件二进制内容，仅返回file_id等元数据
 }
 message GetHistoryMsgRsp {
     string request_id = 1;
@@ -32,6 +33,7 @@ message GetRecentMsgReq {
      int64 cur_time = 4;//用于扩展获取指定时间前的n条消息
      string user_id = 5;
      string session_id = 6;
+     bool exclude_file_content = 7; // 若为true则不返回文件二进制内容，仅返回file_id等元数据
 }
 message GetRecentMsgRsp {
     string request_id = 1;

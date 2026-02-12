@@ -9,6 +9,7 @@ const API = {
     GET_HISTORY: '/service/message_storage/get_history',
     SEARCH_HISTORY: '/service/message_storage/search_history',
     NEW_MESSAGE: '/service/message_transmit/new_message',
+    GET_SINGLE_FILE: '/service/file/get_single_file',
 };
 
 // 消息类型
@@ -21,22 +22,26 @@ export const MessageType = {
 
 /**
  * 获取最近消息
+ * @param {boolean} excludeFileContent - 是否排除文件二进制内容
  */
-export async function getRecentMessages(sessionId, userId, chatSessionId, msgCount = 50) {
+export async function getRecentMessages(sessionId, userId, chatSessionId, msgCount = 50, excludeFileContent = false) {
     return httpPostWithSession(API.GET_RECENT, {
         chat_session_id: chatSessionId,
         msg_count: msgCount,
+        exclude_file_content: excludeFileContent,
     }, sessionId, userId);
 }
 
 /**
  * 获取历史消息
+ * @param {boolean} excludeFileContent - 是否排除文件二进制内容
  */
-export async function getHistoryMessages(sessionId, userId, chatSessionId, startTime, overTime) {
+export async function getHistoryMessages(sessionId, userId, chatSessionId, startTime, overTime, excludeFileContent = false) {
     return httpPostWithSession(API.GET_HISTORY, {
         chat_session_id: chatSessionId,
         start_time: startTime,
         over_time: overTime,
+        exclude_file_content: excludeFileContent,
     }, sessionId, userId);
 }
 
@@ -65,6 +70,7 @@ export async function sendTextMessage(sessionId, userId, chatSessionId, content)
 
 /**
  * 发送图片消息
+ * @param {string} imageContent - base64 编码的图片内容（不含 data URL 前缀）
  */
 export async function sendImageMessage(sessionId, userId, chatSessionId, imageContent) {
     return httpPostWithSession(API.NEW_MESSAGE, {
@@ -78,6 +84,7 @@ export async function sendImageMessage(sessionId, userId, chatSessionId, imageCo
 
 /**
  * 发送文件消息
+ * @param {Uint8Array|string} fileContents - 文件内容（base64 或二进制）
  */
 export async function sendFileMessage(sessionId, userId, chatSessionId, fileName, fileSize, fileContents) {
     return httpPostWithSession(API.NEW_MESSAGE, {
@@ -90,5 +97,16 @@ export async function sendFileMessage(sessionId, userId, chatSessionId, fileName
                 file_contents: fileContents,
             },
         },
+    }, sessionId, userId);
+}
+
+/**
+ * 获取单个文件内容
+ * @param {string} fileId - 文件ID
+ * @returns 包含 file_data 的响应
+ */
+export async function getSingleFile(sessionId, userId, fileId) {
+    return httpPostWithSession(API.GET_SINGLE_FILE, {
+        file_id: fileId,
     }, sessionId, userId);
 }
