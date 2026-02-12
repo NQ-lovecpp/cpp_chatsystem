@@ -141,19 +141,32 @@ function LazyImageMessage({ fileId, imageContent, fetchImage, getCachedImage }) 
 }
 
 export default function MessageArea() {
-    const { currentSession, currentMessages, addMessage, fetchImage, getCachedImage } = useChat();
+    const { currentSession, currentMessages, addMessage, updateMessageStatus, fetchImage, getCachedImage } = useChat();
     const { user, sessionId } = useAuth();
     const messagesEndRef = useRef(null);
+    const messagesContainerRef = useRef(null);
+    const prevSessionIdRef = useRef(null);
     const [showSessionInfo, setShowSessionInfo] = useState(false);
     const [showSearch, setShowSearch] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
     const [searchResults, setSearchResults] = useState([]);
     const [searching, setSearching] = useState(false);
 
-    // 自动滚动到底部
+    // 智能滚动：切换会话时瞬间到底部，新消息时平滑滚动
     useEffect(() => {
-        messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-    }, [currentMessages]);
+        if (!messagesEndRef.current) return;
+        
+        const isSessionChange = prevSessionIdRef.current !== currentSession?.chat_session_id;
+        prevSessionIdRef.current = currentSession?.chat_session_id;
+        
+        if (isSessionChange) {
+            // 切换会话：瞬间滚动到底部，无动画
+            messagesEndRef.current.scrollIntoView({ behavior: 'instant' });
+        } else {
+            // 新消息：平滑滚动
+            messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
+        }
+    }, [currentMessages, currentSession?.chat_session_id]);
 
     // 发送文本消息
     const handleSendMessage = async (content) => {
@@ -178,7 +191,14 @@ export default function MessageArea() {
         addMessage(currentSession.chat_session_id, localMessage);
 
         try {
-            await sendTextMessage(sessionId, user.user_id, currentSession.chat_session_id, content);
+            const result = await sendTextMessage(sessionId, user.user_id, currentSession.chat_session_id, content);
+            if (result.success) {
+                // 发送成功，移除pending状态（通过WebSocket通知会更新消息）
+                // 如果30秒后还是pending状态，也认为发送成功（服务器已处理但通知可能丢失）
+                setTimeout(() => {
+                    updateMessageStatus(currentSession.chat_session_id, localMessage.message_id, false);
+                }, 3000);
+            }
         } catch (error) {
             console.error('发送消息失败:', error);
         }
@@ -211,13 +231,18 @@ export default function MessageArea() {
             addMessage(currentSession.chat_session_id, localMessage);
 
             try {
-                await sendImageMessage(sessionId, user.user_id, currentSession.chat_session_id, base64);
+                const result = await sendImageMessage(sessionId, user.user_id, currentSession.chat_session_id, base64);
+                if (result.success) {
+                    setTimeout(() => {
+                        updateMessageStatus(currentSession.chat_session_id, localMessage.message_id, false);
+                    }, 3000);
+                }
             } catch (error) {
                 console.error('发送图片失败:', error);
             }
         };
         reader.readAsDataURL(file);
-    }, [currentSession, user, sessionId, addMessage]);
+    }, [currentSession, user, sessionId, addMessage, updateMessageStatus]);
 
     // 发送文件
     const handleSendFile = useCallback(async (file) => {
@@ -248,13 +273,18 @@ export default function MessageArea() {
             addMessage(currentSession.chat_session_id, localMessage);
 
             try {
-                await sendFileMessage(sessionId, user.user_id, currentSession.chat_session_id, file.name, file.size, base64);
+                const result = await sendFileMessage(sessionId, user.user_id, currentSession.chat_session_id, file.name, file.size, base64);
+                if (result.success) {
+                    setTimeout(() => {
+                        updateMessageStatus(currentSession.chat_session_id, localMessage.message_id, false);
+                    }, 3000);
+                }
             } catch (error) {
                 console.error('发送文件失败:', error);
             }
         };
         reader.readAsDataURL(file);
-    }, [currentSession, user, sessionId, addMessage]);
+    }, [currentSession, user, sessionId, addMessage, updateMessageStatus]);
 
     // 格式化时间
     const formatTime = (timestamp) => {
@@ -362,10 +392,10 @@ export default function MessageArea() {
 
     return (
         <div className="h-full flex flex-col relative">
-            {/* 头部 */}
-            <div className="h-16 px-6 flex items-center justify-between border-b border-gray-100 bg-white/80 backdrop-blur-sm shrink-0">
+            {/* 头部 - 桌面端显示，移动端由父组件MobileMessageArea处理 */}
+            <div className="hidden lg:flex h-16 px-6 items-center justify-between border-b border-gray-100 bg-white/80 backdrop-blur-sm shrink-0">
                 <div>
-                    <h2 className="font-semibold text-gray-900">{currentSession.chat_session_name}</h2>
+                    <h2 className="font-semibold text-gray-900 truncate max-w-[200px]">{currentSession.chat_session_name}</h2>
                 </div>
                 <div className="flex items-center gap-2">
                     <button
@@ -387,8 +417,31 @@ export default function MessageArea() {
                 </div>
             </div>
 
+            {/* 移动端头部 - 显示会话名称 */}
+            <div className="lg:hidden h-14 px-4 flex items-center justify-between border-b border-gray-100 bg-white/80 backdrop-blur-sm shrink-0">
+                <h2 className="font-semibold text-gray-900 truncate flex-1">{currentSession.chat_session_name}</h2>
+                <div className="flex items-center gap-2">
+                    <button
+                        onClick={() => setShowSearch(!showSearch)}
+                        className={`p-2 hover:bg-gray-100 rounded-lg transition-colors ${showSearch ? 'bg-[#E0F2F7] text-[#0B4F6C]' : ''}`}
+                    >
+                        <svg className="w-5 h-5 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                        </svg>
+                    </button>
+                    <button
+                        onClick={() => setShowSessionInfo(true)}
+                        className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                    >
+                        <svg className="w-5 h-5 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z" />
+                        </svg>
+                    </button>
+                </div>
+            </div>
+
             {/* 消息列表 */}
-            <div className="flex-1 overflow-y-auto p-6 space-y-4">
+            <div ref={messagesContainerRef} className="flex-1 overflow-y-auto p-4 md:p-6 space-y-4">
                 {currentMessages.length === 0 ? (
                     <div className="text-center text-gray-400 py-10">
                         <p>暂无消息，发送一条消息开始对话吧</p>
@@ -416,7 +469,7 @@ export default function MessageArea() {
                                 </div>
 
                                 {/* 消息气泡 */}
-                                <div className={`max-w-[60%] ${isMe ? 'items-end' : 'items-start'}`}>
+                                <div className={`max-w-[75%] md:max-w-[60%] ${isMe ? 'items-end' : 'items-start'}`}>
                                     {!isMe && (
                                         <p className="text-xs text-gray-400 mb-1 ml-1">
                                             {msg.sender?.nickname}

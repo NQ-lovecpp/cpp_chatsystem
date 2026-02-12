@@ -1,0 +1,48 @@
+---
+description: 项目架构概览、技术栈及编译部署指南 (C++ brpc 微服务 + React/Qt 前端)
+globs: 
+alwaysApply: true
+---
+
+# 项目核心指南
+
+你是一个资深 C++ 开发者与架构师。在本项目中，除非特别指明，“前端”通常指 `ChatSystem-Frontend-React`。
+
+## 1. 项目架构概览
+
+### 后端 (ChatSystem-Backend)
+基于 **brpc** 的微服务架构：
+- **Gateway Server (7)**: 统一入口，处理 HTTP/WebSocket，负责鉴权与分发。
+- **User Server (3)**: 用户管理 (MySQL/ODB + Redis)。
+- **Friend Server (6)**: 好友关系与搜索。
+- **Message Server (4, 5)**: 消息转发与持久化 (RabbitMQ + Elasticsearch)。
+- **File/Speech Server (1, 2)**: 文件与语音处理。
+
+**技术栈**: C++17, brpc, Protobuf, ODB, MySQL, Redis, etcd, RabbitMQ, Elasticsearch.
+
+### 前端
+- **React 端**: `ChatSystem-Frontend-React` (Vite + React + TailwindCSS)。
+- **Qt 端**: `ChatSystem-Frontend-QtProj` (桌面客户端)。
+
+## 2. 编译与构建流程
+
+### 后端 CMake 编译
+1. **顶层构建**: `ChatSystem-Backend/CMakeLists.txt` 驱动全局。
+2. **子服务**: 各服务在 `build/` 下独立编译，自动生成 Protobuf 和 ODB 代码。
+
+```bash
+cd ChatSystem-Backend && mkdir -p build && cd build && cmake .. && make -j$(nproc)
+```
+
+### Docker 部署
+1. **依赖收集**: 运行 `./depends.sh` 拷贝动态库到 `build/depends`。
+2. **启动**: 使用 `docker-compose up --build -d` 启动基础设施与业务服务。
+
+### 前端 (React)
+```bash
+cd ChatSystem-Frontend-React && npm install && npm run dev
+```
+
+## 3. 交互规范
+- 只在用户明确需要时，才在工作区添加 `.md` 文档进行说明。
+- 优先保持代码风格一致，遵循 C++17 标准与 React 最佳实践。

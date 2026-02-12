@@ -1,0 +1,54 @@
+---
+description: 前端 shadcn/ui 使用规范与组件库管理 (React + TailwindCSS)
+globs: ChatSystem-Frontend-React/**/*
+alwaysApply: false
+---
+
+# Shadcn/UI 使用规范
+
+本项目前端使用 shadcn/ui 作为基础组件库。shadcn/ui 不是一个 npm 依赖包，而是直接将组件代码复制到项目中的模式。
+
+## 1. 核心原则
+- **组件位置**: 所有基础 UI 组件必须存放在 `ChatSystem-Frontend-React/src/components/ui/` 目录下。
+- **按需添加**: 不要一次性安装所有组件，仅在需要时通过 CLI 添加。
+- **自定义修改**: 鼓励根据项目需求直接修改 `ui/` 目录下的组件源码。
+
+## 2. 常用操作命令
+在 `ChatSystem-Frontend-React` 目录下执行：
+
+```bash
+# 添加新组件 (例如 button)
+npx shadcn@latest add button
+
+# 检查组件更新
+npx shadcn@latest diff
+```
+
+## 3. 开发规范
+- **样式**: 统一使用 Tailwind CSS 类名进行样式定制。
+- **组合**: 复杂业务组件应由多个 `ui/` 基础组件组合而成，不要在 `ui/` 组件中直接编写业务逻辑。
+- **Lucide Icons**: 默认使用 `lucide-react` 作为图标库，与 shadcn 风格保持一致。
+
+## 4. 示例：使用 Button 组件
+```tsx
+import { Button } from "@/components/ui/button"
+
+export function Example() {
+  return (
+    <Button variant="outline" size="sm" onClick={() => console.log("clicked")}>
+      Click Me
+    </Button>
+  )
+}
+```
+
+## 5. 目录结构参考
+```text
+ChatSystem-Frontend-React/
+├── src/
+│   ├── components/
+│   │   ├── ui/          # shadcn 基础组件 (Button, Input, etc.)
+│   │   └── business/    # 业务逻辑组件
+│   ├── lib/
+│   │   └── utils.ts     # shadcn 依赖的 clsx/tailwind-merge 工具函数
+```

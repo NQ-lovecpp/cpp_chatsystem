@@ -171,17 +171,62 @@ export function ChatProvider({ children }) {
         }
     }, [messages, loadMessages]);
 
-    // 添加新消息到当前会话
+    // 添加新消息到当前会话（支持更新已有消息状态）
     const addMessage = useCallback((chatSessionId, message) => {
-        setMessages(prev => ({
-            ...prev,
-            [chatSessionId]: [...(prev[chatSessionId] || []), message],
-        }));
+        setMessages(prev => {
+            const existingMessages = prev[chatSessionId] || [];
+            
+            // 检查是否是更新已有的本地消息（发送成功后服务器返回的消息）
+            // 本地消息 message_id 以 'local_' 开头，服务器消息不是
+            if (!message.message_id?.startsWith('local_') && message.sender?.user_id) {
+                // 查找是否有对应的本地pending消息需要替换
+                const pendingIndex = existingMessages.findIndex(m => 
+                    m._pending && 
+                    m.sender?.user_id === message.sender.user_id &&
+                    m.message?.message_type === message.message?.message_type &&
+                    // 时间差在30秒内认为是同一条消息
+                    Math.abs((m.timestamp || 0) - (message.timestamp || 0)) < 30000
+                );
+                
+                if (pendingIndex !== -1) {
+                    // 替换pending消息为服务器确认的消息
+                    const newMessages = [...existingMessages];
+                    newMessages[pendingIndex] = { ...message, _pending: false };
+                    return { ...prev, [chatSessionId]: newMessages };
+                }
+            }
+            
+            // 检查是否是重复消息（相同message_id）
+            const isDuplicate = existingMessages.some(m => 
+                m.message_id === message.message_id && !m.message_id?.startsWith('local_')
+            );
+            if (isDuplicate) {
+                return prev;
+            }
+            
+            return {
+                ...prev,
+                [chatSessionId]: [...existingMessages, message],
+            };
+        });
     }, []);
 
     // 获取缓存的图片（供渲染使用）
     const getCachedImage = useCallback((fileId) => {
         return imageCache.get(fileId) || null;
+    }, []);
+
+    // 更新消息发送状态（移除pending标记）
+    const updateMessageStatus = useCallback((chatSessionId, messageId, pending = false) => {
+        setMessages(prev => {
+            const existingMessages = prev[chatSessionId] || [];
+            const index = existingMessages.findIndex(m => m.message_id === messageId);
+            if (index === -1) return prev;
+            
+            const newMessages = [...existingMessages];
+            newMessages[index] = { ...newMessages[index], _pending: pending };
+            return { ...prev, [chatSessionId]: newMessages };
+        });
     }, []);
 
     // 总未读数
@@ -231,6 +276,14 @@ export function ChatProvider({ children }) {
             if (msg) {
                 console.log('[ChatContext] 解析出新消息:', msg);
                 addMessage(msg.chat_session_id, msg);
+                
+                // 如果是图片消息且有file_id，异步加载图片内容
+                if (msg.message?.message_type === 1 && msg.message?.image_message?.file_id) {
+                    const fileId = msg.message.image_message.file_id;
+                    if (!imageCache.has(fileId)) {
+                        fetchImage(fileId);
+                    }
+                }
 
                 // 更新会话列表：预览消息 + 排序到顶部
                 setSessions(prev => {
@@ -347,6 +400,7 @@ export function ChatProvider({ children }) {
         loadFriendRequests,
         loadMessages,
         addMessage,
+        updateMessageStatus,
         fetchImage,
         getCachedImage,
         clearNotification,

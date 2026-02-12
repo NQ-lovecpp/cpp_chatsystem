@@ -9,7 +9,7 @@ import { createChatSession } from '../api/sessionApi';
 import Avatar from './Avatar';
 import NotificationCenter from './NotificationCenter';
 
-export default function SessionList() {
+export default function SessionList({ onSessionSelect }) {
     const { sessions, currentSessionId, selectSession, loading, friends, loadSessions, unreadCounts } = useChat();
     const { sessionId, user } = useAuth();
     const userId = user?.user_id;
@@ -156,7 +156,10 @@ export default function SessionList() {
                             return (
                                 <button
                                     key={session.chat_session_id}
-                                    onClick={() => selectSession(session.chat_session_id)}
+                                    onClick={() => {
+                                        selectSession(session.chat_session_id);
+                                        onSessionSelect?.(session.chat_session_id);
+                                    }}
                                     className={`
                                         w-full flex items-center gap-3 p-3 rounded-xl text-left transition-all
                                         ${isActive
