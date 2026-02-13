@@ -15,3 +15,5 @@ api_builds/
 # 过滤assets
 assets/
 node_modules/
+
+__pycache__/
