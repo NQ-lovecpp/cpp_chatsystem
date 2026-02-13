@@ -1,0 +1,88 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.getTracing = getTracing;
+exports.applyTraceOverrides = applyTraceOverrides;
+exports.ensureAgentSpan = ensureAgentSpan;
+const context_1 = require("../tracing/context.js");
+const tracing_1 = require("../tracing/index.js");
+const provider_1 = require("../tracing/provider.js");
+/**
+ * Normalizes tracing configuration into the format expected by model providers.
+ * Returns `false` to disable tracing, `true` to include full payload data, or
+ * `'enabled_without_data'` to omit sensitive content while still emitting spans.
+ */
+function getTracing(tracingDisabled, traceIncludeSensitiveData) {
+    if (tracingDisabled) {
+        return false;
+    }
+    if (traceIncludeSensitiveData) {
+        return true;
+    }
+    return 'enabled_without_data';
+}
+function rebaseSpanChain(span, trace) {
+    const previousSpan = span.previousSpan
+        ? rebaseSpanChain(span.previousSpan, trace)
+        : undefined;
+    const parent = previousSpan ?? trace;
+    const rebasedSpan = (0, provider_1.getGlobalTraceProvider)().createSpan({
+        spanId: span.spanId,
+        parentId: span.parentId ?? undefined,
+        startedAt: span.startedAt ?? undefined,
+        endedAt: span.endedAt ?? undefined,
+        data: span.spanData,
+        error: span.error ?? undefined,
+        tracingApiKey: span.tracingApiKey,
+    }, parent);
+    rebasedSpan.previousSpan = previousSpan;
+    return rebasedSpan;
+}
+function applyTraceOverrides(trace, currentSpan, overrides) {
+    const traceIdOverride = overrides.traceId !== undefined && overrides.traceId !== trace.traceId;
+    const tracingApiKeyOverride = overrides.tracingApiKey !== undefined &&
+        overrides.tracingApiKey !== trace.tracingApiKey;
+    if (overrides.traceId !== undefined) {
+        trace.traceId = overrides.traceId;
+    }
+    if (overrides.workflowName !== undefined) {
+        trace.name = overrides.workflowName;
+    }
+    if (overrides.groupId !== undefined) {
+        trace.groupId = overrides.groupId ?? null;
+    }
+    if (overrides.traceMetadata !== undefined) {
+        trace.metadata = overrides.traceMetadata;
+    }
+    if (overrides.tracingApiKey !== undefined) {
+        trace.tracingApiKey = overrides.tracingApiKey;
+    }
+    if (currentSpan && (traceIdOverride || tracingApiKeyOverride)) {
+        return { trace, currentSpan: rebaseSpanChain(currentSpan, trace) };
+    }
+    return { trace, currentSpan };
+}
+/**
+ * Ensures an agent span exists and updates tool metadata if already present.
+ * Returns the span so callers can pass it through run state.
+ */
+function ensureAgentSpan(params) {
+    const { agent, handoffs, tools, currentSpan } = params;
+    const existingSpan = currentSpan;
+    if (existingSpan) {
+        existingSpan.spanData.tools = tools.map((t) => t.name);
+        return existingSpan;
+    }
+    const handoffNames = handoffs.map((h) => h.agentName);
+    const span = (0, tracing_1.createAgentSpan)({
+        data: {
+            name: agent.name,
+            handoffs: handoffNames,
+            tools: tools.map((t) => t.name),
+            output_type: agent.outputSchemaName,
+        },
+    });
+    span.start();
+    (0, context_1.setCurrentSpan)(span);
+    return span;
+}
+//# sourceMappingURL=tracing.js.map

@@ -1,0 +1,81 @@
+{
+  "name": "@openai/agents-extensions",
+  "repository": "https://github.com/openai/openai-agents-js",
+  "homepage": "https://openai.github.io/openai-agents-js/",
+  "version": "0.4.3",
+  "description": "Extensions for the OpenAI Agents SDK",
+  "author": "OpenAI <support@openai.com>",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "prebuild": "tsx ../../scripts/embedMeta.ts",
+    "build": "tsc",
+    "build-check": "tsc --noEmit -p ./tsconfig.test.json",
+    "dist:check": "tsc --noEmit -p ./tsconfig.dist-check.json"
+  },
+  "dependencies": {
+    "@openai/agents-core": "workspace:*",
+    "@types/ws": "^8.18.1",
+    "debug": "^4.4.0"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "require": "./dist/index.js",
+      "import": "./dist/index.mjs"
+    },
+    "./ai-sdk": {
+      "types": "./dist/ai-sdk/index.d.ts",
+      "require": "./dist/ai-sdk/index.js",
+      "import": "./dist/ai-sdk/index.mjs"
+    },
+    "./ai-sdk-ui": {
+      "types": "./dist/ai-sdk-ui/index.d.ts",
+      "require": "./dist/ai-sdk-ui/index.js",
+      "import": "./dist/ai-sdk-ui/index.mjs"
+    },
+    "./experimental/codex": {
+      "types": "./dist/experimental/codex/index.d.ts",
+      "require": "./dist/experimental/codex/index.js",
+      "import": "./dist/experimental/codex/index.mjs"
+    }
+  },
+  "peerDependencies": {
+    "ai": "^6.0.0",
+    "@ai-sdk/provider": "^2.0.0 || ^3.0.0",
+    "@openai/agents": "workspace:>=0.0.0",
+    "@openai/codex-sdk": ">=0.86.0",
+    "ws": "^8.18.1",
+    "zod": "^4.0.0"
+  },
+  "peerDependenciesMeta": {
+    "ai": {
+      "optional": true
+    },
+    "@ai-sdk/provider": {
+      "optional": true
+    },
+    "@openai/codex-sdk": {
+      "optional": true
+    }
+  },
+  "keywords": [
+    "openai",
+    "agents",
+    "ai",
+    "agentic"
+  ],
+  "license": "MIT",
+  "devDependencies": {
+    "ai": "^6.0.42",
+    "@ai-sdk/provider": "^3.0.0",
+    "@openai/agents": "workspace:>=0.0.0",
+    "@openai/codex-sdk": "^0.86.0",
+    "@types/debug": "^4.1.12",
+    "ws": "^8.18.1",
+    "zod": "^4.0.0"
+  },
+  "files": [
+    "dist"
+  ]
+}

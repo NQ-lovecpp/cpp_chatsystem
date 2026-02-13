@@ -1,0 +1,12 @@
+{
+  "extends": "../../tsconfig.json",
+  "compilerOptions": {
+    "outDir": "./dist",
+    "rootDir": "./src",
+    "paths": {
+      "@openai/agents-realtime": ["./src/index.ts"],
+      "@openai/agents-realtime/_shims": ["./src/shims/shims-node.ts"]
+    }
+  },
+  "exclude": ["dist/**", "test/**"]
+}

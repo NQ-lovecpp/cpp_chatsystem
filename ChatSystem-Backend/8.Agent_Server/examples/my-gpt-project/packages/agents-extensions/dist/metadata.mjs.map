@@ -1,0 +1,1 @@
+{"version":3,"file":"metadata.mjs","sourceRoot":"","sources":["../src/metadata.ts"],"names":[],"mappings":"AACA,uCAAuC;AAEvC,MAAM,CAAC,MAAM,QAAQ,GAAG;IACtB,MAAM,EAAE,2BAA2B;IACnC,SAAS,EAAE,OAAO;IAClB,UAAU,EAAE;QACV,2BAA2B,EAAE,OAAO;QACpC,qBAAqB,EAAE,aAAa;KACrC;CACF,CAAC;AAEF,eAAe,QAAQ,CAAC"}

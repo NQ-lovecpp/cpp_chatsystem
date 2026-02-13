@@ -1,0 +1,1 @@
+{"version":3,"file":"realtimeAgent.js","sourceRoot":"","sources":["../src/realtimeAgent.ts"],"names":[],"mappings":";;;AAAA,qDAM6B;AAoC7B;;;;;;;;;;;;;;;;;;;;;;;GAuBG;AACH,MAAa,aAAyC,SAAQ,mBAG7D;IACC;;;OAGG;IACM,KAAK,CAAU;IAExB,YAAY,MAA4C;QACtD,KAAK,CACH,MAAuE,CACxE,CAAC;QACF,IAAI,CAAC,KAAK,GAAG,MAAM,CAAC,KAAK,CAAC;IAC5B,CAAC;CACF;AAhBD,sCAgBC"}
