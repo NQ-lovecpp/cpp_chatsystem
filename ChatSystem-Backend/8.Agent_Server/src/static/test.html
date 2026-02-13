@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Agent Server 测试页面</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .event-log {
+            font-family: 'Monaco', 'Menlo', monospace;
+            font-size: 12px;
+        }
+        .event-init { color: #10b981; }
+        .event-reasoning_delta { color: #8b5cf6; }
+        .event-message { color: #3b82f6; }
+        .event-tool_call { color: #f59e0b; }
+        .event-tool_output { color: #06b6d4; }
+        .event-todo_added { color: #ec4899; }
+        .event-todo_status { color: #ec4899; }
+        .event-done { color: #22c55e; }
+        .event-error { color: #ef4444; }
+    </style>
+</head>
+<body class="bg-gray-100 min-h-screen">
+    <div class="container mx-auto px-4 py-8 max-w-4xl">
+        <h1 class="text-3xl font-bold text-gray-800 mb-2">Agent Server 测试面板</h1>
+        <p class="text-gray-600 mb-6">Phase 1: 后端主链路测试</p>
+
+        <!-- 服务状态 -->
+        <div class="bg-white rounded-lg shadow p-4 mb-6">
+            <div class="flex items-center justify-between">
+                <h2 class="text-lg font-semibold">服务状态</h2>
+                <button onclick="checkStatus()" class="px-3 py-1 bg-blue-500 text-white rounded hover:bg-blue-600">
+                    刷新状态
+                </button>
+            </div>
+            <div id="status" class="mt-3 p-3 bg-gray-50 rounded text-sm">
+                点击"刷新状态"检查服务
+            </div>
+        </div>
+
+        <!-- 创建任务 -->
+        <div class="bg-white rounded-lg shadow p-4 mb-6">
+            <h2 class="text-lg font-semibold mb-4">创建任务</h2>
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">用户 ID</label>
+                    <input type="text" id="userId" value="test_user" 
+                           class="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">任务类型</label>
+                    <select id="taskType" class="w-full px-3 py-2 border rounded-lg">
+                        <option value="session">会话任务 (session)</option>
+                        <option value="global">全局任务 (global)</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">输入内容</label>
+                    <textarea id="inputText" rows="3" 
+                              class="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
+                              placeholder="输入你的问题或任务...">你好，请帮我测试一下 Agent Server 的功能。</textarea>
+                </div>
+                <button onclick="createTask()" 
+                        class="w-full px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 font-medium">
+                    创建任务并订阅事件
+                </button>
+            </div>
+        </div>
+
+        <!-- 当前任务 -->
+        <div id="currentTask" class="bg-white rounded-lg shadow p-4 mb-6 hidden">
+            <div class="flex items-center justify-between mb-4">
+                <h2 class="text-lg font-semibold">当前任务</h2>
+                <span id="taskStatus" class="px-2 py-1 text-xs rounded-full bg-blue-100 text-blue-800">-</span>
+            </div>
+            <div class="text-sm text-gray-600 mb-2">
+                任务 ID: <code id="taskId" class="bg-gray-100 px-2 py-1 rounded">-</code>
+            </div>
+            <div class="flex space-x-2">
+                <button onclick="cancelTask()" 
+                        class="px-3 py-1 bg-red-500 text-white rounded hover:bg-red-600 text-sm">
+                    取消任务
+                </button>
+                <button onclick="getTaskDetail()" 
+                        class="px-3 py-1 bg-gray-500 text-white rounded hover:bg-gray-600 text-sm">
+                    查看详情
+                </button>
+            </div>
+        </div>
+
+        <!-- 事件日志 -->
+        <div class="bg-white rounded-lg shadow p-4 mb-6">
+            <div class="flex items-center justify-between mb-4">
+                <h2 class="text-lg font-semibold">SSE 事件日志</h2>
+                <button onclick="clearLog()" class="px-3 py-1 bg-gray-200 text-gray-700 rounded hover:bg-gray-300 text-sm">
+                    清空日志
+                </button>
+            </div>
+            <div id="eventLog" class="event-log bg-gray-900 text-gray-100 p-4 rounded-lg h-80 overflow-y-auto">
+                <div class="text-gray-500">等待事件...</div>
+            </div>
+        </div>
+
+        <!-- 响应内容 -->
+        <div class="bg-white rounded-lg shadow p-4">
+            <h2 class="text-lg font-semibold mb-4">响应内容</h2>
+            <div id="responseContent" class="prose max-w-none p-4 bg-gray-50 rounded-lg min-h-[100px]">
+                <p class="text-gray-400">等待响应...</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = window.location.origin;
+        let currentTaskId = null;
+        let eventSource = null;
+        let responseText = '';
+
+        // 检查服务状态
+        async function checkStatus() {
+            const statusDiv = document.getElementById('status');
+            try {
+                const res = await fetch(`${API_BASE}/agent/status`);
+                const data = await res.json();
+                statusDiv.innerHTML = `
+                    <div class="text-green-600 font-medium">✅ 服务运行中</div>
+                    <div class="mt-2 text-gray-600">
+                        <div>模型: ${data.model}</div>
+                        <div>功能: ${Object.entries(data.features).filter(([k,v]) => v).map(([k]) => k).join(', ')}</div>
+                    </div>
+                `;
+            } catch (e) {
+                statusDiv.innerHTML = `<div class="text-red-600">❌ 服务连接失败: ${e.message}</div>`;
+            }
+        }
+
+        // 创建任务
+        async function createTask() {
+            const userId = document.getElementById('userId').value;
+            const taskType = document.getElementById('taskType').value;
+            const inputText = document.getElementById('inputText').value;
+
+            if (!inputText.trim()) {
+                alert('请输入任务内容');
+                return;
+            }
+
+            // 关闭之前的 SSE 连接
+            if (eventSource) {
+                eventSource.close();
+            }
+
+            // 清空响应
+            responseText = '';
+            document.getElementById('responseContent').innerHTML = '<p class="text-gray-400">等待响应...</p>';
+
+            try {
+                const res = await fetch(`${API_BASE}/agent/tasks?user_id=${userId}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        input: inputText,
+                        task_type: taskType
+                    })
+                });
+
+                const data = await res.json();
+                currentTaskId = data.task_id;
+
+                // 显示当前任务
+                document.getElementById('currentTask').classList.remove('hidden');
+                document.getElementById('taskId').textContent = currentTaskId;
+                document.getElementById('taskStatus').textContent = data.status;
+
+                logEvent('task_created', { task_id: currentTaskId });
+
+                // 订阅 SSE
+                subscribeEvents(currentTaskId, userId);
+
+            } catch (e) {
+                logEvent('error', { message: e.message });
+            }
+        }
+
+        // 订阅 SSE 事件
+        function subscribeEvents(taskId, userId) {
+            const url = `${API_BASE}/agent/events?task_id=${taskId}&user_id=${userId}`;
+            eventSource = new EventSource(url);
+
+            eventSource.onopen = () => {
+                logEvent('sse_connected', { url });
+            };
+
+            eventSource.onerror = (e) => {
+                logEvent('sse_error', { error: 'Connection error' });
+            };
+
+            // 监听各种事件
+            const eventTypes = ['init', 'reasoning_delta', 'message', 'tool_call', 'tool_output', 
+                               'todo_added', 'todo_status', 'interruption', 'done', 'error',
+                               'task_created', 'task_status', 'task_cancelled'];
+            
+            eventTypes.forEach(type => {
+                eventSource.addEventListener(type, (e) => {
+                    const data = JSON.parse(e.data);
+                    logEvent(type, data);
+
+                    // 处理消息内容
+                    if (type === 'message' && data.content) {
+                        responseText += data.content;
+                        updateResponse();
+                    }
+
+                    // 处理完成
+                    if (type === 'done') {
+                        if (data.final_text) {
+                            responseText = data.final_text;
+                            updateResponse();
+                        }
+                        document.getElementById('taskStatus').textContent = 'done';
+                        document.getElementById('taskStatus').className = 'px-2 py-1 text-xs rounded-full bg-green-100 text-green-800';
+                        eventSource.close();
+                    }
+
+                    // 处理错误
+                    if (type === 'error') {
+                        document.getElementById('taskStatus').textContent = 'failed';
+                        document.getElementById('taskStatus').className = 'px-2 py-1 text-xs rounded-full bg-red-100 text-red-800';
+                        eventSource.close();
+                    }
+                });
+            });
+        }
+
+        // 更新响应显示
+        function updateResponse() {
+            const contentDiv = document.getElementById('responseContent');
+            // 简单的 Markdown 渲染
+            let html = responseText
+                .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+                .replace(/\n/g, '<br>');
+            contentDiv.innerHTML = html || '<p class="text-gray-400">等待响应...</p>';
+        }
+
+        // 记录事件日志
+        function logEvent(type, data) {
+            const logDiv = document.getElementById('eventLog');
+            const time = new Date().toLocaleTimeString();
+            const entry = document.createElement('div');
+            entry.className = `event-${type} mb-1`;
+            entry.innerHTML = `<span class="text-gray-500">[${time}]</span> <span class="font-bold">${type}</span>: ${JSON.stringify(data)}`;
+            
+            // 移除占位符
+            if (logDiv.querySelector('.text-gray-500')) {
+                logDiv.innerHTML = '';
+            }
+            
+            logDiv.appendChild(entry);
+            logDiv.scrollTop = logDiv.scrollHeight;
+        }
+
+        // 清空日志
+        function clearLog() {
+            document.getElementById('eventLog').innerHTML = '<div class="text-gray-500">等待事件...</div>';
+        }
+
+        // 取消任务
+        async function cancelTask() {
+            if (!currentTaskId) return;
+            
+            const userId = document.getElementById('userId').value;
+            try {
+                const res = await fetch(`${API_BASE}/agent/tasks/${currentTaskId}/cancel?user_id=${userId}`, {
+                    method: 'POST'
+                });
+                const data = await res.json();
+                logEvent('task_cancelled', data);
+                document.getElementById('taskStatus').textContent = 'cancelled';
+                document.getElementById('taskStatus').className = 'px-2 py-1 text-xs rounded-full bg-gray-100 text-gray-800';
+            } catch (e) {
+                logEvent('error', { message: e.message });
+            }
+        }
+
+        // 获取任务详情
+        async function getTaskDetail() {
+            if (!currentTaskId) return;
+            
+            const userId = document.getElementById('userId').value;
+            try {
+                const res = await fetch(`${API_BASE}/agent/tasks/${currentTaskId}?user_id=${userId}`);
+                const data = await res.json();
+                logEvent('task_detail', data);
+            } catch (e) {
+                logEvent('error', { message: e.message });
+            }
+        }
+
+        // 页面加载时检查状态
+        window.onload = checkStatus;
+    </script>
+</body>
+</html>
