@@ -19,18 +19,25 @@ class Settings(BaseSettings):
     # OpenAI 配置
     openai_api_key: Optional[str] = None
     openai_base_url: Optional[str] = None
-    openai_model: str = "gpt-4o-mini"
+    openai_model: str = "o4-mini"
     
-    # OpenRouter 配置 (可选)
+    # OpenRouter 配置
     openrouter_api_key: Optional[str] = None
     openrouter_base_url: str = "https://openrouter.ai/api/v1"
+    openrouter_model: str = "openai/gpt-4o-mini"
+    
+    # 代理配置 (Clash)
+    http_proxy: Optional[str] = None
+    https_proxy: Optional[str] = None
     
     # 工具配置
     exa_api_key: Optional[str] = None
     docker_enabled: bool = True
-    docker_timeout: int = 30
+    docker_timeout: int = 60
     docker_memory_limit: str = "512m"
     docker_cpu_limit: float = 1.0
+    python_docker_image: str = "agent-python-executor"
+    python_docker_timeout: int = 60
     
     # 安全配置
     require_approval_for_python: bool = True

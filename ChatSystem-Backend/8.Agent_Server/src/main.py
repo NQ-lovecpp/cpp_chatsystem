@@ -103,7 +103,7 @@ async def health():
 @app.get("/agent/status")
 async def agent_status():
     """Agent 服务状态"""
-    from agents import get_tool_definitions
+    from chat_agents import get_tool_definitions
     from tools import get_python_executor
     
     # 获取 Python 执行器状态

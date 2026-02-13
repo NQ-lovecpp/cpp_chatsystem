@@ -15,7 +15,7 @@ if str(src_dir) not in sys.path:
 
 from auth import UserContext, require_auth
 from runtime import task_manager, Task, TaskStatus, TaskType
-from agents import run_session_agent, run_global_agent
+from chat_agents import run_session_agent, run_global_agent
 
 
 router = APIRouter(prefix="/tasks", tags=["tasks"])

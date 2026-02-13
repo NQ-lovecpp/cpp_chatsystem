@@ -2,11 +2,12 @@
 fastapi>=0.109.0
 uvicorn[standard]>=0.27.0
 
-# OpenAI SDK (Agent 编排)
-openai>=1.12.0
+# OpenAI SDK 和 Agents SDK
+openai>=2.19.0
+openai-agents>=0.8.0
 
 # 数据验证
-pydantic>=2.5.0
+pydantic>=2.12.0
 pydantic-settings>=2.1.0
 
 # 异步支持
@@ -26,3 +27,7 @@ python-dotenv>=1.0.0
 # 网页内容处理
 beautifulsoup4>=4.12.0
 lxml>=5.0.0
+
+# 类型支持
+griffe>=1.5.0
+typing-extensions>=4.12.0
