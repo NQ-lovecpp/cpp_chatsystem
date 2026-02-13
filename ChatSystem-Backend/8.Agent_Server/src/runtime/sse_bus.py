@@ -3,7 +3,7 @@ SSE 事件总线 - 管理任务事件的发布与订阅
 """
 import asyncio
 import json
-from typing import Dict, Set, Optional, AsyncIterator
+from typing import Dict, List, Optional, AsyncIterator
 from dataclasses import dataclass, field
 from datetime import datetime
 
@@ -36,7 +36,7 @@ class SSEBus:
     """
     
     def __init__(self, max_history: int = 100):
-        self._subscribers: Dict[str, Set[EventSubscriber]] = {}
+        self._subscribers: Dict[str, List[EventSubscriber]] = {}
         self._event_history: Dict[str, list] = {}  # task_id -> events
         self._max_history = max_history
         self._lock = asyncio.Lock()
@@ -54,8 +54,8 @@ class SSEBus:
         
         async with self._lock:
             if task_id not in self._subscribers:
-                self._subscribers[task_id] = set()
-            self._subscribers[task_id].add(subscriber)
+                self._subscribers[task_id] = []
+            self._subscribers[task_id].append(subscriber)
             
             # 如果有历史事件且需要重放
             if last_event_id and task_id in self._event_history:
@@ -82,7 +82,8 @@ class SSEBus:
             # 清理订阅
             async with self._lock:
                 if task_id in self._subscribers:
-                    self._subscribers[task_id].discard(subscriber)
+                    if subscriber in self._subscribers[task_id]:
+                        self._subscribers[task_id].remove(subscriber)
                     if not self._subscribers[task_id]:
                         del self._subscribers[task_id]
     

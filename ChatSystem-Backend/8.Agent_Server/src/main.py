@@ -103,6 +103,15 @@ async def health():
 @app.get("/agent/status")
 async def agent_status():
     """Agent 服务状态"""
+    from agents import get_tool_definitions
+    from tools import get_python_executor
+    
+    # 获取 Python 执行器状态
+    try:
+        python_status = get_python_executor().get_status()
+    except:
+        python_status = {"initialized": False, "error": "Docker not available"}
+    
     return {
         "service": "agent",
         "status": "ready",
@@ -110,10 +119,12 @@ async def agent_status():
         "features": {
             "session_agent": True,
             "global_agent": True,
-            "browser_tools": False,  # Phase 2
-            "python_tools": False,   # Phase 2
+            "browser_tools": True,
+            "python_tools": True,
             "approvals": True
-        }
+        },
+        "tools": [t["name"] for t in get_tool_definitions()],
+        "python_executor": python_status
     }
 
 

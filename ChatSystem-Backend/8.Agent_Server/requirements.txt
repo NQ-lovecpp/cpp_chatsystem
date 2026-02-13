@@ -4,7 +4,6 @@ uvicorn[standard]>=0.27.0
 
 # OpenAI SDK (Agent 编排)
 openai>=1.12.0
-openai-agents>=0.0.3
 
 # 数据验证
 pydantic>=2.5.0
@@ -17,10 +16,13 @@ httpx>=0.26.0
 # SSE
 sse-starlette>=2.0.0
 
-# 工具依赖
-exa-py>=1.0.0
+# Docker SDK (Python 执行)
 docker>=7.0.0
 
 # 日志与调试
 loguru>=0.7.0
 python-dotenv>=1.0.0
+
+# 网页内容处理
+beautifulsoup4>=4.12.0
+lxml>=5.0.0
