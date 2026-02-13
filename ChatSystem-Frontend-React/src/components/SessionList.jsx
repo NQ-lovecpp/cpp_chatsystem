@@ -3,11 +3,13 @@
  */
 
 import { useState } from 'react';
+import { motion, AnimatePresence } from 'motion/react';
 import { useChat } from '../contexts/ChatContext';
 import { useAuth } from '../contexts/AuthContext';
 import { createChatSession } from '../api/sessionApi';
 import Avatar from './Avatar';
 import NotificationCenter from './NotificationCenter';
+import { cn } from '../lib/utils';
 
 export default function SessionList({ onSessionSelect }) {
     const { sessions, currentSessionId, selectSession, loading, friends, loadSessions, unreadCounts } = useChat();
@@ -107,20 +109,22 @@ export default function SessionList({ onSessionSelect }) {
             {/* 头部 */}
             <div className="px-5 pt-6 pb-4">
                 <div className="flex items-center justify-between mb-4">
-                    <h1 className="text-xl font-bold text-gray-900">消息</h1>
-                    <button
+                    <h1 className="text-xl font-bold text-[var(--color-text)]">消息</h1>
+                    <motion.button
                         onClick={() => setShowCreateModal(true)}
-                        className="w-8 h-8 flex items-center justify-center bg-[#0B4F6C] text-white rounded-lg hover:bg-[#0a4560] transition-colors"
+                        className="w-8 h-8 flex items-center justify-center bg-[var(--color-primary)] text-white rounded-lg hover:bg-[var(--color-primary-hover)] transition-colors"
                         title="创建群聊"
+                        whileHover={{ scale: 1.05 }}
+                        whileTap={{ scale: 0.95 }}
                     >
                         <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
                         </svg>
-                    </button>
+                    </motion.button>
                 </div>
 
                 <div className="relative">
-                    <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--color-text-muted)]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                     </svg>
                     <input
@@ -128,7 +132,7 @@ export default function SessionList({ onSessionSelect }) {
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
                         placeholder="搜索会话..."
-                        className="w-full pl-10 pr-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#0B4F6C]/20 focus:border-[#0B4F6C] transition-all"
+                        className="w-full pl-10 pr-4 py-2.5 bg-[var(--color-surface)] border border-[var(--color-border)] rounded-xl text-sm text-[var(--color-text)] placeholder:text-[var(--color-text-muted)] focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]/20 focus:border-[var(--color-primary)] transition-all"
                     />
                 </div>
             </div>
@@ -137,71 +141,101 @@ export default function SessionList({ onSessionSelect }) {
             <div className="flex-1 overflow-y-auto px-3" style={{ maxHeight: '66%' }}>
                 {loading ? (
                     <div className="flex items-center justify-center py-10">
-                        <div className="w-6 h-6 border-2 border-[#0B4F6C] border-t-transparent rounded-full animate-spin"></div>
+                        <motion.div 
+                            className="w-6 h-6 border-2 border-[var(--color-primary)] border-t-transparent rounded-full"
+                            animate={{ rotate: 360 }}
+                            transition={{ duration: 1, repeat: Infinity, ease: 'linear' }}
+                        />
                     </div>
                 ) : filteredSessions.length === 0 ? (
-                    <div className="text-center py-10 text-gray-400">
-                        <svg className="w-12 h-12 mx-auto mb-3 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <motion.div 
+                        className="text-center py-10 text-[var(--color-text-muted)]"
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                    >
+                        <svg className="w-12 h-12 mx-auto mb-3 text-[var(--color-border)]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
                         </svg>
                         <p className="text-sm">暂无会话</p>
                         <p className="text-xs mt-1">添加好友后会自动创建会话</p>
-                    </div>
+                    </motion.div>
                 ) : (
                     <div className="space-y-1">
-                        {filteredSessions.map((session) => {
-                            const unread = unreadCounts[session.chat_session_id] || 0;
-                            const isActive = currentSessionId === session.chat_session_id;
+                        <AnimatePresence>
+                            {filteredSessions.map((session, index) => {
+                                const unread = unreadCounts[session.chat_session_id] || 0;
+                                const isActive = currentSessionId === session.chat_session_id;
 
-                            return (
-                                <button
-                                    key={session.chat_session_id}
-                                    onClick={() => {
-                                        selectSession(session.chat_session_id);
-                                        onSessionSelect?.(session.chat_session_id);
-                                    }}
-                                    className={`
-                                        w-full flex items-center gap-3 p-3 rounded-xl text-left transition-all
-                                        ${isActive
-                                            ? 'bg-[#0B4F6C] text-white shadow-md shadow-[#0B4F6C]/20'
-                                            : 'hover:bg-gray-50'
-                                        }
-                                    `}
-                                >
-                                    {/* 头像 */}
-                                    <div className="relative">
-                                        <Avatar
-                                            src={session.avatar}
-                                            name={session.chat_session_name}
-                                            size="lg"
-                                            rounded="xl"
-                                            className={isActive ? 'bg-white/20' : ''}
-                                        />
-                                        {/* 未读提示 - 右上角 */}
-                                        {!isActive && unread > 0 && (
-                                            <div className="absolute -top-1 -right-1">
-                                                {renderUnreadBadge(unread)}
-                                            </div>
+                                return (
+                                    <motion.button
+                                        key={session.chat_session_id}
+                                        initial={{ opacity: 0, x: -20 }}
+                                        animate={{ opacity: 1, x: 0 }}
+                                        exit={{ opacity: 0, x: -20 }}
+                                        transition={{ delay: index * 0.03 }}
+                                        onClick={() => {
+                                            selectSession(session.chat_session_id);
+                                            onSessionSelect?.(session.chat_session_id);
+                                        }}
+                                        className={cn(
+                                            'w-full flex items-center gap-3 p-3 rounded-xl text-left transition-all',
+                                            isActive
+                                                ? 'bg-[var(--color-primary)] text-white shadow-md'
+                                                : 'hover:bg-[var(--color-surface)]'
                                         )}
-                                    </div>
-
-                                    {/* 内容 */}
-                                    <div className="flex-1 min-w-0">
-                                        <div className="flex items-center justify-between mb-1">
-                                            <span className={`font-medium truncate ${isActive ? 'text-white' : 'text-gray-900'}`}>
-                                                {session.chat_session_name || '未命名会话'}
-                                            </span>
-                                            <span className={`text-xs shrink-0 ${isActive ? 'text-white/70' : 'text-gray-400'}`}>
-                                                {formatTime(session.prev_message?.timestamp)}
-                                            </span>
+                                        whileHover={!isActive ? { scale: 1.01 } : {}}
+                                        whileTap={{ scale: 0.98 }}
+                                    >
+                                        {/* 头像 */}
+                                        <div className="relative">
+                                            <Avatar
+                                                src={session.avatar}
+                                                name={session.chat_session_name}
+                                                size="lg"
+                                                rounded="xl"
+                                                className={isActive ? 'opacity-90' : ''}
+                                                animate={false}
+                                            />
+                                            {/* 未读提示 - 右上角 */}
+                                            {!isActive && unread > 0 && (
+                                                <motion.div 
+                                                    className="absolute -top-1 -right-1"
+                                                    initial={{ scale: 0 }}
+                                                    animate={{ scale: 1 }}
+                                                    transition={{ type: 'spring', stiffness: 500, damping: 25 }}
+                                                >
+                                                    {renderUnreadBadge(unread)}
+                                                </motion.div>
+                                            )}
                                         </div>
-                                        <p className={`text-sm truncate ${isActive ? 'text-white/80' : 'text-gray-500'}`}>
-                                            {getMessagePreview(session)}
-                                        </p>
-                                    </div>
-                                </button>
-                            );
-                        })}
+
+                                        {/* 内容 */}
+                                        <div className="flex-1 min-w-0">
+                                            <div className="flex items-center justify-between mb-1">
+                                                <span className={cn(
+                                                    'font-medium truncate',
+                                                    isActive ? 'text-white' : 'text-[var(--color-text)]'
+                                                )}>
+                                                    {session.chat_session_name || '未命名会话'}
+                                                </span>
+                                                <span className={cn(
+                                                    'text-xs shrink-0',
+                                                    isActive ? 'text-white/70' : 'text-[var(--color-text-muted)]'
+                                                )}>
+                                                    {formatTime(session.prev_message?.timestamp)}
+                                                </span>
+                                            </div>
+                                            <p className={cn(
+                                                'text-sm truncate',
+                                                isActive ? 'text-white/80' : 'text-[var(--color-text-secondary)]'
+                                            )}>
+                                                {getMessagePreview(session)}
+                                            </p>
+                                        </div>
+                                    </motion.button>
+                                );
+                            })}
+                        </AnimatePresence>
                     </div>
                 )}
             </div>
@@ -211,13 +245,17 @@ export default function SessionList({ onSessionSelect }) {
 
             {/* 创建群聊模态框 */}
             {showCreateModal && (
-                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-                    <div className="bg-white rounded-2xl w-80 max-h-[70vh] overflow-hidden shadow-xl">
-                        <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
-                            <h2 className="text-lg font-bold text-gray-900">创建群聊</h2>
+                <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
+                    <motion.div 
+                        className="bg-[var(--color-surface-elevated)] rounded-2xl w-80 max-h-[70vh] overflow-hidden shadow-xl"
+                        initial={{ opacity: 0, scale: 0.95 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                    >
+                        <div className="px-5 py-4 border-b border-[var(--color-border)] flex items-center justify-between">
+                            <h2 className="text-lg font-bold text-[var(--color-text)]">创建群聊</h2>
                             <button
                                 onClick={() => setShowCreateModal(false)}
-                                className="w-8 h-8 flex items-center justify-center text-gray-400 hover:text-gray-600 rounded-lg hover:bg-gray-100"
+                                className="w-8 h-8 flex items-center justify-center text-[var(--color-text-muted)] hover:text-[var(--color-text-secondary)] rounded-lg hover:bg-[var(--color-surface)]"
                             >
                                 <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -227,44 +265,44 @@ export default function SessionList({ onSessionSelect }) {
 
                         <div className="p-5">
                             <div className="mb-4">
-                                <label className="block text-sm font-medium text-gray-700 mb-2">群名称</label>
+                                <label className="block text-sm font-medium text-[var(--color-text)] mb-2">群名称</label>
                                 <input
                                     type="text"
                                     value={groupName}
                                     onChange={(e) => setGroupName(e.target.value)}
                                     placeholder="输入群聊名称..."
-                                    className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#0B4F6C]/20 focus:border-[#0B4F6C]"
+                                    className="w-full px-4 py-2.5 bg-[var(--color-surface)] border border-[var(--color-border)] text-[var(--color-text)] placeholder:text-[var(--color-text-muted)] rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]/20 focus:border-[var(--color-primary)]"
                                 />
                             </div>
 
                             <div className="mb-4">
-                                <label className="block text-sm font-medium text-gray-700 mb-2">
+                                <label className="block text-sm font-medium text-[var(--color-text)] mb-2">
                                     选择成员 ({selectedMembers.length}人已选)
                                 </label>
                                 <div className="max-h-48 overflow-y-auto space-y-2">
                                     {friends.length === 0 ? (
-                                        <p className="text-sm text-gray-400 text-center py-4">暂无好友</p>
+                                        <p className="text-sm text-[var(--color-text-muted)] text-center py-4">暂无好友</p>
                                     ) : (
                                         friends.map(friend => (
                                             <label
                                                 key={friend.user_id}
                                                 className={`flex items-center gap-3 p-2 rounded-lg cursor-pointer transition-colors ${selectedMembers.includes(friend.user_id)
-                                                    ? 'bg-[#E0F2F7]'
-                                                    : 'hover:bg-gray-50'
+                                                    ? 'bg-[var(--color-primary-light)]'
+                                                    : 'hover:bg-[var(--color-surface)]'
                                                 }`}
                                             >
                                                 <input
                                                     type="checkbox"
                                                     checked={selectedMembers.includes(friend.user_id)}
                                                     onChange={() => toggleMember(friend.user_id)}
-                                                    className="w-4 h-4 text-[#0B4F6C] rounded focus:ring-[#0B4F6C]"
+                                                    className="w-4 h-4 accent-[var(--color-primary)] rounded"
                                                 />
                                                 <Avatar
                                                     src={friend.avatar}
                                                     name={friend.nickname}
                                                     size="sm"
                                                 />
-                                                <span className="text-sm text-gray-900">{friend.nickname}</span>
+                                                <span className="text-sm text-[var(--color-text)]">{friend.nickname}</span>
                                             </label>
                                         ))
                                     )}
@@ -274,12 +312,12 @@ export default function SessionList({ onSessionSelect }) {
                             <button
                                 onClick={handleCreateGroup}
                                 disabled={creating || !groupName.trim() || selectedMembers.length === 0}
-                                className="w-full py-3 bg-[#0B4F6C] text-white rounded-xl font-medium hover:bg-[#0a4560] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                className="w-full py-3 bg-[var(--color-primary)] text-white rounded-xl font-medium hover:bg-[var(--color-primary-hover)] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                             >
                                 {creating ? '创建中...' : '创建群聊'}
                             </button>
                         </div>
-                    </div>
+                    </motion.div>
                 </div>
             )}
         </div>

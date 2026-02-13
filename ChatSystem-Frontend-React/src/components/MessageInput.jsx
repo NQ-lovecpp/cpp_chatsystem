@@ -54,7 +54,7 @@ export default function MessageInput({ onSend, onSendImage, onSendFile }) {
     };
 
     return (
-        <div className="px-3 md:px-6 py-3 md:py-4 border-t border-gray-100 bg-white/80 backdrop-blur-sm shrink-0">
+        <div className="px-3 md:px-6 py-3 md:py-4 border-t border-[var(--color-border)] bg-[var(--color-surface-elevated)]/80 backdrop-blur-sm shrink-0">
             {/* 隐藏的文件选择器 */}
             <input
                 ref={imageInputRef}
@@ -75,7 +75,7 @@ export default function MessageInput({ onSend, onSendImage, onSendFile }) {
                 <button
                     type="button"
                     onClick={() => fileInputRef.current?.click()}
-                    className="p-2 md:p-2.5 text-gray-400 hover:text-[#0B4F6C] hover:bg-[#E0F2F7] rounded-xl transition-colors shrink-0"
+                    className="p-2 md:p-2.5 text-[var(--color-text-muted)] hover:text-[var(--color-primary)] hover:bg-[var(--color-primary-light)] rounded-xl transition-colors shrink-0"
                     title="发送文件"
                 >
                     <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -87,7 +87,7 @@ export default function MessageInput({ onSend, onSendImage, onSendFile }) {
                 <button
                     type="button"
                     onClick={() => imageInputRef.current?.click()}
-                    className="p-2 md:p-2.5 text-gray-400 hover:text-[#0B4F6C] hover:bg-[#E0F2F7] rounded-xl transition-colors shrink-0"
+                    className="p-2 md:p-2.5 text-[var(--color-text-muted)] hover:text-[var(--color-primary)] hover:bg-[var(--color-primary-light)] rounded-xl transition-colors shrink-0"
                     title="发送图片"
                 >
                     <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -103,7 +103,7 @@ export default function MessageInput({ onSend, onSendImage, onSendFile }) {
                         onKeyDown={handleKeyDown}
                         placeholder="输入消息..."
                         rows={1}
-                        className="w-full px-3 md:px-4 py-2 md:py-2.5 bg-gray-50 border border-gray-200 rounded-xl resize-none focus:outline-none focus:ring-2 focus:ring-[#0B4F6C]/20 focus:border-[#0B4F6C] transition-all text-base"
+                        className="w-full px-3 md:px-4 py-2 md:py-2.5 bg-[var(--color-surface)] border border-[var(--color-border)] text-[var(--color-text)] placeholder:text-[var(--color-text-muted)] rounded-xl resize-none focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]/20 focus:border-[var(--color-primary)] transition-all text-base"
                         style={{ maxHeight: '120px' }}
                     />
                 </div>
@@ -112,7 +112,7 @@ export default function MessageInput({ onSend, onSendImage, onSendFile }) {
                 <button
                     type="submit"
                     disabled={!message.trim()}
-                    className="p-2 md:p-2.5 bg-[#0B4F6C] text-white rounded-xl hover:bg-[#0a4560] transition-colors shadow-md shadow-[#0B4F6C]/20 disabled:opacity-50 disabled:cursor-not-allowed shrink-0"
+                    className="p-2 md:p-2.5 bg-[var(--color-primary)] text-white rounded-xl hover:bg-[var(--color-primary-hover)] transition-colors shadow-md disabled:opacity-50 disabled:cursor-not-allowed shrink-0"
                 >
                     <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />

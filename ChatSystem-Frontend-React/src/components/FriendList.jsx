@@ -3,11 +3,13 @@
  */
 
 import { useState } from 'react';
+import { motion } from 'motion/react';
 import { useChat } from '../contexts/ChatContext';
 import { useAuth } from '../contexts/AuthContext';
 import { searchFriend, addFriendApply, addFriendProcess } from '../api/friendApi';
 import FriendInfoModal from './FriendInfoModal';
 import Avatar from './Avatar';
+import { cn } from '../lib/utils';
 
 export default function FriendList() {
     const { friends, friendRequests, loadFriends, loadFriendRequests } = useChat();
@@ -28,7 +30,6 @@ export default function FriendList() {
         setActiveTab('search');
         const result = await searchFriend(sessionId, userId, searchQuery);
         if (result.success && result.user_info) {
-            // 确保 user_info 始终是数组（后端可能返回单个对象或数组）
             const users = Array.isArray(result.user_info)
                 ? result.user_info
                 : [result.user_info];
@@ -68,12 +69,12 @@ export default function FriendList() {
         <div className="flex flex-col h-full">
             {/* 头部 */}
             <div className="px-5 pt-6 pb-4">
-                <h1 className="text-xl font-bold text-gray-900 mb-4">联系人</h1>
+                <h1 className="text-xl font-bold text-[var(--color-text)] mb-4">联系人</h1>
 
                 {/* 搜索框 */}
                 <div className="flex gap-2">
                     <div className="relative flex-1">
-                        <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--color-text-muted)]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                         </svg>
                         <input
@@ -82,34 +83,40 @@ export default function FriendList() {
                             onChange={(e) => setSearchQuery(e.target.value)}
                             onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
                             placeholder="搜索用户..."
-                            className="w-full pl-10 pr-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#0B4F6C]/20 focus:border-[#0B4F6C] transition-all"
+                            className="w-full pl-10 pr-4 py-2.5 bg-[var(--color-surface)] border border-[var(--color-border)] rounded-xl text-sm text-[var(--color-text)] placeholder:text-[var(--color-text-muted)] focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]/20 focus:border-[var(--color-primary)] transition-all"
                         />
                     </div>
-                    <button
+                    <motion.button
                         onClick={handleSearch}
-                        className="px-4 py-2.5 bg-[#0B4F6C] text-white rounded-xl text-sm font-medium hover:bg-[#0a4560] transition-colors"
+                        className="px-4 py-2.5 bg-[var(--color-primary)] text-white rounded-xl text-sm font-medium hover:bg-[var(--color-primary-hover)] transition-colors"
+                        whileHover={{ scale: 1.02 }}
+                        whileTap={{ scale: 0.98 }}
                     >
                         搜索
-                    </button>
+                    </motion.button>
                 </div>
 
                 {/* 标签页 */}
                 <div className="flex gap-2 mt-4">
                     <button
                         onClick={() => setActiveTab('friends')}
-                        className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${activeTab === 'friends'
-                            ? 'bg-[#0B4F6C] text-white'
-                            : 'text-gray-500 hover:bg-gray-100'
-                            }`}
+                        className={cn(
+                            'px-3 py-1.5 rounded-lg text-sm font-medium transition-colors',
+                            activeTab === 'friends'
+                                ? 'bg-[var(--color-primary)] text-white'
+                                : 'text-[var(--color-text-secondary)] hover:bg-[var(--color-surface)]'
+                        )}
                     >
                         好友 ({friends.length})
                     </button>
                     <button
                         onClick={() => setActiveTab('requests')}
-                        className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${activeTab === 'requests'
-                            ? 'bg-[#0B4F6C] text-white'
-                            : 'text-gray-500 hover:bg-gray-100'
-                            }`}
+                        className={cn(
+                            'px-3 py-1.5 rounded-lg text-sm font-medium transition-colors',
+                            activeTab === 'requests'
+                                ? 'bg-[var(--color-primary)] text-white'
+                                : 'text-[var(--color-text-secondary)] hover:bg-[var(--color-surface)]'
+                        )}
                     >
                         申请 ({friendRequests.length})
                     </button>
@@ -123,27 +130,38 @@ export default function FriendList() {
                     <div className="space-y-2">
                         {searching ? (
                             <div className="flex items-center justify-center py-10">
-                                <div className="w-6 h-6 border-2 border-[#0B4F6C] border-t-transparent rounded-full animate-spin"></div>
+                                <motion.div 
+                                    className="w-6 h-6 border-2 border-[var(--color-primary)] border-t-transparent rounded-full"
+                                    animate={{ rotate: 360 }}
+                                    transition={{ duration: 1, repeat: Infinity, ease: 'linear' }}
+                                />
                             </div>
                         ) : searchResults.length === 0 ? (
-                            <div className="text-center py-10 text-gray-400">
+                            <div className="text-center py-10 text-[var(--color-text-muted)]">
                                 <p className="text-sm">未找到用户</p>
                             </div>
                         ) : (
-                            searchResults.map((user) => (
-                                <div key={user.user_id} className="flex items-center gap-3 p-3 bg-white rounded-xl">
-                                    <Avatar src={user.avatar} name={user.nickname} size="md" />
-                                    <div className="flex-1">
-                                        <p className="font-medium text-gray-900">{user.nickname}</p>
-                                        <p className="text-sm text-gray-500">{user.description || '暂无签名'}</p>
+                            searchResults.map((u) => (
+                                <motion.div 
+                                    key={u.user_id} 
+                                    className="flex items-center gap-3 p-3 bg-[var(--color-surface-elevated)] rounded-xl"
+                                    initial={{ opacity: 0, y: 10 }}
+                                    animate={{ opacity: 1, y: 0 }}
+                                >
+                                    <Avatar src={u.avatar} name={u.nickname} size="md" />
+                                    <div className="flex-1 min-w-0">
+                                        <p className="font-medium text-[var(--color-text)] truncate">{u.nickname}</p>
+                                        <p className="text-sm text-[var(--color-text-secondary)] truncate">{u.description || '暂无签名'}</p>
                                     </div>
-                                    <button
-                                        onClick={() => handleAddFriend(user.user_id)}
-                                        className="px-3 py-1.5 bg-[#E0F2F7] text-[#0B4F6C] rounded-lg text-sm font-medium hover:bg-[#0B4F6C] hover:text-white transition-colors"
+                                    <motion.button
+                                        onClick={() => handleAddFriend(u.user_id)}
+                                        className="px-3 py-1.5 bg-[var(--color-primary-light)] text-[var(--color-primary)] rounded-lg text-sm font-medium hover:bg-[var(--color-primary)] hover:text-white transition-colors"
+                                        whileHover={{ scale: 1.02 }}
+                                        whileTap={{ scale: 0.98 }}
                                     >
                                         添加
-                                    </button>
-                                </div>
+                                    </motion.button>
+                                </motion.div>
                             ))
                         )}
                     </div>
@@ -153,22 +171,26 @@ export default function FriendList() {
                 {activeTab === 'friends' && (
                     <div className="space-y-2">
                         {friends.length === 0 ? (
-                            <div className="text-center py-10 text-gray-400">
+                            <div className="text-center py-10 text-[var(--color-text-muted)]">
                                 <p className="text-sm">暂无好友</p>
                             </div>
                         ) : (
-                            friends.map((friend) => (
-                                <div
+                            friends.map((friend, index) => (
+                                <motion.div
                                     key={friend.user_id}
                                     onClick={() => setSelectedFriend(friend)}
-                                    className="flex items-center gap-3 p-3 hover:bg-gray-50 rounded-xl transition-colors cursor-pointer"
+                                    className="flex items-center gap-3 p-3 hover:bg-[var(--color-surface)] rounded-xl transition-colors cursor-pointer"
+                                    initial={{ opacity: 0, x: -10 }}
+                                    animate={{ opacity: 1, x: 0 }}
+                                    transition={{ delay: index * 0.03 }}
+                                    whileHover={{ x: 4 }}
                                 >
                                     <Avatar src={friend.avatar} name={friend.nickname} size="md" />
-                                    <div className="flex-1">
-                                        <p className="font-medium text-gray-900">{friend.nickname}</p>
-                                        <p className="text-sm text-gray-500 truncate">{friend.description || '暂无签名'}</p>
+                                    <div className="flex-1 min-w-0">
+                                        <p className="font-medium text-[var(--color-text)] truncate">{friend.nickname}</p>
+                                        <p className="text-sm text-[var(--color-text-secondary)] truncate">{friend.description || '暂无签名'}</p>
                                     </div>
-                                </div>
+                                </motion.div>
                             ))
                         )}
                     </div>
@@ -178,32 +200,42 @@ export default function FriendList() {
                 {activeTab === 'requests' && (
                     <div className="space-y-2">
                         {friendRequests.length === 0 ? (
-                            <div className="text-center py-10 text-gray-400">
+                            <div className="text-center py-10 text-[var(--color-text-muted)]">
                                 <p className="text-sm">暂无好友申请</p>
                             </div>
                         ) : (
-                            friendRequests.map((request) => (
-                                <div key={request.event_id} className="flex items-center gap-3 p-3 bg-white rounded-xl">
+                            friendRequests.map((request, index) => (
+                                <motion.div 
+                                    key={request.event_id} 
+                                    className="flex items-center gap-3 p-3 bg-[var(--color-surface-elevated)] rounded-xl"
+                                    initial={{ opacity: 0, y: 10 }}
+                                    animate={{ opacity: 1, y: 0 }}
+                                    transition={{ delay: index * 0.05 }}
+                                >
                                     <Avatar src={request.sender?.avatar} name={request.sender?.nickname} size="md" />
-                                    <div className="flex-1">
-                                        <p className="font-medium text-gray-900">{request.sender?.nickname}</p>
-                                        <p className="text-sm text-gray-500">请求添加你为好友</p>
+                                    <div className="flex-1 min-w-0">
+                                        <p className="font-medium text-[var(--color-text)] truncate">{request.sender?.nickname}</p>
+                                        <p className="text-sm text-[var(--color-text-secondary)]">请求添加你为好友</p>
                                     </div>
-                                    <div className="flex gap-2">
-                                        <button
+                                    <div className="flex gap-2 shrink-0">
+                                        <motion.button
                                             onClick={() => handleFriendRequest(request.sender?.user_id, request.event_id, true)}
-                                            className="px-3 py-1.5 bg-[#0B4F6C] text-white rounded-lg text-sm font-medium hover:bg-[#0a4560] transition-colors"
+                                            className="px-3 py-1.5 bg-[var(--color-primary)] text-white rounded-lg text-sm font-medium hover:bg-[var(--color-primary-hover)] transition-colors"
+                                            whileHover={{ scale: 1.02 }}
+                                            whileTap={{ scale: 0.98 }}
                                         >
                                             同意
-                                        </button>
-                                        <button
+                                        </motion.button>
+                                        <motion.button
                                             onClick={() => handleFriendRequest(request.sender?.user_id, request.event_id, false)}
-                                            className="px-3 py-1.5 bg-gray-100 text-gray-600 rounded-lg text-sm font-medium hover:bg-gray-200 transition-colors"
+                                            className="px-3 py-1.5 bg-[var(--color-surface)] text-[var(--color-text-secondary)] rounded-lg text-sm font-medium hover:bg-[var(--color-border)] transition-colors"
+                                            whileHover={{ scale: 1.02 }}
+                                            whileTap={{ scale: 0.98 }}
                                         >
                                             拒绝
-                                        </button>
+                                        </motion.button>
                                     </div>
-                                </div>
+                                </motion.div>
                             ))
                         )}
                     </div>

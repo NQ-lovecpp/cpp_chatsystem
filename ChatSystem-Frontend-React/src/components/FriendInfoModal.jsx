@@ -4,6 +4,7 @@
  */
 
 import { useState } from 'react';
+import { motion } from 'motion/react';
 import { useChat } from '../contexts/ChatContext';
 import { useAuth } from '../contexts/AuthContext';
 import { removeFriend } from '../api/friendApi';
@@ -19,7 +20,6 @@ export default function FriendInfoModal({ friend, onClose, onStartChat }) {
 
     // 发起聊天
     const handleStartChat = () => {
-        // 查找与该好友的单聊会话
         const existingSession = sessions.find(
             s => s.single_chat_friend_id === friend.user_id
         );
@@ -55,9 +55,14 @@ export default function FriendInfoModal({ friend, onClose, onStartChat }) {
 
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
-            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm mx-4 overflow-hidden">
+            <motion.div 
+                className="bg-[var(--color-surface-elevated)] rounded-2xl shadow-2xl w-full max-w-sm mx-4 overflow-hidden"
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.95 }}
+            >
                 {/* 头部背景 */}
-                <div className="h-20 bg-gradient-to-r from-purple-500 to-pink-500 relative">
+                <div className="h-20 bg-gradient-to-r from-[var(--color-primary)] to-[var(--color-primary-dark)] relative">
                     <button
                         onClick={onClose}
                         className="absolute top-3 right-3 p-1 text-white/80 hover:text-white transition-colors"
@@ -74,54 +79,58 @@ export default function FriendInfoModal({ friend, onClose, onStartChat }) {
                         src={friend.avatar}
                         name={friend.nickname}
                         size="xl"
-                        className="border-4 border-white shadow-lg"
+                        className="border-4 border-[var(--color-surface-elevated)] shadow-lg"
                     />
                 </div>
 
                 {/* 内容 */}
                 <div className="p-5 text-center">
                     {error && (
-                        <div className="mb-3 p-2 bg-red-50 text-red-600 rounded-lg text-sm">
+                        <div className="mb-3 p-2 bg-red-500/10 text-red-500 rounded-lg text-sm">
                             {error}
                         </div>
                     )}
 
-                    <h2 className="text-lg font-bold text-gray-900 mb-1">{friend.nickname || '用户'}</h2>
-                    <p className="text-gray-500 text-sm mb-4">{friend.description || '暂无签名'}</p>
+                    <h2 className="text-lg font-bold text-[var(--color-text)] mb-1">{friend.nickname || '用户'}</h2>
+                    <p className="text-[var(--color-text-secondary)] text-sm mb-4">{friend.description || '暂无签名'}</p>
 
-                    <div className="bg-gray-50 rounded-xl p-3 mb-4 text-left">
+                    <div className="bg-[var(--color-surface)] rounded-xl p-3 mb-4 text-left">
                         <div className="flex items-center gap-2 text-sm">
-                            <span className="text-gray-400">ID:</span>
-                            <span className="text-gray-600 font-mono text-xs">{friend.user_id}</span>
+                            <span className="text-[var(--color-text-muted)]">ID:</span>
+                            <span className="text-[var(--color-text-secondary)] font-mono text-xs">{friend.user_id}</span>
                         </div>
                         {friend.phone && (
                             <div className="flex items-center gap-2 text-sm mt-1">
-                                <span className="text-gray-400">手机:</span>
-                                <span className="text-gray-600">{friend.phone}</span>
+                                <span className="text-[var(--color-text-muted)]">手机:</span>
+                                <span className="text-[var(--color-text-secondary)]">{friend.phone}</span>
                             </div>
                         )}
                     </div>
 
                     <div className="flex gap-2">
-                        <button
+                        <motion.button
                             onClick={handleStartChat}
-                            className="flex-1 py-2.5 bg-[#0B4F6C] text-white rounded-lg hover:bg-[#0a4560] transition-colors flex items-center justify-center gap-2"
+                            className="flex-1 py-2.5 bg-[var(--color-primary)] text-white rounded-lg hover:bg-[var(--color-primary-hover)] transition-colors flex items-center justify-center gap-2"
+                            whileHover={{ scale: 1.02 }}
+                            whileTap={{ scale: 0.98 }}
                         >
                             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
                             </svg>
                             发消息
-                        </button>
-                        <button
+                        </motion.button>
+                        <motion.button
                             onClick={handleRemoveFriend}
                             disabled={removing}
-                            className="px-4 py-2.5 text-red-500 border border-red-200 rounded-lg hover:bg-red-50 transition-colors disabled:opacity-50"
+                            className="px-4 py-2.5 text-red-500 border border-red-500/20 rounded-lg hover:bg-red-500/10 transition-colors disabled:opacity-50"
+                            whileHover={{ scale: 1.02 }}
+                            whileTap={{ scale: 0.98 }}
                         >
                             {removing ? '...' : '删除'}
-                        </button>
+                        </motion.button>
                     </div>
                 </div>
-            </div>
+            </motion.div>
         </div>
     );
 }

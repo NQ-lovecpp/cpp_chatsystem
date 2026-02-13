@@ -3,32 +3,35 @@
  */
 
 import { useState, useRef, useEffect, useCallback } from 'react';
+import { AnimatePresence } from 'motion/react';
 import { useChat } from '../contexts/ChatContext';
 import { useAuth } from '../contexts/AuthContext';
 import { sendTextMessage, sendImageMessage, sendFileMessage, searchMessages } from '../api/messageApi';
 import MessageInput from './MessageInput';
 import SessionInfoModal from './SessionInfoModal';
+import Avatar from './Avatar';
+import UserInfoCard from './UserInfoCard';
 
 // 文件图标配置
 const FILE_ICONS = {
-    pdf: { color: 'text-red-500', bg: 'bg-red-50', label: 'PDF' },
-    doc: { color: 'text-blue-600', bg: 'bg-blue-50', label: 'DOC' },
-    docx: { color: 'text-blue-600', bg: 'bg-blue-50', label: 'DOC' },
-    xls: { color: 'text-green-600', bg: 'bg-green-50', label: 'XLS' },
-    xlsx: { color: 'text-green-600', bg: 'bg-green-50', label: 'XLS' },
-    ppt: { color: 'text-orange-500', bg: 'bg-orange-50', label: 'PPT' },
-    pptx: { color: 'text-orange-500', bg: 'bg-orange-50', label: 'PPT' },
-    zip: { color: 'text-yellow-600', bg: 'bg-yellow-50', label: 'ZIP' },
-    rar: { color: 'text-yellow-600', bg: 'bg-yellow-50', label: 'RAR' },
-    '7z': { color: 'text-yellow-600', bg: 'bg-yellow-50', label: '7Z' },
-    txt: { color: 'text-gray-500', bg: 'bg-gray-50', label: 'TXT' },
-    mp4: { color: 'text-purple-500', bg: 'bg-purple-50', label: 'MP4' },
-    mp3: { color: 'text-pink-500', bg: 'bg-pink-50', label: 'MP3' },
+    pdf: { color: 'text-red-500', bg: 'bg-red-500/10', label: 'PDF' },
+    doc: { color: 'text-blue-600', bg: 'bg-blue-500/10', label: 'DOC' },
+    docx: { color: 'text-blue-600', bg: 'bg-blue-500/10', label: 'DOC' },
+    xls: { color: 'text-green-600', bg: 'bg-green-500/10', label: 'XLS' },
+    xlsx: { color: 'text-green-600', bg: 'bg-green-500/10', label: 'XLS' },
+    ppt: { color: 'text-orange-500', bg: 'bg-orange-500/10', label: 'PPT' },
+    pptx: { color: 'text-orange-500', bg: 'bg-orange-500/10', label: 'PPT' },
+    zip: { color: 'text-yellow-600', bg: 'bg-yellow-500/10', label: 'ZIP' },
+    rar: { color: 'text-yellow-600', bg: 'bg-yellow-500/10', label: 'RAR' },
+    '7z': { color: 'text-yellow-600', bg: 'bg-yellow-500/10', label: '7Z' },
+    txt: { color: 'text-[var(--color-text-muted)]', bg: 'bg-[var(--color-surface)]', label: 'TXT' },
+    mp4: { color: 'text-purple-500', bg: 'bg-purple-500/10', label: 'MP4' },
+    mp3: { color: 'text-pink-500', bg: 'bg-pink-500/10', label: 'MP3' },
 };
 
 function getFileIcon(fileName) {
     const ext = fileName?.split('.').pop()?.toLowerCase() || '';
-    return FILE_ICONS[ext] || { color: 'text-gray-400', bg: 'bg-gray-50', label: ext.toUpperCase() || 'FILE' };
+    return FILE_ICONS[ext] || { color: 'text-[var(--color-text-muted)]', bg: 'bg-[var(--color-surface)]', label: ext.toUpperCase() || 'FILE' };
 }
 
 function formatFileSize(bytes) {
@@ -65,36 +68,41 @@ function ImagePreview({ src, onClose }) {
 
 // 懒加载图片消息组件
 function LazyImageMessage({ fileId, imageContent, fetchImage, getCachedImage }) {
-    const [src, setSrc] = useState(null);
+    const [lazyLoadedSrc, setLazyLoadedSrc] = useState(null);
     const [previewSrc, setPreviewSrc] = useState(null);
     const [loading, setLoading] = useState(false);
     const imgRef = useRef(null);
 
-    useEffect(() => {
-        // 如果已有 imageContent（新消息或旧接口），直接使用
+    // 计算初始图片源（优先使用 imageContent，其次缓存）- 避免在 effect 中 setState
+    const initialSrc = (() => {
         if (imageContent) {
-            const url = imageContent.startsWith('data:') ? imageContent : `data:image/png;base64,${imageContent}`;
-            setSrc(url);
-            return;
+            return imageContent.startsWith('data:') ? imageContent : `data:image/png;base64,${imageContent}`;
         }
-        
-        // 检查缓存
         const cached = getCachedImage(fileId);
         if (cached) {
-            const url = cached.startsWith('data:') ? cached : `data:image/png;base64,${cached}`;
-            setSrc(url);
+            return cached.startsWith('data:') ? cached : `data:image/png;base64,${cached}`;
+        }
+        return null;
+    })();
+
+    // 最终使用的图片源：懒加载的 > 初始的
+    const src = lazyLoadedSrc || initialSrc;
+
+    useEffect(() => {
+        // 如果已有初始源，不需要懒加载
+        if (initialSrc) {
             return;
         }
 
         // 使用 IntersectionObserver 懒加载
         const observer = new IntersectionObserver(
             (entries) => {
-                if (entries[0].isIntersecting && !src && !loading) {
+                if (entries[0].isIntersecting && !lazyLoadedSrc && !loading) {
                     setLoading(true);
                     fetchImage(fileId).then((base64) => {
                         if (base64) {
                             const url = base64.startsWith('data:') ? base64 : `data:image/png;base64,${base64}`;
-                            setSrc(url);
+                            setLazyLoadedSrc(url);
                         }
                         setLoading(false);
                     });
@@ -108,7 +116,7 @@ function LazyImageMessage({ fileId, imageContent, fetchImage, getCachedImage }) 
             observer.observe(imgRef.current);
         }
         return () => observer.disconnect();
-    }, [fileId, imageContent, fetchImage, getCachedImage, src, loading]);
+    }, [fileId, initialSrc, fetchImage, lazyLoadedSrc, loading]);
 
     return (
         <>
@@ -121,15 +129,15 @@ function LazyImageMessage({ fileId, imageContent, fetchImage, getCachedImage }) 
                         style={{ border: 'none' }}
                     />
                 ) : loading ? (
-                    <div className="w-48 h-36 rounded-xl bg-gray-100 flex items-center justify-center animate-pulse">
-                        <svg className="w-8 h-8 text-gray-300 animate-spin" fill="none" viewBox="0 0 24 24">
+                    <div className="w-48 h-36 rounded-xl bg-[var(--color-surface)] flex items-center justify-center animate-pulse">
+                        <svg className="w-8 h-8 text-[var(--color-text-muted)] animate-spin" fill="none" viewBox="0 0 24 24">
                             <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                             <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
                         </svg>
                     </div>
                 ) : (
-                    <div className="w-48 h-36 rounded-xl bg-gray-100 flex items-center justify-center">
-                        <svg className="w-10 h-10 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <div className="w-48 h-36 rounded-xl bg-[var(--color-surface)] flex items-center justify-center">
+                        <svg className="w-10 h-10 text-[var(--color-text-muted)]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
                         </svg>
                     </div>
@@ -151,6 +159,8 @@ export default function MessageArea() {
     const [searchQuery, setSearchQuery] = useState('');
     const [searchResults, setSearchResults] = useState([]);
     const [searching, setSearching] = useState(false);
+    const [selectedUser, setSelectedUser] = useState(null);
+    const [userCardPosition, setUserCardPosition] = useState({ x: 0, y: 0 });
 
     // 智能滚动：切换会话时瞬间到底部，新消息时平滑滚动
     useEffect(() => {
@@ -320,6 +330,36 @@ export default function MessageArea() {
         setSearching(false);
     };
 
+    // 点击头像显示用户信息
+    const handleAvatarClick = (sender, event) => {
+        // 不显示自己的信息卡
+        if (sender?.user_id === user?.user_id) return;
+        
+        const rect = event.currentTarget.getBoundingClientRect();
+        setUserCardPosition({
+            x: rect.left + rect.width / 2,
+            y: rect.bottom
+        });
+        setSelectedUser(sender);
+    };
+
+    // 关闭用户信息卡
+    const handleCloseUserCard = () => {
+        setSelectedUser(null);
+    };
+
+    // 向用户发送消息
+    const handleSendToUser = () => {
+        // TODO: 创建与该用户的会话或切换到已有会话
+        handleCloseUserCard();
+    };
+
+    // 查看用户详细资料
+    const handleViewUserProfile = () => {
+        // TODO: 打开用户详细资料模态框
+        handleCloseUserCard();
+    };
+
     // 渲染消息内容
     const renderMessageContent = (msg) => {
         const content = msg.message;
@@ -393,24 +433,24 @@ export default function MessageArea() {
     return (
         <div className="h-full flex flex-col relative">
             {/* 头部 - 桌面端显示，移动端由父组件MobileMessageArea处理 */}
-            <div className="hidden lg:flex h-16 px-6 items-center justify-between border-b border-gray-100 bg-white/80 backdrop-blur-sm shrink-0">
+            <div className="hidden lg:flex h-16 px-6 items-center justify-between border-b border-[var(--color-border)] bg-[var(--color-surface-elevated)]/80 backdrop-blur-sm shrink-0">
                 <div>
-                    <h2 className="font-semibold text-gray-900 truncate max-w-[200px]">{currentSession.chat_session_name}</h2>
+                    <h2 className="font-semibold text-[var(--color-text)] truncate max-w-[200px]">{currentSession.chat_session_name}</h2>
                 </div>
                 <div className="flex items-center gap-2">
                     <button
                         onClick={() => setShowSearch(!showSearch)}
-                        className={`p-2 hover:bg-gray-100 rounded-lg transition-colors ${showSearch ? 'bg-[#E0F2F7] text-[#0B4F6C]' : ''}`}
+                        className={`p-2 hover:bg-[var(--color-surface)] rounded-lg transition-colors ${showSearch ? 'bg-[var(--color-primary-light)] text-[var(--color-primary)]' : 'text-[var(--color-text-muted)]'}`}
                     >
-                        <svg className="w-5 h-5 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                         </svg>
                     </button>
                     <button
                         onClick={() => setShowSessionInfo(true)}
-                        className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                        className="p-2 hover:bg-[var(--color-surface)] rounded-lg transition-colors text-[var(--color-text-muted)]"
                     >
-                        <svg className="w-5 h-5 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z" />
                         </svg>
                     </button>
@@ -418,22 +458,22 @@ export default function MessageArea() {
             </div>
 
             {/* 移动端头部 - 显示会话名称 */}
-            <div className="lg:hidden h-14 px-4 flex items-center justify-between border-b border-gray-100 bg-white/80 backdrop-blur-sm shrink-0">
-                <h2 className="font-semibold text-gray-900 truncate flex-1">{currentSession.chat_session_name}</h2>
+            <div className="lg:hidden h-14 px-4 flex items-center justify-between border-b border-[var(--color-border)] bg-[var(--color-surface-elevated)]/80 backdrop-blur-sm shrink-0">
+                <h2 className="font-semibold text-[var(--color-text)] truncate flex-1">{currentSession.chat_session_name}</h2>
                 <div className="flex items-center gap-2">
                     <button
                         onClick={() => setShowSearch(!showSearch)}
-                        className={`p-2 hover:bg-gray-100 rounded-lg transition-colors ${showSearch ? 'bg-[#E0F2F7] text-[#0B4F6C]' : ''}`}
+                        className={`p-2 hover:bg-[var(--color-surface)] rounded-lg transition-colors ${showSearch ? 'bg-[var(--color-primary-light)] text-[var(--color-primary)]' : 'text-[var(--color-text-muted)]'}`}
                     >
-                        <svg className="w-5 h-5 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                         </svg>
                     </button>
                     <button
                         onClick={() => setShowSessionInfo(true)}
-                        className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                        className="p-2 hover:bg-[var(--color-surface)] rounded-lg transition-colors text-[var(--color-text-muted)]"
                     >
-                        <svg className="w-5 h-5 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z" />
                         </svg>
                     </button>
@@ -443,7 +483,7 @@ export default function MessageArea() {
             {/* 消息列表 */}
             <div ref={messagesContainerRef} className="flex-1 overflow-y-auto p-4 md:p-6 space-y-4">
                 {currentMessages.length === 0 ? (
-                    <div className="text-center text-gray-400 py-10">
+                    <div className="text-center text-[var(--color-text-muted)] py-10">
                         <p>暂无消息，发送一条消息开始对话吧</p>
                     </div>
                 ) : (
@@ -456,22 +496,19 @@ export default function MessageArea() {
                                 key={msg.message_id || index}
                                 className={`flex items-end gap-3 ${isMe ? 'flex-row-reverse' : ''}`}
                             >
-                                {/* 头像 */}
-                                <div className={`
-                                    w-8 h-8 rounded-full flex items-center justify-center text-white text-sm font-medium shrink-0 overflow-hidden
-                                    ${isMe ? 'bg-[#0B4F6C]' : 'bg-gradient-to-br from-purple-500 to-pink-500'}
-                                `}>
-                                    {msg.sender?.avatar ? (
-                                        <img src={msg.sender.avatar} alt="" className="w-full h-full object-cover" />
-                                    ) : (
-                                        msg.sender?.nickname?.charAt(0)?.toUpperCase() || 'U'
-                                    )}
-                                </div>
+                                {/* 头像 - 使用 Avatar 组件 */}
+                                <Avatar
+                                    src={msg.sender?.avatar}
+                                    name={msg.sender?.nickname}
+                                    size="md"
+                                    onClick={!isMe ? (e) => handleAvatarClick(msg.sender, e) : undefined}
+                                    className={!isMe ? 'cursor-pointer' : ''}
+                                />
 
                                 {/* 消息气泡 */}
                                 <div className={`max-w-[75%] md:max-w-[60%] ${isMe ? 'items-end' : 'items-start'}`}>
                                     {!isMe && (
-                                        <p className="text-xs text-gray-400 mb-1 ml-1">
+                                        <p className="text-xs text-[var(--color-text-muted)] mb-1 ml-1">
                                             {msg.sender?.nickname}
                                         </p>
                                     )}
@@ -480,14 +517,14 @@ export default function MessageArea() {
                                         ${isImageMsg ? '' : 'px-4 py-2.5'}
                                         rounded-2xl
                                         ${isMe
-                                            ? (isImageMsg ? '' : 'bg-[#0B4F6C] text-white') + ' rounded-br-md'
-                                            : (isImageMsg ? '' : 'bg-white text-gray-900 shadow-sm') + ' rounded-bl-md'
+                                            ? (isImageMsg ? '' : 'bg-[var(--color-bubble-self)] text-[var(--color-bubble-self-text)]') + ' rounded-br-md'
+                                            : (isImageMsg ? '' : 'bg-[var(--color-bubble-other)] text-[var(--color-bubble-other-text)] shadow-sm') + ' rounded-bl-md'
                                         }
                                     `}>
                                         {renderMessageContent(msg)}
                                     </div>
 
-                                    <p className={`text-xs text-gray-400 mt-1 ${isMe ? 'text-right mr-1' : 'ml-1'}`}>
+                                    <p className={`text-xs text-[var(--color-text-muted)] mt-1 ${isMe ? 'text-right mr-1' : 'ml-1'}`}>
                                         {formatTime(msg.timestamp)}
                                         {msg._pending && <span className="ml-1 opacity-50">发送中...</span>}
                                     </p>
@@ -553,6 +590,19 @@ export default function MessageArea() {
                     onClose={() => setShowSessionInfo(false)}
                 />
             )}
+
+            {/* 用户信息卡片 */}
+            <AnimatePresence>
+                {selectedUser && (
+                    <UserInfoCard
+                        user={selectedUser}
+                        position={userCardPosition}
+                        onClose={handleCloseUserCard}
+                        onSendMessage={handleSendToUser}
+                        onViewProfile={handleViewUserProfile}
+                    />
+                )}
+            </AnimatePresence>
         </div>
     );
 }
