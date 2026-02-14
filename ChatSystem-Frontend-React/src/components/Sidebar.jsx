@@ -46,7 +46,7 @@ export default function Sidebar({ activeTab, onTabChange, user }) {
 
     return (
         <>
-            <nav className="w-20 min-w-[80px] flex flex-col items-center py-6 gap-4 border-r border-[var(--color-border)] bg-[var(--color-surface-elevated)] z-20">
+            <nav className="w-20 min-w-[80px] h-full flex flex-col items-center py-6 gap-4 z-20">
                 {/* Logo */}
                 <div className="mb-4">
                     <div className="w-10 h-10 bg-[var(--color-primary)] rounded-xl flex items-center justify-center text-white shadow-lg">

@@ -1,11 +1,13 @@
 /**
  * Agent 消息气泡组件
+ * 支持流式渲染（streaming 时使用 StreamingMarkdown）
  */
 
 import { cn } from '../../lib/utils';
 import ReactMarkdown from 'react-markdown';
+import StreamingMarkdown from './StreamingMarkdown';
 
-export default function MessageBubble({ message, isUser, isLoading }) {
+export default function MessageBubble({ message, isUser, isLoading, streaming = false }) {
     const { content, isError } = message;
     
     return (
@@ -53,6 +55,11 @@ export default function MessageBubble({ message, isUser, isLoading }) {
                     )}>
                         {isUser ? (
                             <p className="m-0 whitespace-pre-wrap">{content}</p>
+                        ) : streaming ? (
+                            <>
+                                <StreamingMarkdown content={content || ''} />
+                                <span className="inline-block w-2 h-4 ml-0.5 bg-[var(--color-primary)] animate-blink" />
+                            </>
                         ) : (
                             <ReactMarkdown
                                 components={{

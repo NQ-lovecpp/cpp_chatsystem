@@ -101,7 +101,7 @@ export default function MessageInput({ onSend, onSendImage, onSendFile }) {
                         value={message}
                         onChange={(e) => setMessage(e.target.value)}
                         onKeyDown={handleKeyDown}
-                        placeholder="输入消息..."
+                        placeholder="输入消息，@ 可唤出 AI 助手"
                         rows={1}
                         className="w-full px-3 md:px-4 py-2 md:py-2.5 bg-[var(--color-surface)] border border-[var(--color-border)] text-[var(--color-text)] placeholder:text-[var(--color-text-muted)] rounded-xl resize-none focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]/20 focus:border-[var(--color-primary)] transition-all text-base"
                         style={{ maxHeight: '120px' }}

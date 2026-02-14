@@ -33,7 +33,7 @@ class CreateTaskRequest(BaseModel):
     task_type: str = Field(default="task", description="任务类型: session/global/task")
     chat_session_id: Optional[str] = Field(default=None, description="会话 ID (session/task 类型可选)")
     previous_response_id: Optional[str] = Field(default=None, description="上一次响应 ID (用于对话延续)")
-    chat_history: Optional[List[dict]] = Field(default=None, description="聊天历史（session 类型使用）")
+    chat_history: Optional[List[dict]] = Field(default=None, description="聊天历史（session/global 多轮对话使用，格式: [{role, content}, ...]）")
 
 
 class TaskResponse(BaseModel):
@@ -69,8 +69,8 @@ async def execute_task(task: Task, chat_history: Optional[List[dict]] = None):
     """
     try:
         if task.task_type == TaskType.GLOBAL:
-            # GlobalAgent: 用户的私人助手
-            async for _ in run_global_agent(task):
+            # GlobalAgent: 用户的私人助手，支持多轮对话
+            async for _ in run_global_agent(task, chat_history=chat_history):
                 pass
         elif task.task_type == TaskType.SESSION:
             # SessionAgent: 聊天会话中的 AI 成员，带聊天历史

@@ -24,7 +24,7 @@ import SessionList from '../components/SessionList';
 import MessageArea from '../components/MessageArea';
 import FriendList from '../components/FriendList';
 import SettingsPanel from '../components/SettingsPanel';
-import { TaskSidebar, TaskDetailPanel, GlobalAgentChat } from '../components/agent';
+import { TaskSidebar, TaskDetailPanel, GlobalAgentChat, GlobalAgentSidePanel } from '../components/agent';
 import ApprovalModalAntd from '../components/agent/ApprovalModalAntd';
 
 // 移动端消息区域包装组件
@@ -74,17 +74,37 @@ function AgentToggleButton({ showAgentPanel, setShowAgentPanel, hasRunningTasks 
     );
 }
 
-// 右侧 Agent 面板（桌面端）
+// 将聊天消息转为 Agent 所需的 chat_history 格式 [{role, content}, ...]
+function messagesToChatHistory(messages, currentUserId) {
+    if (!messages?.length || !currentUserId) return [];
+    return messages
+        .filter(m => m.message?.string_message?.content)
+        .map(m => ({
+            role: m.sender?.user_id === currentUserId ? 'user' : 'assistant',
+            content: m.message.string_message.content,
+        }));
+}
+
+// 右侧 Agent 面板（桌面端）- Chat 标签下的 SessionAgent
 function AgentSidePanel() {
+    const { currentSession, currentMessages } = useChat();
+    const { user } = useAuth();
+    const chatSessionId = currentSession?.chat_session_id ?? null;
+    const chatHistory = messagesToChatHistory(currentMessages, user?.user_id);
+
     return (
         <div className="flex flex-col h-full min-h-0">
             {/* 上方：任务详情 */}
             <div className="flex-1 min-h-0 overflow-hidden">
                 <TaskDetailPanel />
             </div>
-            {/* 下方：任务列表 */}
+            {/* 下方：任务列表（仅展示当前会话的 session/task 任务） */}
             <div className="h-[280px] border-t border-[var(--color-border)] shrink-0 overflow-hidden">
-                <TaskSidebar className="h-full" />
+                <TaskSidebar 
+                    className="h-full" 
+                    chatSessionId={chatSessionId} 
+                    chatHistory={chatHistory} 
+                />
             </div>
         </div>
     );
@@ -126,8 +146,8 @@ function ChatPageContent() {
                 <div className="absolute -bottom-40 -left-40 w-96 h-96 bg-[var(--color-primary)]/3 rounded-full blur-3xl" />
             </div>
 
-            {/* 左侧导航栏 */}
-            <div className="hidden md:block shrink-0 z-20">
+            {/* 左侧导航栏 - 与 Session 列表等保持一致的 md:rounded-2xl 卡片式圆角 */}
+            <div className="hidden md:flex shrink-0 z-20 my-3 ml-3 h-[calc(100dvh-1.5rem)] md:rounded-2xl md:border border-[var(--color-border)] bg-[var(--color-surface-elevated)]/95 backdrop-blur-xl overflow-hidden md:shadow-[var(--shadow-elevated)]">
                 <Sidebar activeTab={activeTab} onTabChange={handleTabChange} user={user} />
             </div>
 
@@ -142,19 +162,20 @@ function ChatPageContent() {
                 ) : (
                     /* ===== 聊天/联系人/Agent 布局 ===== */
                     <>
-                        {/* 左列：会话列表 / 联系人列表 */}
-                        <div className={`
-                            w-full md:w-80 lg:w-80 shrink-0
-                            md:rounded-2xl border-r md:border border-[var(--color-border)] 
-                            bg-[var(--color-surface-elevated)]/95 backdrop-blur-xl flex flex-col
-                            ${showMobileChat ? 'hidden lg:flex' : 'flex'}
-                            pb-16 md:pb-0 overflow-hidden
-                            md:shadow-[var(--shadow-elevated)]
-                        `}>
-                            {activeTab === 'chat' && <SessionList onSessionSelect={handleSessionSelect} />}
-                            {activeTab === 'contacts' && <FriendList />}
-                            {activeTab === 'agent' && <TaskSidebar />}
-                        </div>
+                        {/* 左列：会话列表 / 联系人列表（Agent 标签无左侧列） */}
+                        {activeTab !== 'agent' && (
+                            <div className={`
+                                w-full md:w-80 lg:w-80 shrink-0
+                                md:rounded-2xl border-r md:border border-[var(--color-border)] 
+                                bg-[var(--color-surface-elevated)]/95 backdrop-blur-xl flex flex-col
+                                ${showMobileChat ? 'hidden lg:flex' : 'flex'}
+                                pb-16 md:pb-0 overflow-hidden
+                                md:shadow-[var(--shadow-elevated)]
+                            `}>
+                                {activeTab === 'chat' && <SessionList onSessionSelect={handleSessionSelect} />}
+                                {activeTab === 'contacts' && <FriendList />}
+                            </div>
+                        )}
 
                         {/* 右列：消息区域 + Agent 面板 */}
                         <div className={`
@@ -206,17 +227,17 @@ function ChatPageContent() {
                                 </div>
                             )}
 
-                            {/* Agent 标签内容 - GlobalAgent 对话界面 */}
+                            {/* Agent 标签内容 - GlobalAgent 对话界面 + 右侧会话/任务面板 */}
                             {activeTab === 'agent' && (
                                 <div className="flex-1 flex min-h-0">
-                                    {/* GlobalAgent 聊天区域 */}
+                                    {/* GlobalAgent 聊天区域（主对话区） */}
                                     <div className="flex-1 min-w-0">
                                         <GlobalAgentChat />
                                     </div>
                                     
-                                    {/* 桌面端：右侧任务面板 */}
-                                    <div className="hidden lg:flex w-[300px] border-l border-[var(--color-border)] flex-col shrink-0">
-                                        <TaskSidebar className="h-full" />
+                                    {/* 桌面端：右侧 GlobalAgent 会话列表 + 活动任务列表 */}
+                                    <div className="hidden lg:flex w-[320px] xl:w-[360px] border-l border-[var(--color-border)] flex-col shrink-0 min-h-0">
+                                        <GlobalAgentSidePanel className="flex-1" />
                                     </div>
                                 </div>
                             )}

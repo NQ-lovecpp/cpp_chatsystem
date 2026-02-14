@@ -6,6 +6,7 @@ import { useState, useRef, useEffect, useCallback } from 'react';
 import { AnimatePresence } from 'motion/react';
 import { useChat } from '../contexts/ChatContext';
 import { useAuth } from '../contexts/AuthContext';
+import { useAgent } from '../contexts/AgentContext';
 import { sendTextMessage, sendImageMessage, sendFileMessage, searchMessages } from '../api/messageApi';
 import MessageInput from './MessageInput';
 import SessionInfoModal from './SessionInfoModal';
@@ -149,9 +150,21 @@ function LazyImageMessage({ fileId, imageContent, fetchImage, getCachedImage }) 
     );
 }
 
+// 将聊天消息转为 Agent chat_history 格式
+function messagesToChatHistory(messages, currentUserId) {
+    if (!messages?.length || !currentUserId) return [];
+    return messages
+        .filter(m => m.message?.string_message?.content)
+        .map(m => ({
+            role: m.sender?.user_id === currentUserId ? 'user' : 'assistant',
+            content: m.message.string_message.content,
+        }));
+}
+
 export default function MessageArea() {
     const { currentSession, currentMessages, addMessage, updateMessageStatus, fetchImage, getCachedImage } = useChat();
     const { user, sessionId } = useAuth();
+    const { startTask } = useAgent();
     const messagesEndRef = useRef(null);
     const messagesContainerRef = useRef(null);
     const prevSessionIdRef = useRef(null);
@@ -180,9 +193,43 @@ export default function MessageArea() {
         }
     }, [currentMessages, currentSession?.chat_session_id]);
 
-    // 发送文本消息
+    // 监听 SessionAgent 完成事件，将回复写入聊天
+    useEffect(() => {
+        const handler = (e) => {
+            const { chatSessionId: targetSessionId, finalText } = e.detail || {};
+            if (!targetSessionId || !finalText || !addMessage) return;
+            const agentMessage = {
+                message_id: `agent_${Date.now()}`,
+                chat_session_id: targetSessionId,
+                timestamp: Date.now(),
+                sender: { user_id: 'agent', nickname: 'AI 助手', avatar: null },
+                message: { message_type: 0, string_message: { content: finalText } },
+            };
+            addMessage(targetSessionId, agentMessage);
+        };
+        window.addEventListener('session-agent-done', handler);
+        return () => window.removeEventListener('session-agent-done', handler);
+    }, [addMessage]);
+
+    // 发送文本消息（含 @ 触发 SessionAgent）
     const handleSendMessage = async (content) => {
         if (!content.trim() || !currentSession || !user?.user_id) return;
+
+        // @ 触发 SessionAgent：以 @ 开头的消息调用 Agent 而非普通发送
+        if (content.trim().startsWith('@')) {
+            const chatHistory = messagesToChatHistory(currentMessages, user.user_id);
+            const instruction = content.trim().slice(1).trim() || '请回复';
+            addMessage(currentSession.chat_session_id, {
+                message_id: `local_${Date.now()}`,
+                chat_session_id: currentSession.chat_session_id,
+                timestamp: Date.now(),
+                sender: { user_id: user.user_id, nickname: user.nickname, avatar: user.avatar },
+                message: { message_type: 0, string_message: { content } },
+                _pending: false,
+            });
+            startTask(instruction, 'session', currentSession.chat_session_id, chatHistory);
+            return;
+        }
 
         const localMessage = {
             message_id: `local_${Date.now()}`,

@@ -7,7 +7,6 @@
 import { useRef, useEffect, useState } from 'react';
 import {
     Progress,
-    Typography,
     Button,
     Space,
     Input,
@@ -22,21 +21,13 @@ import {
     SyncOutlined,
     ClockCircleOutlined,
     CloseCircleOutlined,
-    CodeOutlined,
-    SearchOutlined,
-    GlobalOutlined,
-    FileTextOutlined,
     SendOutlined,
     StopOutlined,
-    UserOutlined,
-    RobotOutlined,
     ExclamationCircleOutlined,
     BulbOutlined,
 } from '@ant-design/icons';
-import { useAgent, TaskStatus, MessageType, TodoStatus } from '../../contexts/AgentContext';
-import StreamingMarkdown from './StreamingMarkdown';
-
-const { Text } = Typography;
+import { useAgent, TaskStatus, TodoStatus, MessageType } from '../../contexts/AgentContext';
+import TaskMessageItem from './TaskMessageItem';
 
 // Todo 状态图标
 const todoStatusIcons = {
@@ -45,17 +36,6 @@ const todoStatusIcons = {
     [TodoStatus.COMPLETED]: <CheckCircleOutlined style={{ color: '#52c41a' }} />,
     [TodoStatus.FAILED]: <CloseCircleOutlined style={{ color: '#ff4d4f' }} />,
     [TodoStatus.SKIPPED]: <ClockCircleOutlined style={{ color: 'var(--color-text-muted)' }} />,
-};
-
-// 工具图标
-const toolIcons = {
-    web_search: <SearchOutlined style={{ color: '#1677ff' }} />,
-    web_open: <GlobalOutlined style={{ color: '#52c41a' }} />,
-    web_find: <FileTextOutlined style={{ color: '#722ed1' }} />,
-    python_execute: <CodeOutlined style={{ color: '#fa8c16' }} />,
-    add_todos: <BulbOutlined style={{ color: '#13c2c2' }} />,
-    update_todo: <CheckCircleOutlined style={{ color: '#52c41a' }} />,
-    list_todos: <FileTextOutlined style={{ color: 'var(--color-text-muted)' }} />,
 };
 
 // Todo 进度组件
@@ -95,136 +75,6 @@ function TodoProgress({ todos }) {
                         </span>
                     </div>
                 ))}
-            </div>
-        </div>
-    );
-}
-
-// 工具调用卡片
-function ToolCallCard({ message }) {
-    const [expanded, setExpanded] = useState(false);
-    const icon = toolIcons[message.toolName] || <CodeOutlined />;
-    
-    const statusColor = {
-        executing: 'processing',
-        completed: 'success',
-        failed: 'error',
-        pending_approval: 'warning',
-    }[message.status] || 'default';
-
-    const isTodoTool = ['add_todos', 'update_todo', 'list_todos'].includes(message.toolName);
-
-    return (
-        <div className={`mb-2 p-3 rounded-lg border ${
-            message.requiresApproval 
-                ? 'bg-yellow-500/10 border-yellow-500/30' 
-                : 'bg-[var(--color-surface)] border-[var(--color-border)]'
-        }`}>
-            <div 
-                className="flex items-center justify-between cursor-pointer"
-                onClick={() => setExpanded(!expanded)}
-            >
-                <Space>
-                    {icon}
-                    <span className="text-sm font-medium text-[var(--color-text)]">
-                        {message.toolName === 'web_search' ? '网页搜索' :
-                         message.toolName === 'web_open' ? '打开网页' :
-                         message.toolName === 'web_find' ? '页面查找' :
-                         message.toolName === 'python_execute' ? 'Python 执行' :
-                         message.toolName === 'add_todos' ? '添加步骤' :
-                         message.toolName === 'update_todo' ? '更新步骤' :
-                         message.toolName}
-                    </span>
-                </Space>
-                <Tag color={statusColor} style={{ marginRight: 0 }}>
-                    {message.status === 'executing' ? '执行中' :
-                     message.status === 'completed' ? '完成' :
-                     message.status === 'failed' ? '失败' :
-                     message.status === 'pending_approval' ? '待审批' :
-                     message.status}
-                </Tag>
-            </div>
-            
-            {expanded && !isTodoTool && (
-                <div className="mt-3 pt-3 border-t border-[var(--color-border)]">
-                    {message.arguments && (
-                        <div className="mb-2">
-                            <span className="text-xs text-[var(--color-text-muted)]">参数:</span>
-                            <pre className="text-xs bg-[var(--color-surface)] p-2 rounded mt-1 overflow-auto max-h-[100px] text-[var(--color-text-secondary)]">
-                                {JSON.stringify(message.arguments, null, 2)}
-                            </pre>
-                        </div>
-                    )}
-                    {message.output && (
-                        <div>
-                            <span className="text-xs text-[var(--color-text-muted)]">输出:</span>
-                            <pre className="text-xs bg-[var(--color-surface)] p-2 rounded mt-1 overflow-auto max-h-[150px] whitespace-pre-wrap text-[var(--color-text-secondary)]">
-                                {typeof message.output === 'string' 
-                                    ? message.output 
-                                    : JSON.stringify(message.output, null, 2)}
-                            </pre>
-                        </div>
-                    )}
-                </div>
-            )}
-        </div>
-    );
-}
-
-// 消息气泡
-function MessageBubble({ message }) {
-    const isUser = message.type === MessageType.USER;
-    const isError = message.type === MessageType.ERROR;
-    const isReasoning = message.type === MessageType.REASONING;
-    const isToolCall = message.type === MessageType.TOOL_CALL;
-
-    if (isToolCall) {
-        return <ToolCallCard message={message} />;
-    }
-
-    if (isReasoning) {
-        return (
-            <div className="flex gap-2 mb-3 px-3 py-2 bg-green-500/10 rounded-lg border border-green-500/20">
-                <BulbOutlined style={{ color: '#52c41a', marginTop: 2 }} />
-                <span className="text-sm text-[var(--color-text-muted)] italic">
-                    {message.content}
-                </span>
-            </div>
-        );
-    }
-
-    if (isError) {
-        return (
-            <Alert
-                type="error"
-                message={message.content}
-                showIcon
-                style={{ marginBottom: 12 }}
-            />
-        );
-    }
-
-    return (
-        <div className={`flex ${isUser ? 'flex-row-reverse' : 'flex-row'} gap-2 mb-3`}>
-            <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${
-                isUser 
-                    ? 'bg-[var(--color-primary)]' 
-                    : 'bg-gradient-to-br from-indigo-500 to-purple-600'
-            }`}>
-                {isUser 
-                    ? <UserOutlined style={{ color: '#fff', fontSize: 14 }} /> 
-                    : <RobotOutlined style={{ color: '#fff', fontSize: 14 }} />
-                }
-            </div>
-            <div className={`max-w-[80%] px-3.5 py-2.5 ${
-                isUser 
-                    ? 'rounded-[16px_16px_4px_16px] bg-[var(--color-primary)] text-white' 
-                    : 'rounded-[16px_16px_16px_4px] bg-[var(--color-surface-elevated)] border border-[var(--color-border)] text-[var(--color-text)]'
-            } shadow-sm`}>
-                <StreamingMarkdown content={message.content || ''} />
-                {message.streaming && (
-                    <span className="inline-block w-2 h-4 ml-0.5 bg-[var(--color-primary)] animate-blink" />
-                )}
             </div>
         </div>
     );
@@ -319,9 +169,18 @@ export default function TaskDetailPanel({ className = '' }) {
 
                 {/* 消息流 */}
                 <div>
-                    {selectedTask.messages.map((message) => (
-                        <MessageBubble key={message.id} message={message} />
-                    ))}
+                    {selectedTask.messages.map((message, index) => {
+                        const isLastAssistant = message.type === MessageType.ASSISTANT &&
+                            index === selectedTask.messages.length - 1;
+                        const isStreaming = message.streaming && isRunning;
+                        return (
+                            <TaskMessageItem
+                                key={message.id}
+                                message={message}
+                                isLastAssistantAndStreaming={isLastAssistant && isStreaming}
+                            />
+                        );
+                    })}
                     <div ref={messagesEndRef} />
                 </div>
 

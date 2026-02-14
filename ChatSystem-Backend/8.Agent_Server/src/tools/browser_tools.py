@@ -259,12 +259,14 @@ class BrowserTools:
                 # 直接 URL
                 url = id_or_url
             elif isinstance(id_or_url, int) and id_or_url >= 0:
-                # 从当前页面的链接中获取
+                # 从当前页面的链接中获取（需先调用 web_search 获取搜索结果）
                 page = self.state.get_page(cursor)
-                if page and str(id_or_url) in page.urls:
-                    url = page.urls[str(id_or_url)]
-                else:
-                    return {"success": False, "error": f"Invalid link id: {id_or_url}"}
+                if not page:
+                    return {"success": False, "error": f"Invalid link id: {id_or_url}。请先调用 web_search 获取搜索结果，或直接传入完整 URL。"}
+                if str(id_or_url) not in page.urls:
+                    available = ", ".join(sorted(page.urls.keys(), key=int)) if page.urls else "无"
+                    return {"success": False, "error": f"Invalid link id: {id_or_url}。当前页面有效 ID: [{available}]。请先调用 web_search 或直接传入完整 URL。"}
+                url = page.urls[str(id_or_url)]
             elif id_or_url == -1:
                 # 滚动当前页面
                 page = self.state.get_page(cursor)

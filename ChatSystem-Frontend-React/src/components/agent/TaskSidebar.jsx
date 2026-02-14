@@ -185,29 +185,64 @@ function MiniChat({ onSend, disabled }) {
     );
 }
 
-export default function TaskSidebar({ className = '' }) {
+export default function TaskSidebar({ className = '', useGlobalAgent = false, chatSessionId = null, chatHistory: sessionChatHistory = null }) {
     const { 
-        taskList, 
+        getGlobalTasks,
+        getSessionTasks,
         selectedTaskId, 
         selectTask, 
         startTask,
         loading,
+        setGlobalAgentTaskId,
+        globalConversations,
+        activeGlobalConversationId,
+        createGlobalConversation,
+        addMessageToGlobalConversation,
+        removeLastMessageFromGlobalConversation,
     } = useAgent();
 
+    // 按场景过滤：GlobalAgent 面板用 getGlobalTasks，Chat 面板用 getSessionTasks
+    const taskList = useGlobalAgent ? getGlobalTasks() : getSessionTasks(chatSessionId);
+
+    // 当前 GlobalAgent 会话的消息（用于 chatHistory）
+    const currentConvMessages = activeGlobalConversationId 
+        ? globalConversations.find(c => c.id === activeGlobalConversationId)?.messages ?? []
+        : [];
+
     // 处理快捷操作
-    const handleQuickAction = (action) => {
+    // useGlobalAgent: 在私人助手标签下使用 GlobalAgent；否则在聊天中使用 SessionAgent
+    const handleQuickAction = async (action) => {
         const prompts = {
             summarize: '请总结一下当前对话的主要内容',
             fact_check: '请核实一下上述信息的准确性',
             draft_reply: '请帮我草拟一个回复',
             translate: '请将上述内容翻译成英文',
         };
-        startTask(prompts[action] || action, 'session');
+        const taskType = useGlobalAgent ? 'global' : 'session';
+        const chatHistory = useGlobalAgent ? currentConvMessages : sessionChatHistory;
+        let convId = activeGlobalConversationId;
+        if (useGlobalAgent && !convId) convId = createGlobalConversation();
+        if (useGlobalAgent) addMessageToGlobalConversation(convId, { role: 'user', content: prompts[action] || action });
+        try {
+            const result = await startTask(prompts[action] || action, taskType, chatSessionId, chatHistory, useGlobalAgent ? convId : null);
+            if (useGlobalAgent && result?.id && setGlobalAgentTaskId) setGlobalAgentTaskId(result.id);
+        } catch (e) {
+            if (useGlobalAgent && convId) removeLastMessageFromGlobalConversation(convId);
+        }
     };
 
-    // 处理 Agent 对话
-    const handleAgentChat = (input) => {
-        startTask(input, 'global');
+    // 处理 Agent 对话（私人助手始终用 GlobalAgent，支持多轮）
+    const handleAgentChat = async (input) => {
+        const chatHistory = useGlobalAgent ? currentConvMessages : sessionChatHistory;
+        let convId = activeGlobalConversationId;
+        if (useGlobalAgent && !convId) convId = createGlobalConversation();
+        if (useGlobalAgent) addMessageToGlobalConversation(convId, { role: 'user', content: input });
+        try {
+            const result = await startTask(input, useGlobalAgent ? 'global' : 'session', chatSessionId, chatHistory, useGlobalAgent ? convId : null);
+            if (useGlobalAgent && result?.id && setGlobalAgentTaskId) setGlobalAgentTaskId(result.id);
+        } catch (e) {
+            if (useGlobalAgent && convId) removeLastMessageFromGlobalConversation(convId);
+        }
     };
 
     const runningTasks = taskList.filter(t => t.status === TaskStatus.RUNNING);

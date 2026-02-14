@@ -36,6 +36,17 @@ current_user_id: ContextVar[str] = ContextVar("current_user_id", default="unknow
 
 # ============== 搜索工具 ==============
 
+def _get_browser_session_id() -> str:
+    """按任务隔离浏览器状态，避免多任务共享导致 link id 失效"""
+    try:
+        tid = current_task_id.get()
+        if tid and tid != "unknown":
+            return tid
+    except LookupError:
+        pass
+    return "default"
+
+
 @function_tool
 async def web_search(
     query: Annotated[str, "搜索关键词"],
@@ -45,7 +56,7 @@ async def web_search(
     搜索网页信息。返回搜索结果列表，每个结果包含标题、URL 和摘要。
     使用此工具来查找互联网上的最新信息。
     """
-    browser = get_browser("default")
+    browser = get_browser(_get_browser_session_id())
     result = await browser.web_search(query, topn)
     
     if result.get("success"):
@@ -64,8 +75,9 @@ async def web_open(
     """
     打开搜索结果中的链接或直接打开 URL。
     可以指定起始行号来浏览长页面的不同部分。
+    注意：必须先调用 web_search 获取结果后，才能用链接 ID 打开；否则请直接传入完整 URL。
     """
-    browser = get_browser("default")
+    browser = get_browser(_get_browser_session_id())
     
     # 尝试将 url_or_id 解析为整数（链接 ID）
     try:
@@ -91,7 +103,7 @@ async def web_find(
     在当前打开的页面中查找文本。
     返回所有匹配的位置及其上下文。
     """
-    browser = get_browser("default")
+    browser = get_browser(_get_browser_session_id())
     result = await browser.web_find(pattern)
     
     if result.get("success"):

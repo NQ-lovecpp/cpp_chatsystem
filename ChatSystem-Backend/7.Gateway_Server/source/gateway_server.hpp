@@ -203,10 +203,9 @@ namespace chen_im
             LOG_DEBUG("websocket长连接建立成功 {}", (size_t)_ws_server.get_con_from_hdl(hdl).get());
         }
 
-        // 需要完成redis缓存的清理
+        // 长连接断开时的清理：仅移除连接映射，保留 session/status 以支持 TTL 内通过 HTTP 恢复登录
         void when_websocket_connection_close(websocketpp::connection_hdl hdl)
         {
-            // 长连接断开时做的清理工作
             // 0. 通过连接对象，获取对应的用户ID与登录会话ID
             auto conn = _ws_server.get_con_from_hdl(hdl);
             std::string uid, ssid;
@@ -215,13 +214,12 @@ namespace chen_im
                 LOG_WARN("长连接断开，未找到长连接对应的客户端信息！");
                 return;
             }
-            // 1. 移除登录会话信息
-            _redis_session->remove(ssid);
-            // 2. 移除登录状态信息
+            // 1. 仅移除长连接管理数据，不再删除 session/status
+            //    - session 保留：用户刷新页面后可通过 getUserInfo(sessionId) 恢复登录，直到 TTL 过期
+            //    - status 移除：允许同一用户从其他设备重新登录
             _redis_status->remove(uid);
-            // 3. 移除长连接管理数据
             _connections->remove_connection(conn);
-            LOG_DEBUG("长连接断开，清理缓存数据! 会话id：{}，用户id：{}，长连接句柄：{}", ssid, uid, (size_t)conn.get());
+            LOG_DEBUG("长连接断开，移除连接映射与 status，保留 session 以支持 TTL 内恢复登录。会话id：{}，用户id：{}", ssid, uid);
         }
 
         // keepAlive: 定时检查连接状态并刷新 Redis TTL
@@ -246,7 +244,7 @@ namespace chen_im
             _ws_server.set_timer(60000, std::bind(&GatewayServer::keepAlive, this, conn));
         }
 
-        // 清理异常断开的连接资源
+        // 清理异常断开的连接资源（与 when_websocket_connection_close 一致：保留 session 以支持 TTL 内恢复）
         void cleanupDeadConnection(websocket_server_t::connection_ptr conn)
         {
             if (!conn) return;
@@ -254,10 +252,9 @@ namespace chen_im
             std::string uid, ssid;
             bool ret = _connections->get_client_info(conn, uid, ssid);
             if (ret) {
-                _redis_session->remove(ssid);
                 _redis_status->remove(uid);
                 _connections->remove_connection(conn);
-                LOG_INFO("清理异常断开连接的资源，用户id：{}，会话id：{}", uid, ssid);
+                LOG_INFO("清理异常断开连接的资源，用户id：{}，会话id：{}（保留 session 以支持 TTL 内恢复）", uid, ssid);
             }
         }
 

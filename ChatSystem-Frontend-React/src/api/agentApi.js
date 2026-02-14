@@ -21,21 +21,26 @@ function getAgentBaseUrl() {
  * 创建 Agent 任务
  * @param {string} sessionId - 用户会话 ID（用于认证）
  * @param {string} input - 任务输入文本
- * @param {string} taskType - 任务类型: 'session' | 'global'
+ * @param {string} taskType - 任务类型: 'session' | 'global' | 'task'
  * @param {string} chatSessionId - 聊天会话 ID（session 类型需要）
+ * @param {Array<{role: string, content: string}>} chatHistory - 多轮对话历史（global/session 使用）
  */
-export async function createAgentTask(sessionId, input, taskType = 'session', chatSessionId = null) {
+export async function createAgentTask(sessionId, input, taskType = 'session', chatSessionId = null, chatHistory = null) {
+    const body = {
+        input,
+        task_type: taskType,
+        chat_session_id: chatSessionId,
+    };
+    if (chatHistory && chatHistory.length > 0) {
+        body.chat_history = chatHistory;
+    }
     const response = await fetch(`${getAgentBaseUrl()}/tasks`, {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
             'X-Session-Id': sessionId,
         },
-        body: JSON.stringify({
-            input,
-            task_type: taskType,
-            chat_session_id: chatSessionId,
-        }),
+        body: JSON.stringify(body),
     });
 
     if (!response.ok) {

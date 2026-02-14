@@ -232,16 +232,40 @@ def create_global_agent(task_id: str, user_id: str) -> Agent:
     )
 
 
-async def run_global_agent(task: Task) -> AsyncIterator[dict]:
+def _build_input_from_history(chat_history: Optional[List[Dict]], new_input: str):
+    """
+    将聊天历史 + 新输入转换为 Runner 的 input 格式。
+    支持多轮对话：input 可以是 str 或 list[TResponseInputItem]。
+    格式: [{"role": "user"|"assistant", "content": "..."}, ...]
+    """
+    if not chat_history:
+        return new_input
+    items = []
+    for msg in chat_history[-20:]:  # 最多取最近 20 条
+        role = msg.get("role", "user")
+        content = msg.get("content", "")
+        if content:
+            items.append({"role": role, "content": content})
+    if items:
+        items.append({"role": "user", "content": new_input})
+        return items
+    return new_input
+
+
+async def run_global_agent(
+    task: Task,
+    chat_history: Optional[List[Dict]] = None
+) -> AsyncIterator[dict]:
     """
     运行全局 Agent（流式）
     
     这是用户的私人助手，从左侧边栏打开。
+    支持多轮对话：传入 chat_history 时会将历史 + 新输入一起传给模型。
     """
     task_id = task.id
     user_id = task.user_id
     
-    logger.info(f"Starting GlobalAgent for task {task_id}, user={user_id}")
+    logger.info(f"Starting GlobalAgent for task {task_id}, user={user_id}, history_len={len(chat_history or [])}")
     
     try:
         # 更新状态为运行中
@@ -260,11 +284,14 @@ async def run_global_agent(task: Task) -> AsyncIterator[dict]:
         # 获取模型提供者
         provider = get_default_provider()
         
+        # 构建输入（多轮时传入历史 + 新消息）
+        runner_input = _build_input_from_history(chat_history, task.input_text)
+        
         # 运行流式 Agent
         run_config = RunConfig(model_provider=provider)
         result = Runner.run_streamed(
             agent,
-            input=task.input_text,
+            input=runner_input,
             run_config=run_config
         )
         
