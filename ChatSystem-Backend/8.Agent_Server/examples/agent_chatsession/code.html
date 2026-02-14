@@ -1,0 +1,348 @@
+<!DOCTYPE html>
+
+<html lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Agent-Enhanced Chat Dashboard</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script>
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#258cf4",
+                        "primary-50": "#eaf5ff",
+                        "primary-100": "#d5ebff",
+                        "primary-200": "#aad8ff",
+                        "primary-300": "#7fc4ff",
+                        "primary-400": "#54b1ff",
+                        "primary-600": "#0073e6",
+                        "primary-700": "#005bb5",
+                        "primary-800": "#004385",
+                        "primary-900": "#002b54",
+                        "background-light": "#f5f7f8",
+                        "background-dark": "#101922",
+                        "surface-light": "#ffffff",
+                        "surface-dark": "#1a2632",
+                        "neutral-50": "#f8fafc",
+                        "neutral-100": "#f1f5f9",
+                        "neutral-200": "#e2e8f0",
+                        "neutral-300": "#cbd5e1",
+                        "neutral-400": "#94a3b8",
+                        "neutral-500": "#64748b",
+                        "neutral-600": "#475569",
+                        "neutral-700": "#334155",
+                        "neutral-800": "#1e293b",
+                        "neutral-900": "#0f172a",
+                    },
+                    fontFamily: {
+                        "display": ["Inter", "sans-serif"]
+                    },
+                    borderRadius: {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                },
+            },
+        }
+    </script>
+<style>
+        /* Custom scrollbar for webkit browsers */
+        ::-webkit-scrollbar {
+            width: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        ::-webkit-scrollbar-thumb {
+            background-color: #cbd5e1;
+            border-radius: 20px;
+        }
+        .dark ::-webkit-scrollbar-thumb {
+            background-color: #334155;
+        }
+    </style>
+</head>
+<body class="bg-background-light dark:bg-background-dark text-neutral-800 dark:text-neutral-100 font-display h-screen flex overflow-hidden">
+<!-- Left Navigation: Slim Sidebar -->
+<nav class="w-16 md:w-20 flex-shrink-0 bg-surface-light dark:bg-surface-dark border-r border-neutral-200 dark:border-neutral-700 flex flex-col items-center py-6 z-20">
+<!-- Logo -->
+<div class="mb-8">
+<div class="w-10 h-10 bg-primary rounded-xl flex items-center justify-center text-white shadow-lg shadow-primary/30">
+<span class="material-icons text-xl">smart_toy</span>
+</div>
+</div>
+<!-- Menu Items -->
+<div class="flex-1 flex flex-col gap-6 w-full items-center">
+<button class="p-3 rounded-xl text-neutral-400 hover:text-primary hover:bg-primary-50 dark:hover:bg-primary-900/30 transition-colors">
+<span class="material-icons">home</span>
+</button>
+<button class="relative p-3 rounded-xl bg-primary/10 text-primary transition-colors">
+<span class="material-icons">chat_bubble</span>
+<span class="absolute top-2 right-2 w-2 h-2 bg-primary rounded-full"></span>
+</button>
+<button class="p-3 rounded-xl text-neutral-400 hover:text-primary hover:bg-primary-50 dark:hover:bg-primary-900/30 transition-colors">
+<span class="material-icons">folder_open</span>
+</button>
+<button class="p-3 rounded-xl text-neutral-400 hover:text-primary hover:bg-primary-50 dark:hover:bg-primary-900/30 transition-colors">
+<span class="material-icons">pie_chart</span>
+</button>
+</div>
+<!-- User Profile -->
+<div class="mt-auto">
+<button class="w-10 h-10 rounded-full overflow-hidden border-2 border-neutral-200 dark:border-neutral-700 hover:border-primary transition-colors">
+<img alt="User Profile" class="w-full h-full object-cover" data-alt="User avatar with initials AD" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDaGTTxfg0_-KutU8E-hDFzY5-JPvLQD5pj4KOXrLOPLMkwnB6nymHYV_wZJs0kgeR4UI5v7czVMyGGhTfYMoahlhzolQhZHfa_perWV9bcoNAiPXWM4k7w2pPBLjD_HX0g3E4zxdxQjOgbT21q2_ymVOVFGz0Iok-onMOx1Dwr1iriERZ3jWCBZ457mo6DVsJj7Ss5VzMaSvPrH7c3dAQIe6eH7L_q4EwbQsMsxkKWMRvirpSouYaSKcec7EQ3ULDI4RoHIN1T0Oaj"/>
+</button>
+</div>
+<div class="mt-4">
+<button class="p-3 rounded-xl text-neutral-400 hover:text-primary hover:bg-primary-50 dark:hover:bg-primary-900/30 transition-colors">
+<span class="material-icons">settings</span>
+</button>
+</div>
+</nav>
+<!-- Center Panel: Main Chat Area -->
+<main class="flex-1 flex flex-col min-w-0 bg-background-light dark:bg-background-dark relative">
+<!-- Chat Header -->
+<header class="h-16 px-6 bg-surface-light dark:bg-surface-dark border-b border-neutral-200 dark:border-neutral-700 flex items-center justify-between flex-shrink-0">
+<div class="flex items-center gap-3">
+<div class="relative">
+<img alt="Sarah Connor" class="w-10 h-10 rounded-full object-cover border border-neutral-200 dark:border-neutral-600" data-alt="Portrait of a smiling woman" src="https://lh3.googleusercontent.com/aida-public/AB6AXuD5L5ohLu9RJ1r9SXPp4ho-lMVwCm-8acqd2bsnvfORZWHTEITL_yoZENsMolnmld70DvJcrJqxC2GUlJgx8h_7yruur08nf-n67yFidt_DumWTj4buUxRMhlbRXhCQcCt64m0UWGdIyrLm2w_0mIresO7RdV7QP16eONrFHwBzkjq7uYgbWnf41B5p0kNjR6voSd5FZSm7Z0qxg3ZPHFRIgst6QYZ-oHETdYGCJh6s8Sm2LrRgN1hGa1zfVQyNLgAlOGokFk6l5_xN"/>
+<span class="absolute bottom-0 right-0 w-3 h-3 bg-green-500 border-2 border-white dark:border-surface-dark rounded-full"></span>
+</div>
+<div>
+<h2 class="text-sm font-semibold text-neutral-900 dark:text-white">Sarah Connor</h2>
+<p class="text-xs text-neutral-500 dark:text-neutral-400">Online • Product Design Lead</p>
+</div>
+</div>
+<div class="flex items-center gap-2">
+<button class="p-2 text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-200 rounded-lg hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors">
+<span class="material-icons text-xl">search</span>
+</button>
+<button class="p-2 text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-200 rounded-lg hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors">
+<span class="material-icons text-xl">more_vert</span>
+</button>
+</div>
+</header>
+<!-- Chat Messages Stream -->
+<div class="flex-1 overflow-y-auto p-6 space-y-6">
+<!-- Timestamp -->
+<div class="flex justify-center">
+<span class="px-3 py-1 bg-neutral-100 dark:bg-neutral-800 rounded-full text-xs text-neutral-500 dark:text-neutral-400">Today, 10:23 AM</span>
+</div>
+<!-- Friend Message -->
+<div class="flex gap-4 max-w-3xl">
+<img alt="Sarah" class="w-8 h-8 rounded-full object-cover flex-shrink-0 mt-1" data-alt="Portrait of a smiling woman" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCAjzduSmvhpgIG9726E2TaU7_J2ykUtXIFUkMB2xC4SnQLBl5q0RiuOdF3HtF5o-WlipKwZrdy0iiGoPN7mUbqFpRMTeNBdqQ4Y9M_fTBWxOhuvVIU9i_Zdu0Ls1HfR9qwTk45hReGkn8_c5yzLZZclQ0S1ZtzfAqFGsku1-fSDzlrWFYyOz7RsYU2xsV1Ejv0s4pJ09VBCh3_y1Ft3A8t78FOk3DVRT-zfv_Q9kt7PtmYjmiO-mGXWYY_1UWW7cpGIk8RNhmdQCZP"/>
+<div class="flex flex-col gap-1">
+<div class="bg-white dark:bg-surface-dark border border-neutral-200 dark:border-neutral-700 p-4 rounded-2xl rounded-tl-none shadow-sm text-sm text-neutral-800 dark:text-neutral-200">
+<p>Hey! Just wanted to share the latest quarterly report documents with you. It's looking pretty intense this time around. 😅</p>
+</div>
+<div class="flex gap-2 mt-1">
+<div class="flex items-center gap-2 p-2 bg-white dark:bg-surface-dark border border-neutral-200 dark:border-neutral-700 rounded-lg max-w-xs cursor-pointer hover:border-primary transition-colors group">
+<div class="w-8 h-8 bg-red-50 dark:bg-red-900/20 rounded flex items-center justify-center text-red-500">
+<span class="material-icons text-lg">picture_as_pdf</span>
+</div>
+<div class="flex-1 min-w-0">
+<p class="text-xs font-medium truncate group-hover:text-primary transition-colors">Q3_Financial_Projections.pdf</p>
+<p class="text-[10px] text-neutral-500">2.4 MB</p>
+</div>
+</div>
+</div>
+<span class="text-xs text-neutral-400 ml-1">10:24 AM</span>
+</div>
+</div>
+<!-- Agent Triggered Summary Card (Embedded) -->
+<div class="flex justify-center my-4">
+<div class="w-full max-w-2xl bg-gradient-to-r from-primary-50 to-white dark:from-primary-900/20 dark:to-surface-dark border border-primary/20 rounded-xl p-4 shadow-sm relative overflow-hidden group">
+<!-- Decorational background element -->
+<div class="absolute -right-6 -top-6 w-24 h-24 bg-primary/10 rounded-full blur-2xl"></div>
+<div class="flex items-start gap-3 relative z-10">
+<div class="w-8 h-8 bg-primary rounded-lg flex items-center justify-center text-white flex-shrink-0 shadow-md shadow-primary/20">
+<span class="material-icons text-sm">auto_awesome</span>
+</div>
+<div class="flex-1">
+<div class="flex items-center justify-between mb-1">
+<h4 class="text-sm font-semibold text-primary-700 dark:text-primary-300">Document Analysis</h4>
+<span class="text-[10px] uppercase tracking-wider font-bold text-primary/60 bg-primary/5 px-2 py-0.5 rounded">Auto-Generated</span>
+</div>
+<p class="text-xs text-neutral-600 dark:text-neutral-300 leading-relaxed mb-3">
+                                Based on <span class="font-medium text-neutral-800 dark:text-neutral-100">Q3_Financial_Projections.pdf</span>: The report projects a <strong>15% growth</strong> in the tech sector, driven primarily by AI adoption. Risks include supply chain volatility in the APAC region.
+                            </p>
+<div class="flex gap-2">
+<button class="text-xs bg-white dark:bg-surface-dark border border-neutral-200 dark:border-neutral-700 hover:border-primary hover:text-primary text-neutral-600 dark:text-neutral-300 px-3 py-1.5 rounded-lg shadow-sm transition-all flex items-center gap-1">
+<span class="material-icons text-[14px]">visibility</span> View Details
+                                </button>
+<button class="text-xs bg-white dark:bg-surface-dark border border-neutral-200 dark:border-neutral-700 hover:border-primary hover:text-primary text-neutral-600 dark:text-neutral-300 px-3 py-1.5 rounded-lg shadow-sm transition-all flex items-center gap-1">
+<span class="material-icons text-[14px]">share</span> Share
+                                </button>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- User Message -->
+<div class="flex flex-row-reverse gap-4 max-w-3xl ml-auto">
+<img alt="Me" class="w-8 h-8 rounded-full object-cover flex-shrink-0 mt-1" data-alt="User avatar with initials AD" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDz8DkuH9yuUpVHPtzgYqL4SwCM-TtAEmi_sodJ91RtCEb9Ibal6dV09JgDVnwZgGlZLKJ_jIFIJRAt14rNZaqngatGc3IAhZiozstJqrFxJSwkBkn2j55kOVpYGiA6HdwCT4bHpLDo2fLg09fwkduGzPaelazX4iGKoW5hFzv3ZeKDEaiSL2dXMUi6ERitBzj_HMYTsvm1UjqjZbIp7La2usP1BR7CCiOq9ggV_LlqZjv4txamoB1rh3ik_cvmV8kMb2569GnLgdwX"/>
+<div class="flex flex-col items-end gap-1">
+<div class="bg-primary text-white p-4 rounded-2xl rounded-tr-none shadow-md shadow-primary/20 text-sm">
+<p>Thanks for sending that over! The 15% growth figure seems optimistic. Did they mention the source for the APAC volatility data?</p>
+</div>
+<span class="text-xs text-neutral-400 mr-1">10:28 AM • Read</span>
+</div>
+</div>
+<!-- Friend Message (Typing) -->
+<div class="flex gap-4 max-w-3xl">
+<img alt="Sarah" class="w-8 h-8 rounded-full object-cover flex-shrink-0 mt-1" data-alt="Portrait of a smiling woman" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDeV_uYh5raBe6zyWLQe4CaWwF18A2sCnUkZGh_xd17DGBc_fChSeXNMFhMxFZr_C8ep4XcXqOJkPiuepYxANikr9rPBZNn07cxs7zjHahZxpT4odOyYLmZsvYA1GDqTuq21l0cITwVAaFAaZMHpyupzsLwgAJfRoASTo4UvlA3kVvCO2gyUct-ZwI6KOdF9ByehSUj28ldeIYnWpxJqgh4-sLGseiV4hoLLcOCpPPta290ak-EdD6T_yDj_3ddRTrA5rOBYYlWq-D-"/>
+<div class="flex flex-col gap-1">
+<div class="bg-white dark:bg-surface-dark border border-neutral-200 dark:border-neutral-700 px-4 py-3 rounded-2xl rounded-tl-none shadow-sm w-16">
+<div class="flex space-x-1 h-4 items-center">
+<div class="w-1.5 h-1.5 bg-neutral-400 rounded-full animate-bounce" style="animation-delay: 0ms"></div>
+<div class="w-1.5 h-1.5 bg-neutral-400 rounded-full animate-bounce" style="animation-delay: 150ms"></div>
+<div class="w-1.5 h-1.5 bg-neutral-400 rounded-full animate-bounce" style="animation-delay: 300ms"></div>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Chat Input Area -->
+<div class="p-4 bg-surface-light dark:bg-surface-dark border-t border-neutral-200 dark:border-neutral-700 flex-shrink-0 z-10">
+<div class="relative flex items-end gap-2 bg-neutral-50 dark:bg-background-dark border border-neutral-200 dark:border-neutral-700 rounded-xl p-2 focus-within:ring-2 focus-within:ring-primary/20 focus-within:border-primary transition-all shadow-inner">
+<button class="p-2 text-neutral-400 hover:text-primary rounded-lg hover:bg-neutral-100 dark:hover:bg-surface-dark transition-colors" title="Attach file">
+<span class="material-icons">attach_file</span>
+</button>
+<textarea class="flex-1 bg-transparent border-none text-sm text-neutral-800 dark:text-white placeholder-neutral-400 focus:ring-0 resize-none py-2.5 max-h-32" placeholder="Type a message..." rows="1"></textarea>
+<div class="flex items-center gap-1 pb-0.5">
+<button class="p-2 text-primary hover:text-primary-600 rounded-lg hover:bg-primary-50 dark:hover:bg-primary-900/20 transition-colors" title="Ask Agent">
+<span class="material-icons">auto_awesome</span>
+</button>
+<button class="p-2 bg-primary text-white rounded-lg hover:bg-primary-600 shadow-sm shadow-primary/30 transition-colors">
+<span class="material-icons text-lg">send</span>
+</button>
+</div>
+</div>
+<p class="text-[10px] text-center text-neutral-400 mt-2">Press Enter to send, Shift+Enter for new line</p>
+</div>
+</main>
+<!-- Right Panel: Agent Assistant Sidebar -->
+<aside class="w-80 flex-shrink-0 bg-surface-light dark:bg-surface-dark border-l border-neutral-200 dark:border-neutral-700 flex flex-col z-20 shadow-xl lg:shadow-none absolute right-0 h-full lg:relative transform transition-transform duration-300 translate-x-0">
+<!-- Sidebar Header -->
+<header class="h-16 px-5 border-b border-neutral-200 dark:border-neutral-700 flex items-center justify-between flex-shrink-0 bg-neutral-50/50 dark:bg-surface-dark/50 backdrop-blur-sm">
+<div class="flex items-center gap-2">
+<span class="material-icons text-primary text-xl">psychology</span>
+<h3 class="font-semibold text-neutral-800 dark:text-white">Agent Assistant</h3>
+</div>
+<button class="text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-200 lg:hidden">
+<span class="material-icons">close</span>
+</button>
+<button class="text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-200 hidden lg:block">
+<span class="material-icons text-sm">dock</span>
+</button>
+</header>
+<div class="flex-1 overflow-y-auto p-5 space-y-6">
+<!-- Quick Actions -->
+<section>
+<h4 class="text-xs font-semibold text-neutral-500 uppercase tracking-wider mb-3">Quick Actions</h4>
+<div class="grid grid-cols-2 gap-2">
+<button class="flex flex-col items-center justify-center p-3 bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-lg hover:border-primary/50 hover:bg-primary-50 dark:hover:bg-primary-900/20 hover:text-primary transition-all group shadow-sm">
+<span class="material-icons text-neutral-400 group-hover:text-primary mb-1">summarize</span>
+<span class="text-xs font-medium">Summarize</span>
+</button>
+<button class="flex flex-col items-center justify-center p-3 bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-lg hover:border-primary/50 hover:bg-primary-50 dark:hover:bg-primary-900/20 hover:text-primary transition-all group shadow-sm">
+<span class="material-icons text-neutral-400 group-hover:text-primary mb-1">fact_check</span>
+<span class="text-xs font-medium">Fact Check</span>
+</button>
+<button class="flex flex-col items-center justify-center p-3 bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-lg hover:border-primary/50 hover:bg-primary-50 dark:hover:bg-primary-900/20 hover:text-primary transition-all group shadow-sm">
+<span class="material-icons text-neutral-400 group-hover:text-primary mb-1">edit_note</span>
+<span class="text-xs font-medium">Draft Reply</span>
+</button>
+<button class="flex flex-col items-center justify-center p-3 bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-lg hover:border-primary/50 hover:bg-primary-50 dark:hover:bg-primary-900/20 hover:text-primary transition-all group shadow-sm">
+<span class="material-icons text-neutral-400 group-hover:text-primary mb-1">translate</span>
+<span class="text-xs font-medium">Translate</span>
+</button>
+</div>
+</section>
+<!-- Mini Chat Stream -->
+<section class="flex flex-col h-64 border border-neutral-200 dark:border-neutral-700 rounded-xl bg-neutral-50 dark:bg-background-dark overflow-hidden">
+<div class="bg-white dark:bg-neutral-800 px-3 py-2 border-b border-neutral-200 dark:border-neutral-700 flex justify-between items-center">
+<span class="text-xs font-semibold text-neutral-600 dark:text-neutral-300">Agent Chat</span>
+<span class="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span>
+</div>
+<div class="flex-1 p-3 overflow-y-auto space-y-3">
+<div class="flex flex-col items-end gap-1">
+<div class="bg-primary/10 text-primary-900 dark:text-primary-100 p-2 rounded-lg rounded-tr-none text-xs max-w-[90%]">
+                            Is 15% accurate based on historicals?
+                        </div>
+</div>
+<div class="flex flex-col items-start gap-1">
+<div class="bg-white dark:bg-neutral-700 border border-neutral-200 dark:border-neutral-600 p-2 rounded-lg rounded-tl-none text-xs text-neutral-600 dark:text-neutral-300 shadow-sm max-w-[90%]">
+                            Checking... Historical avg is 12%. 15% is slightly above trend but within deviation for Q3.
+                        </div>
+</div>
+</div>
+<div class="p-2 border-t border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800">
+<div class="flex items-center gap-2">
+<input class="w-full text-xs bg-neutral-100 dark:bg-neutral-900 border-none rounded-md py-1.5 px-2 focus:ring-1 focus:ring-primary text-neutral-800 dark:text-neutral-200" placeholder="Ask agent..." type="text"/>
+<button class="text-primary hover:text-primary-700">
+<span class="material-icons text-sm">send</span>
+</button>
+</div>
+</div>
+</section>
+<!-- Task Status List -->
+<section>
+<div class="flex items-center justify-between mb-3">
+<h4 class="text-xs font-semibold text-neutral-500 uppercase tracking-wider">Active Tasks</h4>
+<span class="bg-neutral-200 dark:bg-neutral-700 text-neutral-600 dark:text-neutral-300 text-[10px] px-1.5 rounded">2</span>
+</div>
+<div class="space-y-3">
+<!-- Task Item 1 -->
+<div class="bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-lg p-3 shadow-sm">
+<div class="flex justify-between items-start mb-2">
+<div class="flex items-center gap-2">
+<span class="material-icons text-green-500 text-sm">check_circle</span>
+<span class="text-xs font-medium text-neutral-700 dark:text-neutral-200">Analyze PDF</span>
+</div>
+<span class="text-[10px] text-neutral-400">Done</span>
+</div>
+<div class="w-full bg-neutral-100 dark:bg-neutral-700 rounded-full h-1">
+<div class="bg-green-500 h-1 rounded-full" style="width: 100%"></div>
+</div>
+</div>
+<!-- Task Item 2 -->
+<div class="bg-white dark:bg-neutral-800 border border-primary/30 rounded-lg p-3 shadow-sm relative overflow-hidden">
+<div class="absolute top-0 left-0 w-[2px] h-full bg-primary"></div>
+<div class="flex justify-between items-start mb-2">
+<div class="flex items-center gap-2">
+<span class="material-icons text-primary text-sm animate-spin">sync</span>
+<span class="text-xs font-medium text-neutral-700 dark:text-neutral-200">Cross-reference Email</span>
+</div>
+<span class="text-[10px] text-primary">Running...</span>
+</div>
+<div class="w-full bg-neutral-100 dark:bg-neutral-700 rounded-full h-1 mb-1">
+<div class="bg-primary h-1 rounded-full animate-pulse" style="width: 60%"></div>
+</div>
+<p class="text-[10px] text-neutral-400">Scanning 45 threads...</p>
+</div>
+<!-- Task Item 3 (Queued) -->
+<div class="bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-lg p-3 shadow-sm opacity-60">
+<div class="flex justify-between items-start mb-2">
+<div class="flex items-center gap-2">
+<span class="material-icons text-neutral-400 text-sm">schedule</span>
+<span class="text-xs font-medium text-neutral-700 dark:text-neutral-200">Draft Follow-up</span>
+</div>
+<span class="text-[10px] text-neutral-400">Queued</span>
+</div>
+<div class="w-full bg-neutral-100 dark:bg-neutral-700 rounded-full h-1">
+<div class="bg-neutral-300 dark:bg-neutral-600 h-1 rounded-full" style="width: 0%"></div>
+</div>
+</div>
+</div>
+</section>
+</div>
+</aside>
+</body></html>

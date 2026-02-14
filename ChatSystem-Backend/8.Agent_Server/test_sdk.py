@@ -21,12 +21,14 @@ if 'HTTPS_PROXY' in os.environ:
 from dotenv import load_dotenv
 load_dotenv()
 
+from openai.types.shared import Reasoning
 from openai import AsyncOpenAI
 from agents import (
     Agent,
     Runner,
     RunConfig,
     ModelProvider,
+    ModelSettings,
     OpenAIChatCompletionsModel,
     function_tool,
     set_tracing_disabled,
@@ -38,7 +40,7 @@ set_tracing_disabled(True)
 # OpenRouter 配置
 OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
 OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1"
-OPENROUTER_MODEL = os.getenv("OPENROUTER_MODEL", "openai/gpt-4o-mini")
+OPENROUTER_MODEL = os.getenv("OPENROUTER_MODEL", "openai/gpt-oss-120b")
 
 print(f"API Key: {OPENROUTER_API_KEY[:20]}..." if OPENROUTER_API_KEY else "No API key!")
 print(f"Model: {OPENROUTER_MODEL}")
@@ -129,6 +131,9 @@ async def test_streaming():
     agent = Agent(
         name="StreamAgent",
         instructions="你是一个助手，用中文回复。",
+        model_settings=ModelSettings(
+            reasoning=Reasoning(effort="high", summary="detailed"),
+        ),
     )
     
     provider = OpenRouterProvider()
@@ -139,11 +144,13 @@ async def test_streaming():
         run_config=RunConfig(model_provider=provider)
     )
     
-    print("流式输出: ", end="", flush=True)
+    print("流式输出: \n", end="", flush=True)
     async for event in result.stream_events():
         if event.type == "raw_response_event":
-            if isinstance(event.data, ResponseTextDeltaEvent):
-                print(event.data.delta, end="", flush=True)
+            if event.data.type == "response.reasoning_text.delta":
+                print(f"\033[33m{event.data.delta}\033[0m", end="", flush=True)
+            elif event.data.type == "response.output_text.delta":
+                print(f"\033[32m{event.data.delta}\033[0m", end="", flush=True)
     print()  # 换行
 
 

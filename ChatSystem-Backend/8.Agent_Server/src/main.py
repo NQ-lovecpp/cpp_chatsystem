@@ -121,10 +121,44 @@ async def agent_status():
             "global_agent": True,
             "browser_tools": True,
             "python_tools": True,
-            "approvals": True
+            "approvals": True,
+            "audit_logs": True
         },
         "tools": [t["name"] for t in get_tool_definitions()],
         "python_executor": python_status
+    }
+
+
+@app.get("/agent/audit-logs")
+async def get_audit_logs(
+    user_id: str = None,
+    task_id: str = None,
+    tool_name: str = None,
+    limit: int = 50
+):
+    """
+    获取工具执行审计日志
+    
+    用于安全审计和问题排查
+    """
+    from chat_agents import get_audit_logs as fetch_audit_logs
+    
+    logs = fetch_audit_logs(
+        user_id=user_id,
+        task_id=task_id,
+        tool_name=tool_name,
+        limit=limit
+    )
+    
+    return {
+        "logs": logs,
+        "count": len(logs),
+        "filters": {
+            "user_id": user_id,
+            "task_id": task_id,
+            "tool_name": tool_name,
+            "limit": limit
+        }
     }
 
 

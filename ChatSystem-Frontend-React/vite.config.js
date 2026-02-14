@@ -19,6 +19,11 @@ export default defineConfig({
         ws: true,
         changeOrigin: true,
       },
+      // Agent Server API 代理
+      '/agent': {
+        target: 'http://127.0.0.1:8080',
+        changeOrigin: true,
+      },
     },
   },
 })

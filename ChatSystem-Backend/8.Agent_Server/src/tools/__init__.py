@@ -41,16 +41,26 @@ def get_sdk_tools():
         web_open,
         web_find,
         python_execute,
+        python_execute_with_approval,
         ALL_TOOLS,
         SAFE_TOOLS,
-        APPROVAL_REQUIRED_TOOLS
+        APPROVAL_REQUIRED_TOOLS,
+        ALL_TOOLS_WITH_APPROVAL,
+        set_tool_context,
+        current_task_id,
+        current_user_id
     )
     return {
         "web_search": web_search,
         "web_open": web_open,
         "web_find": web_find,
         "python_execute": python_execute,
+        "python_execute_with_approval": python_execute_with_approval,
         "ALL_TOOLS": ALL_TOOLS,
         "SAFE_TOOLS": SAFE_TOOLS,
-        "APPROVAL_REQUIRED_TOOLS": APPROVAL_REQUIRED_TOOLS
+        "APPROVAL_REQUIRED_TOOLS": APPROVAL_REQUIRED_TOOLS,
+        "ALL_TOOLS_WITH_APPROVAL": ALL_TOOLS_WITH_APPROVAL,
+        "set_tool_context": set_tool_context,
+        "current_task_id": current_task_id,
+        "current_user_id": current_user_id
     }

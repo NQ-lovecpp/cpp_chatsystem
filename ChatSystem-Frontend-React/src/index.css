@@ -235,3 +235,86 @@ body {
 .animate-slide-down { animation: slide-down var(--transition-normal) ease-out; }
 .animate-scale-in { animation: scale-in var(--transition-normal) ease-out; }
 .animate-pulse-soft { animation: pulse-soft 2s ease-in-out infinite; }
+
+@keyframes blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0; }
+}
+.animate-blink { animation: blink 1s infinite; }
+
+/* ========================================
+   Ant Design 暗色模式覆盖
+   ======================================== */
+
+[data-theme="dark"] .ant-card {
+  background: var(--color-surface-elevated);
+  border-color: var(--color-border);
+  color: var(--color-text);
+}
+
+[data-theme="dark"] .ant-input {
+  background: var(--color-surface);
+  border-color: var(--color-border);
+  color: var(--color-text);
+}
+
+[data-theme="dark"] .ant-input::placeholder {
+  color: var(--color-text-muted);
+}
+
+[data-theme="dark"] .ant-btn-default {
+  background: var(--color-surface);
+  border-color: var(--color-border);
+  color: var(--color-text);
+}
+
+[data-theme="dark"] .ant-btn-default:hover {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+}
+
+[data-theme="dark"] .ant-empty-description {
+  color: var(--color-text-muted);
+}
+
+[data-theme="dark"] .ant-tag {
+  border-color: var(--color-border);
+}
+
+[data-theme="dark"] .ant-progress-text {
+  color: var(--color-text-secondary);
+}
+
+[data-theme="dark"] .ant-alert {
+  border-color: var(--color-border);
+}
+
+[data-theme="dark"] .ant-collapse {
+  background: var(--color-surface);
+  border-color: var(--color-border);
+}
+
+[data-theme="dark"] .ant-collapse-header {
+  color: var(--color-text) !important;
+}
+
+[data-theme="dark"] .ant-modal-content {
+  background: var(--color-surface-elevated);
+  color: var(--color-text);
+}
+
+[data-theme="dark"] .ant-modal-header {
+  background: var(--color-surface-elevated);
+}
+
+[data-theme="dark"] .ant-modal-title {
+  color: var(--color-text);
+}
+
+[data-theme="dark"] .ant-typography {
+  color: var(--color-text);
+}
+
+[data-theme="dark"] .ant-badge-status-text {
+  color: var(--color-text-secondary);
+}
