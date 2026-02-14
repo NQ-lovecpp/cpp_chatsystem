@@ -1,7 +1,13 @@
 """
 TaskAgent - 任务执行 Agent
-由 SessionAgent 派生，负责执行具体任务
+可由 SessionAgent 派生，也可由用户在右侧边栏直接创建
 支持 Todo 进度管理、工具调用、流式输出
+通过数据库工具获取聊天上下文
+
+特点：
+- 不直接拥有聊天上下文，通过 function_tool 访问 MySQL 获取
+- 可以自定义任务清单（todos）
+- 支持网页搜索、Python 执行等工具
 """
 import asyncio
 from typing import Optional, AsyncIterator, Any, List
@@ -37,30 +43,56 @@ from tools.sdk_tools import (
     set_tool_context
 )
 from tools.todo_tools import add_todos, update_todo, list_todos, _clear_task_todos
+from tools.db_tools import (
+    get_chat_history,
+    get_session_members,
+    get_user_info,
+    search_messages,
+    get_user_sessions,
+)
 
 
 # TaskAgent 系统提示词
 TASK_AGENT_SYSTEM_PROMPT = """你是一个专注的任务执行助手。你的职责是高效完成分配给你的具体任务。
 
+## 重要：获取上下文
+你不直接拥有聊天历史，需要主动使用数据库工具获取上下文：
+- 当任务涉及"总结对话"、"回顾讨论"等时，**必须先调用 `get_chat_history`** 获取聊天记录
+- 当需要了解会话成员时，使用 `get_session_members`
+- 当需要查找特定话题时，使用 `search_messages`
+
 ## 工作流程
-1. **规划**：收到任务后，首先使用 `add_todos` 创建任务步骤清单
-2. **执行**：按顺序执行每个步骤，执行前用 `update_todo` 标记为 running
-3. **完成**：步骤完成后用 `update_todo` 标记为 completed
-4. **汇报**：所有步骤完成后，总结任务结果
+1. **理解任务**：分析用户需求，确定需要哪些信息
+2. **获取上下文**：如需要，调用数据库工具获取相关聊天记录
+3. **规划步骤**：使用 `add_todos` 创建任务步骤清单（可选，复杂任务建议使用）
+4. **执行任务**：按步骤执行，使用各类工具完成任务
+5. **汇报结果**：总结任务结果
 
 ## 可用工具
+
+### 数据库工具（获取项目数据）
+- `get_chat_history(chat_session_id, limit, offset)` - 获取会话的聊天历史
+- `get_session_members(chat_session_id)` - 获取会话成员列表
+- `get_user_info(user_id)` - 获取用户详细信息
+- `search_messages(chat_session_id, keyword)` - 搜索会话中的消息
+- `get_user_sessions(user_id)` - 获取用户的会话列表
+
+### 任务管理工具
 - `add_todos(texts)` - 添加任务步骤清单，每步 4-8 字
 - `update_todo(todo_id, status)` - 更新步骤状态 (running/completed/failed)
 - `list_todos()` - 查看当前所有步骤
+
+### 信息检索工具
 - `web_search(query)` - 搜索网页信息
 - `web_open(url_or_id)` - 打开网页查看详情
 - `web_find(pattern)` - 在页面中查找内容
+
+### 代码执行工具
 - `python_execute(code)` - 执行 Python 代码（需审批）
 
 ## 注意事项
-- 始终先规划再执行
-- 每个步骤执行时更新状态，让用户了解进度
-- 如遇到问题，标记为 failed 并说明原因
+- **对于需要聊天上下文的任务，必须先调用数据库工具获取信息**
+- 任务步骤可以由你自己定义，根据实际需要灵活调整
 - 回复简洁专业，使用中文
 
 请开始执行任务。
@@ -101,25 +133,54 @@ class TaskAgentHooks(AgentHooks):
             })
 
 
-def create_task_agent(task_id: str, user_id: str) -> Agent:
-    """创建 TaskAgent 实例"""
+def create_task_agent(task_id: str, user_id: str, chat_session_id: Optional[str] = None) -> Agent:
+    """
+    创建 TaskAgent 实例
+    
+    Args:
+        task_id: 任务 ID
+        user_id: 用户 ID
+        chat_session_id: 聊天会话 ID（可选，用于在提示词中提供上下文）
+    """
     # 设置工具上下文
     set_tool_context(task_id, user_id)
     
-    # TaskAgent 工具集：包含 Todo 工具和其他工具
+    # TaskAgent 工具集：包含数据库工具、Todo 工具和其他工具
     tools = [
+        # 数据库工具（获取聊天上下文）
+        get_chat_history,
+        get_session_members,
+        get_user_info,
+        search_messages,
+        get_user_sessions,
+        # 任务管理工具
         add_todos,
         update_todo,
         list_todos,
+        # 信息检索工具
         web_search,
         web_open,
         web_find,
+        # 代码执行工具
         python_execute_with_approval,
     ]
     
+    # 如果有 chat_session_id，在提示词中添加上下文提示
+    instructions = TASK_AGENT_SYSTEM_PROMPT
+    if chat_session_id:
+        context_hint = f"""
+
+## 当前上下文
+- 当前用户 ID: {user_id}
+- 关联会话 ID: {chat_session_id}
+
+如果任务需要了解聊天内容，请使用 `get_chat_history("{chat_session_id}")` 获取。
+"""
+        instructions = TASK_AGENT_SYSTEM_PROMPT + context_hint
+    
     return Agent(
         name="TaskAgent",
-        instructions=TASK_AGENT_SYSTEM_PROMPT,
+        instructions=instructions,
         tools=tools,
         hooks=TaskAgentHooks(task_id),
     )
@@ -131,8 +192,9 @@ async def run_task_agent(task: Task) -> AsyncIterator[dict]:
     """
     task_id = task.id
     user_id = task.user_id
+    chat_session_id = task.chat_session_id  # 获取关联的会话 ID
     
-    logger.info(f"Starting TaskAgent for task {task_id}")
+    logger.info(f"Starting TaskAgent for task {task_id}, chat_session_id={chat_session_id}")
     
     try:
         # 更新状态
@@ -141,11 +203,12 @@ async def run_task_agent(task: Task) -> AsyncIterator[dict]:
         # 发送初始化事件
         await sse_bus.publish(task_id, "init", {
             "task_id": task_id,
-            "task_type": "task_agent"
+            "task_type": "task_agent",
+            "chat_session_id": chat_session_id
         })
         
-        # 创建 Agent
-        agent = create_task_agent(task_id, user_id)
+        # 创建 Agent，传递 chat_session_id
+        agent = create_task_agent(task_id, user_id, chat_session_id)
         
         # 运行
         provider = get_default_provider()

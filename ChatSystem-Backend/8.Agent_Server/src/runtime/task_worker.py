@@ -27,9 +27,16 @@ class TaskStatus(str, Enum):
 
 
 class TaskType(str, Enum):
-    """任务类型"""
-    SESSION = "session"  # 会话内任务
-    GLOBAL = "global"    # 全局任务
+    """
+    任务类型
+    
+    - TASK: TaskAgent 执行的后台任务（默认，右侧边栏任务面板）
+    - SESSION: SessionAgent 在聊天会话中的响应
+    - GLOBAL: GlobalAgent 用户私人助手的响应（左侧边栏）
+    """
+    TASK = "task"        # 后台任务（TaskAgent）
+    SESSION = "session"  # 会话内任务（SessionAgent）
+    GLOBAL = "global"    # 全局任务（GlobalAgent）
 
 
 @dataclass

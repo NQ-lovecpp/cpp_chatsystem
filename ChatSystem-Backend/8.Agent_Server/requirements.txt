@@ -14,6 +14,9 @@ pydantic-settings>=2.1.0
 aiohttp>=3.9.0
 httpx>=0.26.0
 
+# MySQL 异步驱动
+aiomysql>=0.2.0
+
 # SSE
 sse-starlette>=2.0.0
 

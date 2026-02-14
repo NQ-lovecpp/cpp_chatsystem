@@ -24,7 +24,7 @@ import SessionList from '../components/SessionList';
 import MessageArea from '../components/MessageArea';
 import FriendList from '../components/FriendList';
 import SettingsPanel from '../components/SettingsPanel';
-import { TaskSidebar, TaskDetailPanel } from '../components/agent';
+import { TaskSidebar, TaskDetailPanel, GlobalAgentChat } from '../components/agent';
 import ApprovalModalAntd from '../components/agent/ApprovalModalAntd';
 
 // 移动端消息区域包装组件
@@ -108,19 +108,9 @@ function ChatPageContent() {
         }
     }, [selectSession]);
 
-    // 点击 agent 标签时：桌面端切换面板，移动端切换标签
+    // 点击 agent 标签时：打开 GlobalAgent 对话界面
     const handleTabChange = (tab) => {
-        if (tab === 'agent') {
-            // 桌面端：停留在 chat 标签，只切换 Agent 面板
-            if (window.innerWidth >= 768) {
-                setShowAgentPanel(prev => !prev);
-                // 如果当前不是 chat 标签，切到 chat
-                if (activeTab !== 'chat') {
-                    setActiveTab('chat');
-                }
-                return;
-            }
-        }
+        // agent 标签现在直接显示 GlobalAgent 对话界面
         setActiveTab(tab);
         setShowMobileChat(false);
     };
@@ -216,10 +206,18 @@ function ChatPageContent() {
                                 </div>
                             )}
 
-                            {/* Agent 标签内容（移动端全屏） */}
+                            {/* Agent 标签内容 - GlobalAgent 对话界面 */}
                             {activeTab === 'agent' && (
-                                <div className="flex-1 flex flex-col min-h-0">
-                                    <TaskDetailPanel />
+                                <div className="flex-1 flex min-h-0">
+                                    {/* GlobalAgent 聊天区域 */}
+                                    <div className="flex-1 min-w-0">
+                                        <GlobalAgentChat />
+                                    </div>
+                                    
+                                    {/* 桌面端：右侧任务面板 */}
+                                    <div className="hidden lg:flex w-[300px] border-l border-[var(--color-border)] flex-col shrink-0">
+                                        <TaskSidebar className="h-full" />
+                                    </div>
                                 </div>
                             )}
                         </div>

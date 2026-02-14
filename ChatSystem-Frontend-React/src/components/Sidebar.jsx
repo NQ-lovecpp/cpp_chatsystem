@@ -12,7 +12,7 @@ import { cn } from '../lib/utils';
 const navItems = [
     { id: 'chat', icon: 'chat', label: '消息' },
     { id: 'contacts', icon: 'contacts', label: '联系人' },
-    { id: 'agent', icon: 'agent', label: 'AI 助手' },
+    { id: 'agent', icon: 'agent', label: '私人助手' },
     { id: 'settings', icon: 'settings', label: '设置' },
 ];
 

@@ -59,6 +59,8 @@ namespace chen_im
 #define CSS_GET_LIST "/service/friend/get_chat_session_list"               // "friend.proto" rpc GetChatSessionList()
 #define CSS_CREATE "/service/friend/create_chat_session"                   // "friend.proto" rpc ChatSessionCreate()
 #define CSS_GET_MEMBER "/service/friend/get_chat_session_member"           // "friend.proto" rpc GetChatSessionMember()
+#define CSS_ADD_MEMBER "/service/friend/chat_session_add_member"           // "friend.proto" rpc ChatSessionAddMember()
+#define CSS_REMOVE_MEMBER "/service/friend/chat_session_remove_member"     // "friend.proto" rpc ChatSessionRemoveMember()
 #define MSG_GET_RANGE "/service/message_storage/get_history"     // "message_storage.proto" rpc GetHistoryMsg()
 #define MSG_GET_RECENT "/service/message_storage/get_recent"     // "message_storage.proto" rpc GetRecentMsg()
 #define MSG_KEY_SEARCH "/service/message_storage/search_history" // "message_storage.proto" rpc MsgSearch()
@@ -132,6 +134,8 @@ namespace chen_im
             _http_server.Post(CSS_GET_LIST, (httplib::Server::Handler)std::bind(&GatewayServer::GetChatSessionList, this, std::placeholders::_1, std::placeholders::_2));
             _http_server.Post(CSS_CREATE, (httplib::Server::Handler)std::bind(&GatewayServer::ChatSessionCreate, this, std::placeholders::_1, std::placeholders::_2));
             _http_server.Post(CSS_GET_MEMBER, (httplib::Server::Handler)std::bind(&GatewayServer::GetChatSessionMember, this, std::placeholders::_1, std::placeholders::_2));
+            _http_server.Post(CSS_ADD_MEMBER, (httplib::Server::Handler)std::bind(&GatewayServer::ChatSessionAddMember, this, std::placeholders::_1, std::placeholders::_2));
+            _http_server.Post(CSS_REMOVE_MEMBER, (httplib::Server::Handler)std::bind(&GatewayServer::ChatSessionRemoveMember, this, std::placeholders::_1, std::placeholders::_2));
             _http_server.Post(MSG_GET_RANGE, (httplib::Server::Handler)std::bind(&GatewayServer::GetHistoryMsg, this, std::placeholders::_1, std::placeholders::_2));
             _http_server.Post(MSG_GET_RECENT, (httplib::Server::Handler)std::bind(&GatewayServer::GetRecentMsg, this, std::placeholders::_1, std::placeholders::_2));
             _http_server.Post(MSG_KEY_SEARCH, (httplib::Server::Handler)std::bind(&GatewayServer::MsgSearch, this, std::placeholders::_1, std::placeholders::_2));
@@ -1195,6 +1199,97 @@ namespace chen_im
             // 5. 向客户端进行响应
             response.set_content(rsp.SerializeAsString(), "application/x-protobuf");
         }
+
+        // 添加会话成员
+        void ChatSessionAddMember(const httplib::Request &request, httplib::Response &response)
+        {
+            ChatSessionAddMemberReq req;
+            ChatSessionAddMemberRsp rsp;
+            auto err_response = [&req, &rsp, &response](const std::string &errmsg) -> void
+            {
+                rsp.set_success(false);
+                rsp.set_errmsg(errmsg);
+                response.set_content(rsp.SerializeAsString(), "application/x-protobuf");
+            };
+            bool ret = req.ParseFromString(request.body);
+            if (ret == false)
+            {
+                LOG_ERROR("添加会话成员请求正文反序列化失败！");
+                return err_response("添加会话成员请求正文反序列化失败！");
+            }
+            // 2. 客户端身份识别与鉴权
+            std::string ssid = req.session_id();
+            auto uid = _redis_session->get_uid(ssid);
+            if (!uid)
+            {
+                LOG_ERROR("{} 获取登录会话关联用户信息失败！", ssid);
+                return err_response("获取登录会话关联用户信息失败！");
+            }
+            req.set_user_id(*uid);
+            // 3. 将请求转发给好友子服务进行业务处理
+            auto channel = _service_manager->get(_friend_service_name);
+            if (!channel)
+            {
+                LOG_ERROR("{} 未找到可提供业务处理的用户子服务节点！", req.request_id());
+                return err_response("未找到可提供业务处理的用户子服务节点！");
+            }
+            chen_im::FriendService_Stub stub(channel.get());
+            brpc::Controller cntl;
+            stub.ChatSessionAddMember(&cntl, &req, &rsp, nullptr);
+            if (cntl.Failed())
+            {
+                LOG_ERROR("{} 好友子服务调用失败！", req.request_id());
+                return err_response("好友子服务调用失败！");
+            }
+            // 4. 向客户端进行响应
+            response.set_content(rsp.SerializeAsString(), "application/x-protobuf");
+        }
+
+        // 删除会话成员
+        void ChatSessionRemoveMember(const httplib::Request &request, httplib::Response &response)
+        {
+            ChatSessionRemoveMemberReq req;
+            ChatSessionRemoveMemberRsp rsp;
+            auto err_response = [&req, &rsp, &response](const std::string &errmsg) -> void
+            {
+                rsp.set_success(false);
+                rsp.set_errmsg(errmsg);
+                response.set_content(rsp.SerializeAsString(), "application/x-protobuf");
+            };
+            bool ret = req.ParseFromString(request.body);
+            if (ret == false)
+            {
+                LOG_ERROR("删除会话成员请求正文反序列化失败！");
+                return err_response("删除会话成员请求正文反序列化失败！");
+            }
+            // 2. 客户端身份识别与鉴权
+            std::string ssid = req.session_id();
+            auto uid = _redis_session->get_uid(ssid);
+            if (!uid)
+            {
+                LOG_ERROR("{} 获取登录会话关联用户信息失败！", ssid);
+                return err_response("获取登录会话关联用户信息失败！");
+            }
+            req.set_user_id(*uid);
+            // 3. 将请求转发给好友子服务进行业务处理
+            auto channel = _service_manager->get(_friend_service_name);
+            if (!channel)
+            {
+                LOG_ERROR("{} 未找到可提供业务处理的用户子服务节点！", req.request_id());
+                return err_response("未找到可提供业务处理的用户子服务节点！");
+            }
+            chen_im::FriendService_Stub stub(channel.get());
+            brpc::Controller cntl;
+            stub.ChatSessionRemoveMember(&cntl, &req, &rsp, nullptr);
+            if (cntl.Failed())
+            {
+                LOG_ERROR("{} 好友子服务调用失败！", req.request_id());
+                return err_response("好友子服务调用失败！");
+            }
+            // 4. 向客户端进行响应
+            response.set_content(rsp.SerializeAsString(), "application/x-protobuf");
+        }
+
         void ChatSessionCreate(const httplib::Request &request, httplib::Response &response)
         {
             ChatSessionCreateReq req;

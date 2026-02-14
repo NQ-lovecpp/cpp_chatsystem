@@ -75,6 +75,9 @@ export function AgentProvider({ children }) {
     // 当前选中的任务 ID
     const [selectedTaskId, setSelectedTaskId] = useState(null);
     
+    // GlobalAgent 当前任务 ID（左侧边栏的私人助手）
+    const [globalAgentTaskId, setGlobalAgentTaskId] = useState(null);
+    
     // 全局加载状态
     const [loading, setLoading] = useState(false);
     
@@ -607,6 +610,16 @@ export function AgentProvider({ children }) {
     const selectedTask = selectedTaskId ? tasks[selectedTaskId] : null;
     const runningTasks = taskList.filter(t => t.status === TaskStatus.RUNNING);
     const hasRunningTasks = runningTasks.length > 0;
+    
+    // 计算任务消息 Map（用于 GlobalAgent 等组件访问）
+    const taskMessages = Object.fromEntries(
+        Object.entries(tasks).map(([id, task]) => [id, task.messages])
+    );
+    
+    // 获取任务状态
+    const getTaskStatus = useCallback((taskId) => {
+        return tasks[taskId]?.status || null;
+    }, [tasks]);
 
     const value = {
         // 状态
@@ -616,6 +629,12 @@ export function AgentProvider({ children }) {
         selectedTaskId,
         loading,
         error,
+        
+        // GlobalAgent 状态
+        globalAgentTaskId,
+        setGlobalAgentTaskId,
+        taskMessages,
+        getTaskStatus,
         
         // 派生状态
         runningTasks,

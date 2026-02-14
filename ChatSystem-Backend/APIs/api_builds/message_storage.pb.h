@@ -236,6 +236,12 @@ class GetHistoryMsgReq : public ::google::protobuf::Message /* @@protoc_insertio
   ::google::protobuf::int64 over_time() const;
   void set_over_time(::google::protobuf::int64 value);
 
+  // bool exclude_file_content = 7;
+  void clear_exclude_file_content();
+  static const int kExcludeFileContentFieldNumber = 7;
+  bool exclude_file_content() const;
+  void set_exclude_file_content(bool value);
+
   // @@protoc_insertion_point(class_scope:chen_im.GetHistoryMsgReq)
  private:
 
@@ -246,6 +252,7 @@ class GetHistoryMsgReq : public ::google::protobuf::Message /* @@protoc_insertio
   ::google::protobuf::internal::ArenaStringPtr session_id_;
   ::google::protobuf::int64 start_time_;
   ::google::protobuf::int64 over_time_;
+  bool exclude_file_content_;
   mutable ::google::protobuf::internal::CachedSize _cached_size_;
   friend struct ::protobuf_message_5fstorage_2eproto::TableStruct;
 };
@@ -552,6 +559,12 @@ class GetRecentMsgReq : public ::google::protobuf::Message /* @@protoc_insertion
   ::google::protobuf::int64 cur_time() const;
   void set_cur_time(::google::protobuf::int64 value);
 
+  // bool exclude_file_content = 7;
+  void clear_exclude_file_content();
+  static const int kExcludeFileContentFieldNumber = 7;
+  bool exclude_file_content() const;
+  void set_exclude_file_content(bool value);
+
   // @@protoc_insertion_point(class_scope:chen_im.GetRecentMsgReq)
  private:
 
@@ -562,6 +575,7 @@ class GetRecentMsgReq : public ::google::protobuf::Message /* @@protoc_insertion
   ::google::protobuf::internal::ArenaStringPtr session_id_;
   ::google::protobuf::int64 msg_count_;
   ::google::protobuf::int64 cur_time_;
+  bool exclude_file_content_;
   mutable ::google::protobuf::internal::CachedSize _cached_size_;
   friend struct ::protobuf_message_5fstorage_2eproto::TableStruct;
 };
@@ -1354,6 +1368,20 @@ inline void GetHistoryMsgReq::set_allocated_session_id(::std::string* session_id
   // @@protoc_insertion_point(field_set_allocated:chen_im.GetHistoryMsgReq.session_id)
 }
 
+// bool exclude_file_content = 7;
+inline void GetHistoryMsgReq::clear_exclude_file_content() {
+  exclude_file_content_ = false;
+}
+inline bool GetHistoryMsgReq::exclude_file_content() const {
+  // @@protoc_insertion_point(field_get:chen_im.GetHistoryMsgReq.exclude_file_content)
+  return exclude_file_content_;
+}
+inline void GetHistoryMsgReq::set_exclude_file_content(bool value) {
+  
+  exclude_file_content_ = value;
+  // @@protoc_insertion_point(field_set:chen_im.GetHistoryMsgReq.exclude_file_content)
+}
+
 // -------------------------------------------------------------------
 
 // GetHistoryMsgRsp
@@ -1747,6 +1775,20 @@ inline void GetRecentMsgReq::set_allocated_session_id(::std::string* session_id)
   }
   session_id_.SetAllocatedNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited(), session_id);
   // @@protoc_insertion_point(field_set_allocated:chen_im.GetRecentMsgReq.session_id)
+}
+
+// bool exclude_file_content = 7;
+inline void GetRecentMsgReq::clear_exclude_file_content() {
+  exclude_file_content_ = false;
+}
+inline bool GetRecentMsgReq::exclude_file_content() const {
+  // @@protoc_insertion_point(field_get:chen_im.GetRecentMsgReq.exclude_file_content)
+  return exclude_file_content_;
+}
+inline void GetRecentMsgReq::set_exclude_file_content(bool value) {
+  
+  exclude_file_content_ = value;
+  // @@protoc_insertion_point(field_set:chen_im.GetRecentMsgReq.exclude_file_content)
 }
 
 // -------------------------------------------------------------------

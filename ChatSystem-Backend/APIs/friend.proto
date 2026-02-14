@@ -148,6 +148,36 @@ message GetChatSessionMemberRsp {
     repeated UserInfo member_info_list = 4;
 }
 
+//--------------------------------------
+//添加会话成员
+message ChatSessionAddMemberReq {
+    string request_id = 1;
+    string session_id = 2;
+    string user_id = 3;          // 操作者ID
+    string chat_session_id = 4;  // 会话ID
+    repeated string member_id_list = 5; // 要添加的成员ID列表
+}
+message ChatSessionAddMemberRsp {
+    string request_id = 1;
+    bool success = 2;
+    string errmsg = 3;
+}
+
+//--------------------------------------
+//删除会话成员
+message ChatSessionRemoveMemberReq {
+    string request_id = 1;
+    string session_id = 2;
+    string user_id = 3;          // 操作者ID
+    string chat_session_id = 4;  // 会话ID
+    string member_id = 5;        // 要删除的成员ID
+}
+message ChatSessionRemoveMemberRsp {
+    string request_id = 1;
+    bool success = 2;
+    string errmsg = 3;
+}
+
 service FriendService {
     rpc GetFriendList(GetFriendListReq) returns (GetFriendListRsp);                                     // http GET "/service/friend/get_friend_list"
     rpc FriendRemove(FriendRemoveReq) returns (FriendRemoveRsp);                                        // http GET "/service/friend/remove_friend"
@@ -158,4 +188,6 @@ service FriendService {
     rpc ChatSessionCreate(ChatSessionCreateReq) returns (ChatSessionCreateRsp);                         // http GET "/service/friend/create_chat_session"
     rpc GetChatSessionMember(GetChatSessionMemberReq) returns (GetChatSessionMemberRsp);                // http GET "/service/friend/get_chat_session_member"
     rpc GetPendingFriendEventList(GetPendingFriendEventListReq) returns (GetPendingFriendEventListRsp); // http GET "/service/friend/get_pending_friend_events"
+    rpc ChatSessionAddMember(ChatSessionAddMemberReq) returns (ChatSessionAddMemberRsp);                // http POST "/service/friend/chat_session_add_member"
+    rpc ChatSessionRemoveMember(ChatSessionRemoveMemberReq) returns (ChatSessionRemoveMemberRsp);       // http POST "/service/friend/chat_session_remove_member"
 }

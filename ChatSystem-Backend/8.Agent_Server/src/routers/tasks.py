@@ -1,5 +1,10 @@
 """
 任务 API - 创建和管理 Agent 任务
+
+支持三种 Agent 类型：
+1. session - SessionAgent: 聊天会话中的 AI 成员
+2. global - GlobalAgent: 用户的私人助手（左侧边栏）
+3. task - TaskAgent: 后台任务执行者（右侧边栏任务面板）
 """
 import asyncio
 from typing import Optional, List
@@ -16,6 +21,7 @@ if str(src_dir) not in sys.path:
 from auth import UserContext, require_auth
 from runtime import task_manager, Task, TaskStatus, TaskType
 from chat_agents import run_session_agent, run_global_agent
+from chat_agents.task_agent import run_task_agent
 
 
 router = APIRouter(prefix="/tasks", tags=["tasks"])
@@ -24,9 +30,10 @@ router = APIRouter(prefix="/tasks", tags=["tasks"])
 class CreateTaskRequest(BaseModel):
     """创建任务请求"""
     input: str = Field(..., description="任务输入文本", min_length=1, max_length=10000)
-    task_type: str = Field(default="session", description="任务类型: session/global")
-    chat_session_id: Optional[str] = Field(default=None, description="会话 ID (session 类型必填)")
+    task_type: str = Field(default="task", description="任务类型: session/global/task")
+    chat_session_id: Optional[str] = Field(default=None, description="会话 ID (session/task 类型可选)")
     previous_response_id: Optional[str] = Field(default=None, description="上一次响应 ID (用于对话延续)")
+    chat_history: Optional[List[dict]] = Field(default=None, description="聊天历史（session 类型使用）")
 
 
 class TaskResponse(BaseModel):
@@ -51,14 +58,27 @@ class TaskDetailResponse(BaseModel):
     updated_at: str
 
 
-async def execute_task(task: Task):
-    """后台执行任务"""
+async def execute_task(task: Task, chat_history: Optional[List[dict]] = None):
+    """
+    后台执行任务
+    
+    根据任务类型选择不同的 Agent：
+    - GLOBAL: GlobalAgent - 用户的私人助手
+    - SESSION: SessionAgent - 聊天会话中的 AI 成员  
+    - TASK: TaskAgent - 后台任务执行者
+    """
     try:
         if task.task_type == TaskType.GLOBAL:
+            # GlobalAgent: 用户的私人助手
             async for _ in run_global_agent(task):
                 pass
+        elif task.task_type == TaskType.SESSION:
+            # SessionAgent: 聊天会话中的 AI 成员，带聊天历史
+            async for _ in run_session_agent(task, chat_history=chat_history):
+                pass
         else:
-            async for _ in run_session_agent(task):
+            # TaskAgent: 后台任务执行者（默认类型）
+            async for _ in run_task_agent(task):
                 pass
     except Exception as e:
         logger.error(f"Task execution error: {e}")
@@ -78,8 +98,16 @@ async def create_task(
     """
     创建新的 Agent 任务
     
-    - session 类型：会话内任务，需要 chat_session_id
-    - global 类型：全局任务，跨会话执行
+    任务类型：
+    - task: TaskAgent - 后台任务执行者，在右侧边栏任务面板显示
+    - global: GlobalAgent - 用户的私人助手，从左侧边栏访问
+    - session: SessionAgent - 聊天会话中的 AI 成员，用户通过 @ 触发
+    
+    参数：
+    - input: 任务输入文本
+    - task_type: 任务类型 (task/global/session)
+    - chat_session_id: 会话 ID（task/session 类型可选）
+    - chat_history: 聊天历史（session 类型使用，用于提供上下文）
     """
     # 验证任务类型
     try:
@@ -87,13 +115,8 @@ async def create_task(
     except ValueError:
         raise HTTPException(
             status_code=400,
-            detail=f"Invalid task_type: {request.task_type}. Must be 'session' or 'global'"
+            detail=f"Invalid task_type: {request.task_type}. Must be 'task', 'global', or 'session'"
         )
-    
-    # session 类型需要 chat_session_id
-    if task_type == TaskType.SESSION and not request.chat_session_id:
-        # 开发阶段允许不传，使用默认值
-        request.chat_session_id = f"default_session_{user.user_id}"
     
     # 创建任务
     task = await task_manager.create_task(
@@ -104,10 +127,10 @@ async def create_task(
         previous_response_id=request.previous_response_id
     )
     
-    logger.info(f"Task created: {task.id} by user {user.user_id}")
+    logger.info(f"Task created: {task.id} (type={task_type.value}) by user {user.user_id}")
     
-    # 后台执行任务
-    background_tasks.add_task(execute_task, task)
+    # 后台执行任务，传递聊天历史（如果有）
+    background_tasks.add_task(execute_task, task, request.chat_history)
     
     return TaskResponse(
         task_id=task.id,

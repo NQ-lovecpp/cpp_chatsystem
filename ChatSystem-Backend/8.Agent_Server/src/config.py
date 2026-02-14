@@ -46,6 +46,14 @@ class Settings(BaseSettings):
     # 网关配置
     gateway_url: str = "http://localhost:8500"
     
+    # MySQL 数据库配置
+    mysql_host: str = "127.0.0.1"
+    mysql_port: int = 3306
+    mysql_user: str = "root"
+    mysql_password: str = ""
+    mysql_database: str = "chen_im"
+    mysql_pool_size: int = 5
+    
     class Config:
         env_file = ".env"
         env_file_encoding = "utf-8"

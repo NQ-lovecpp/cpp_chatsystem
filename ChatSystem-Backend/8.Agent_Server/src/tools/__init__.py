@@ -1,5 +1,10 @@
 """
 工具模块 - 提供 Agent 可调用的工具
+
+工具分类：
+1. function_tool: 本地函数工具（SDK 封装）
+2. MCP tools: 通过 MCP 协议调用的远程工具
+3. Database tools: 数据库查询工具
 """
 from .browser_tools import (
     BrowserTools,
@@ -17,6 +22,26 @@ from .python_tools import (
     PREINSTALLED_PACKAGES
 )
 
+from .db_tools import (
+    DB_TOOLS,
+    DB_TOOL_MAP,
+    get_chat_history,
+    get_session_members,
+    get_user_info,
+    search_messages,
+    get_user_sessions,
+    get_db_pool,
+    close_db_pool,
+)
+
+from .mcp_tools import (
+    MCPServerConfig,
+    MCP_SERVERS,
+    get_mcp_tool,
+    get_all_mcp_tools,
+    create_hybrid_tools,
+)
+
 __all__ = [
     # Browser tools (底层实现)
     "BrowserTools",
@@ -31,6 +56,24 @@ __all__ = [
     "execute_python",
     "ExecutionResult",
     "PREINSTALLED_PACKAGES",
+    
+    # Database tools
+    "DB_TOOLS",
+    "DB_TOOL_MAP",
+    "get_chat_history",
+    "get_session_members",
+    "get_user_info",
+    "search_messages",
+    "get_user_sessions",
+    "get_db_pool",
+    "close_db_pool",
+    
+    # MCP tools
+    "MCPServerConfig",
+    "MCP_SERVERS",
+    "get_mcp_tool",
+    "get_all_mcp_tools",
+    "create_hybrid_tools",
 ]
 
 # SDK 工具需要延迟导入以避免循环依赖

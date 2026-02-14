@@ -40,7 +40,7 @@ namespace protobuf_friend_2eproto {
 struct TableStruct {
   static const ::google::protobuf::internal::ParseTableField entries[];
   static const ::google::protobuf::internal::AuxillaryParseTableField aux[];
-  static const ::google::protobuf::internal::ParseTable schema[19];
+  static const ::google::protobuf::internal::ParseTable schema[23];
   static const ::google::protobuf::internal::FieldMetadata field_metadata[];
   static const ::google::protobuf::internal::SerializationTable serialization_table[];
   static const ::google::protobuf::uint32 offsets[];
@@ -48,12 +48,24 @@ struct TableStruct {
 void AddDescriptors();
 }  // namespace protobuf_friend_2eproto
 namespace chen_im {
+class ChatSessionAddMemberReq;
+class ChatSessionAddMemberReqDefaultTypeInternal;
+extern ChatSessionAddMemberReqDefaultTypeInternal _ChatSessionAddMemberReq_default_instance_;
+class ChatSessionAddMemberRsp;
+class ChatSessionAddMemberRspDefaultTypeInternal;
+extern ChatSessionAddMemberRspDefaultTypeInternal _ChatSessionAddMemberRsp_default_instance_;
 class ChatSessionCreateReq;
 class ChatSessionCreateReqDefaultTypeInternal;
 extern ChatSessionCreateReqDefaultTypeInternal _ChatSessionCreateReq_default_instance_;
 class ChatSessionCreateRsp;
 class ChatSessionCreateRspDefaultTypeInternal;
 extern ChatSessionCreateRspDefaultTypeInternal _ChatSessionCreateRsp_default_instance_;
+class ChatSessionRemoveMemberReq;
+class ChatSessionRemoveMemberReqDefaultTypeInternal;
+extern ChatSessionRemoveMemberReqDefaultTypeInternal _ChatSessionRemoveMemberReq_default_instance_;
+class ChatSessionRemoveMemberRsp;
+class ChatSessionRemoveMemberRspDefaultTypeInternal;
+extern ChatSessionRemoveMemberRspDefaultTypeInternal _ChatSessionRemoveMemberRsp_default_instance_;
 class FriendAddProcessReq;
 class FriendAddProcessReqDefaultTypeInternal;
 extern FriendAddProcessReqDefaultTypeInternal _FriendAddProcessReq_default_instance_;
@@ -108,8 +120,12 @@ extern GetPendingFriendEventListRspDefaultTypeInternal _GetPendingFriendEventLis
 }  // namespace chen_im
 namespace google {
 namespace protobuf {
+template<> ::chen_im::ChatSessionAddMemberReq* Arena::CreateMaybeMessage<::chen_im::ChatSessionAddMemberReq>(Arena*);
+template<> ::chen_im::ChatSessionAddMemberRsp* Arena::CreateMaybeMessage<::chen_im::ChatSessionAddMemberRsp>(Arena*);
 template<> ::chen_im::ChatSessionCreateReq* Arena::CreateMaybeMessage<::chen_im::ChatSessionCreateReq>(Arena*);
 template<> ::chen_im::ChatSessionCreateRsp* Arena::CreateMaybeMessage<::chen_im::ChatSessionCreateRsp>(Arena*);
+template<> ::chen_im::ChatSessionRemoveMemberReq* Arena::CreateMaybeMessage<::chen_im::ChatSessionRemoveMemberReq>(Arena*);
+template<> ::chen_im::ChatSessionRemoveMemberRsp* Arena::CreateMaybeMessage<::chen_im::ChatSessionRemoveMemberRsp>(Arena*);
 template<> ::chen_im::FriendAddProcessReq* Arena::CreateMaybeMessage<::chen_im::FriendAddProcessReq>(Arena*);
 template<> ::chen_im::FriendAddProcessRsp* Arena::CreateMaybeMessage<::chen_im::FriendAddProcessRsp>(Arena*);
 template<> ::chen_im::FriendAddReq* Arena::CreateMaybeMessage<::chen_im::FriendAddReq>(Arena*);
@@ -2964,6 +2980,622 @@ class GetChatSessionMemberRsp : public ::google::protobuf::Message /* @@protoc_i
   mutable ::google::protobuf::internal::CachedSize _cached_size_;
   friend struct ::protobuf_friend_2eproto::TableStruct;
 };
+// -------------------------------------------------------------------
+
+class ChatSessionAddMemberReq : public ::google::protobuf::Message /* @@protoc_insertion_point(class_definition:chen_im.ChatSessionAddMemberReq) */ {
+ public:
+  ChatSessionAddMemberReq();
+  virtual ~ChatSessionAddMemberReq();
+
+  ChatSessionAddMemberReq(const ChatSessionAddMemberReq& from);
+
+  inline ChatSessionAddMemberReq& operator=(const ChatSessionAddMemberReq& from) {
+    CopyFrom(from);
+    return *this;
+  }
+  #if LANG_CXX11
+  ChatSessionAddMemberReq(ChatSessionAddMemberReq&& from) noexcept
+    : ChatSessionAddMemberReq() {
+    *this = ::std::move(from);
+  }
+
+  inline ChatSessionAddMemberReq& operator=(ChatSessionAddMemberReq&& from) noexcept {
+    if (GetArenaNoVirtual() == from.GetArenaNoVirtual()) {
+      if (this != &from) InternalSwap(&from);
+    } else {
+      CopyFrom(from);
+    }
+    return *this;
+  }
+  #endif
+  static const ::google::protobuf::Descriptor* descriptor();
+  static const ChatSessionAddMemberReq& default_instance();
+
+  static void InitAsDefaultInstance();  // FOR INTERNAL USE ONLY
+  static inline const ChatSessionAddMemberReq* internal_default_instance() {
+    return reinterpret_cast<const ChatSessionAddMemberReq*>(
+               &_ChatSessionAddMemberReq_default_instance_);
+  }
+  static constexpr int kIndexInFileMessages =
+    19;
+
+  void Swap(ChatSessionAddMemberReq* other);
+  friend void swap(ChatSessionAddMemberReq& a, ChatSessionAddMemberReq& b) {
+    a.Swap(&b);
+  }
+
+  // implements Message ----------------------------------------------
+
+  inline ChatSessionAddMemberReq* New() const final {
+    return CreateMaybeMessage<ChatSessionAddMemberReq>(NULL);
+  }
+
+  ChatSessionAddMemberReq* New(::google::protobuf::Arena* arena) const final {
+    return CreateMaybeMessage<ChatSessionAddMemberReq>(arena);
+  }
+  void CopyFrom(const ::google::protobuf::Message& from) final;
+  void MergeFrom(const ::google::protobuf::Message& from) final;
+  void CopyFrom(const ChatSessionAddMemberReq& from);
+  void MergeFrom(const ChatSessionAddMemberReq& from);
+  void Clear() final;
+  bool IsInitialized() const final;
+
+  size_t ByteSizeLong() const final;
+  bool MergePartialFromCodedStream(
+      ::google::protobuf::io::CodedInputStream* input) final;
+  void SerializeWithCachedSizes(
+      ::google::protobuf::io::CodedOutputStream* output) const final;
+  ::google::protobuf::uint8* InternalSerializeWithCachedSizesToArray(
+      bool deterministic, ::google::protobuf::uint8* target) const final;
+  int GetCachedSize() const final { return _cached_size_.Get(); }
+
+  private:
+  void SharedCtor();
+  void SharedDtor();
+  void SetCachedSize(int size) const final;
+  void InternalSwap(ChatSessionAddMemberReq* other);
+  private:
+  inline ::google::protobuf::Arena* GetArenaNoVirtual() const {
+    return NULL;
+  }
+  inline void* MaybeArenaPtr() const {
+    return NULL;
+  }
+  public:
+
+  ::google::protobuf::Metadata GetMetadata() const final;
+
+  // nested types ----------------------------------------------------
+
+  // accessors -------------------------------------------------------
+
+  // repeated string member_id_list = 5;
+  int member_id_list_size() const;
+  void clear_member_id_list();
+  static const int kMemberIdListFieldNumber = 5;
+  const ::std::string& member_id_list(int index) const;
+  ::std::string* mutable_member_id_list(int index);
+  void set_member_id_list(int index, const ::std::string& value);
+  #if LANG_CXX11
+  void set_member_id_list(int index, ::std::string&& value);
+  #endif
+  void set_member_id_list(int index, const char* value);
+  void set_member_id_list(int index, const char* value, size_t size);
+  ::std::string* add_member_id_list();
+  void add_member_id_list(const ::std::string& value);
+  #if LANG_CXX11
+  void add_member_id_list(::std::string&& value);
+  #endif
+  void add_member_id_list(const char* value);
+  void add_member_id_list(const char* value, size_t size);
+  const ::google::protobuf::RepeatedPtrField< ::std::string>& member_id_list() const;
+  ::google::protobuf::RepeatedPtrField< ::std::string>* mutable_member_id_list();
+
+  // string request_id = 1;
+  void clear_request_id();
+  static const int kRequestIdFieldNumber = 1;
+  const ::std::string& request_id() const;
+  void set_request_id(const ::std::string& value);
+  #if LANG_CXX11
+  void set_request_id(::std::string&& value);
+  #endif
+  void set_request_id(const char* value);
+  void set_request_id(const char* value, size_t size);
+  ::std::string* mutable_request_id();
+  ::std::string* release_request_id();
+  void set_allocated_request_id(::std::string* request_id);
+
+  // string session_id = 2;
+  void clear_session_id();
+  static const int kSessionIdFieldNumber = 2;
+  const ::std::string& session_id() const;
+  void set_session_id(const ::std::string& value);
+  #if LANG_CXX11
+  void set_session_id(::std::string&& value);
+  #endif
+  void set_session_id(const char* value);
+  void set_session_id(const char* value, size_t size);
+  ::std::string* mutable_session_id();
+  ::std::string* release_session_id();
+  void set_allocated_session_id(::std::string* session_id);
+
+  // string user_id = 3;
+  void clear_user_id();
+  static const int kUserIdFieldNumber = 3;
+  const ::std::string& user_id() const;
+  void set_user_id(const ::std::string& value);
+  #if LANG_CXX11
+  void set_user_id(::std::string&& value);
+  #endif
+  void set_user_id(const char* value);
+  void set_user_id(const char* value, size_t size);
+  ::std::string* mutable_user_id();
+  ::std::string* release_user_id();
+  void set_allocated_user_id(::std::string* user_id);
+
+  // string chat_session_id = 4;
+  void clear_chat_session_id();
+  static const int kChatSessionIdFieldNumber = 4;
+  const ::std::string& chat_session_id() const;
+  void set_chat_session_id(const ::std::string& value);
+  #if LANG_CXX11
+  void set_chat_session_id(::std::string&& value);
+  #endif
+  void set_chat_session_id(const char* value);
+  void set_chat_session_id(const char* value, size_t size);
+  ::std::string* mutable_chat_session_id();
+  ::std::string* release_chat_session_id();
+  void set_allocated_chat_session_id(::std::string* chat_session_id);
+
+  // @@protoc_insertion_point(class_scope:chen_im.ChatSessionAddMemberReq)
+ private:
+
+  ::google::protobuf::internal::InternalMetadataWithArena _internal_metadata_;
+  ::google::protobuf::RepeatedPtrField< ::std::string> member_id_list_;
+  ::google::protobuf::internal::ArenaStringPtr request_id_;
+  ::google::protobuf::internal::ArenaStringPtr session_id_;
+  ::google::protobuf::internal::ArenaStringPtr user_id_;
+  ::google::protobuf::internal::ArenaStringPtr chat_session_id_;
+  mutable ::google::protobuf::internal::CachedSize _cached_size_;
+  friend struct ::protobuf_friend_2eproto::TableStruct;
+};
+// -------------------------------------------------------------------
+
+class ChatSessionAddMemberRsp : public ::google::protobuf::Message /* @@protoc_insertion_point(class_definition:chen_im.ChatSessionAddMemberRsp) */ {
+ public:
+  ChatSessionAddMemberRsp();
+  virtual ~ChatSessionAddMemberRsp();
+
+  ChatSessionAddMemberRsp(const ChatSessionAddMemberRsp& from);
+
+  inline ChatSessionAddMemberRsp& operator=(const ChatSessionAddMemberRsp& from) {
+    CopyFrom(from);
+    return *this;
+  }
+  #if LANG_CXX11
+  ChatSessionAddMemberRsp(ChatSessionAddMemberRsp&& from) noexcept
+    : ChatSessionAddMemberRsp() {
+    *this = ::std::move(from);
+  }
+
+  inline ChatSessionAddMemberRsp& operator=(ChatSessionAddMemberRsp&& from) noexcept {
+    if (GetArenaNoVirtual() == from.GetArenaNoVirtual()) {
+      if (this != &from) InternalSwap(&from);
+    } else {
+      CopyFrom(from);
+    }
+    return *this;
+  }
+  #endif
+  static const ::google::protobuf::Descriptor* descriptor();
+  static const ChatSessionAddMemberRsp& default_instance();
+
+  static void InitAsDefaultInstance();  // FOR INTERNAL USE ONLY
+  static inline const ChatSessionAddMemberRsp* internal_default_instance() {
+    return reinterpret_cast<const ChatSessionAddMemberRsp*>(
+               &_ChatSessionAddMemberRsp_default_instance_);
+  }
+  static constexpr int kIndexInFileMessages =
+    20;
+
+  void Swap(ChatSessionAddMemberRsp* other);
+  friend void swap(ChatSessionAddMemberRsp& a, ChatSessionAddMemberRsp& b) {
+    a.Swap(&b);
+  }
+
+  // implements Message ----------------------------------------------
+
+  inline ChatSessionAddMemberRsp* New() const final {
+    return CreateMaybeMessage<ChatSessionAddMemberRsp>(NULL);
+  }
+
+  ChatSessionAddMemberRsp* New(::google::protobuf::Arena* arena) const final {
+    return CreateMaybeMessage<ChatSessionAddMemberRsp>(arena);
+  }
+  void CopyFrom(const ::google::protobuf::Message& from) final;
+  void MergeFrom(const ::google::protobuf::Message& from) final;
+  void CopyFrom(const ChatSessionAddMemberRsp& from);
+  void MergeFrom(const ChatSessionAddMemberRsp& from);
+  void Clear() final;
+  bool IsInitialized() const final;
+
+  size_t ByteSizeLong() const final;
+  bool MergePartialFromCodedStream(
+      ::google::protobuf::io::CodedInputStream* input) final;
+  void SerializeWithCachedSizes(
+      ::google::protobuf::io::CodedOutputStream* output) const final;
+  ::google::protobuf::uint8* InternalSerializeWithCachedSizesToArray(
+      bool deterministic, ::google::protobuf::uint8* target) const final;
+  int GetCachedSize() const final { return _cached_size_.Get(); }
+
+  private:
+  void SharedCtor();
+  void SharedDtor();
+  void SetCachedSize(int size) const final;
+  void InternalSwap(ChatSessionAddMemberRsp* other);
+  private:
+  inline ::google::protobuf::Arena* GetArenaNoVirtual() const {
+    return NULL;
+  }
+  inline void* MaybeArenaPtr() const {
+    return NULL;
+  }
+  public:
+
+  ::google::protobuf::Metadata GetMetadata() const final;
+
+  // nested types ----------------------------------------------------
+
+  // accessors -------------------------------------------------------
+
+  // string request_id = 1;
+  void clear_request_id();
+  static const int kRequestIdFieldNumber = 1;
+  const ::std::string& request_id() const;
+  void set_request_id(const ::std::string& value);
+  #if LANG_CXX11
+  void set_request_id(::std::string&& value);
+  #endif
+  void set_request_id(const char* value);
+  void set_request_id(const char* value, size_t size);
+  ::std::string* mutable_request_id();
+  ::std::string* release_request_id();
+  void set_allocated_request_id(::std::string* request_id);
+
+  // string errmsg = 3;
+  void clear_errmsg();
+  static const int kErrmsgFieldNumber = 3;
+  const ::std::string& errmsg() const;
+  void set_errmsg(const ::std::string& value);
+  #if LANG_CXX11
+  void set_errmsg(::std::string&& value);
+  #endif
+  void set_errmsg(const char* value);
+  void set_errmsg(const char* value, size_t size);
+  ::std::string* mutable_errmsg();
+  ::std::string* release_errmsg();
+  void set_allocated_errmsg(::std::string* errmsg);
+
+  // bool success = 2;
+  void clear_success();
+  static const int kSuccessFieldNumber = 2;
+  bool success() const;
+  void set_success(bool value);
+
+  // @@protoc_insertion_point(class_scope:chen_im.ChatSessionAddMemberRsp)
+ private:
+
+  ::google::protobuf::internal::InternalMetadataWithArena _internal_metadata_;
+  ::google::protobuf::internal::ArenaStringPtr request_id_;
+  ::google::protobuf::internal::ArenaStringPtr errmsg_;
+  bool success_;
+  mutable ::google::protobuf::internal::CachedSize _cached_size_;
+  friend struct ::protobuf_friend_2eproto::TableStruct;
+};
+// -------------------------------------------------------------------
+
+class ChatSessionRemoveMemberReq : public ::google::protobuf::Message /* @@protoc_insertion_point(class_definition:chen_im.ChatSessionRemoveMemberReq) */ {
+ public:
+  ChatSessionRemoveMemberReq();
+  virtual ~ChatSessionRemoveMemberReq();
+
+  ChatSessionRemoveMemberReq(const ChatSessionRemoveMemberReq& from);
+
+  inline ChatSessionRemoveMemberReq& operator=(const ChatSessionRemoveMemberReq& from) {
+    CopyFrom(from);
+    return *this;
+  }
+  #if LANG_CXX11
+  ChatSessionRemoveMemberReq(ChatSessionRemoveMemberReq&& from) noexcept
+    : ChatSessionRemoveMemberReq() {
+    *this = ::std::move(from);
+  }
+
+  inline ChatSessionRemoveMemberReq& operator=(ChatSessionRemoveMemberReq&& from) noexcept {
+    if (GetArenaNoVirtual() == from.GetArenaNoVirtual()) {
+      if (this != &from) InternalSwap(&from);
+    } else {
+      CopyFrom(from);
+    }
+    return *this;
+  }
+  #endif
+  static const ::google::protobuf::Descriptor* descriptor();
+  static const ChatSessionRemoveMemberReq& default_instance();
+
+  static void InitAsDefaultInstance();  // FOR INTERNAL USE ONLY
+  static inline const ChatSessionRemoveMemberReq* internal_default_instance() {
+    return reinterpret_cast<const ChatSessionRemoveMemberReq*>(
+               &_ChatSessionRemoveMemberReq_default_instance_);
+  }
+  static constexpr int kIndexInFileMessages =
+    21;
+
+  void Swap(ChatSessionRemoveMemberReq* other);
+  friend void swap(ChatSessionRemoveMemberReq& a, ChatSessionRemoveMemberReq& b) {
+    a.Swap(&b);
+  }
+
+  // implements Message ----------------------------------------------
+
+  inline ChatSessionRemoveMemberReq* New() const final {
+    return CreateMaybeMessage<ChatSessionRemoveMemberReq>(NULL);
+  }
+
+  ChatSessionRemoveMemberReq* New(::google::protobuf::Arena* arena) const final {
+    return CreateMaybeMessage<ChatSessionRemoveMemberReq>(arena);
+  }
+  void CopyFrom(const ::google::protobuf::Message& from) final;
+  void MergeFrom(const ::google::protobuf::Message& from) final;
+  void CopyFrom(const ChatSessionRemoveMemberReq& from);
+  void MergeFrom(const ChatSessionRemoveMemberReq& from);
+  void Clear() final;
+  bool IsInitialized() const final;
+
+  size_t ByteSizeLong() const final;
+  bool MergePartialFromCodedStream(
+      ::google::protobuf::io::CodedInputStream* input) final;
+  void SerializeWithCachedSizes(
+      ::google::protobuf::io::CodedOutputStream* output) const final;
+  ::google::protobuf::uint8* InternalSerializeWithCachedSizesToArray(
+      bool deterministic, ::google::protobuf::uint8* target) const final;
+  int GetCachedSize() const final { return _cached_size_.Get(); }
+
+  private:
+  void SharedCtor();
+  void SharedDtor();
+  void SetCachedSize(int size) const final;
+  void InternalSwap(ChatSessionRemoveMemberReq* other);
+  private:
+  inline ::google::protobuf::Arena* GetArenaNoVirtual() const {
+    return NULL;
+  }
+  inline void* MaybeArenaPtr() const {
+    return NULL;
+  }
+  public:
+
+  ::google::protobuf::Metadata GetMetadata() const final;
+
+  // nested types ----------------------------------------------------
+
+  // accessors -------------------------------------------------------
+
+  // string request_id = 1;
+  void clear_request_id();
+  static const int kRequestIdFieldNumber = 1;
+  const ::std::string& request_id() const;
+  void set_request_id(const ::std::string& value);
+  #if LANG_CXX11
+  void set_request_id(::std::string&& value);
+  #endif
+  void set_request_id(const char* value);
+  void set_request_id(const char* value, size_t size);
+  ::std::string* mutable_request_id();
+  ::std::string* release_request_id();
+  void set_allocated_request_id(::std::string* request_id);
+
+  // string session_id = 2;
+  void clear_session_id();
+  static const int kSessionIdFieldNumber = 2;
+  const ::std::string& session_id() const;
+  void set_session_id(const ::std::string& value);
+  #if LANG_CXX11
+  void set_session_id(::std::string&& value);
+  #endif
+  void set_session_id(const char* value);
+  void set_session_id(const char* value, size_t size);
+  ::std::string* mutable_session_id();
+  ::std::string* release_session_id();
+  void set_allocated_session_id(::std::string* session_id);
+
+  // string user_id = 3;
+  void clear_user_id();
+  static const int kUserIdFieldNumber = 3;
+  const ::std::string& user_id() const;
+  void set_user_id(const ::std::string& value);
+  #if LANG_CXX11
+  void set_user_id(::std::string&& value);
+  #endif
+  void set_user_id(const char* value);
+  void set_user_id(const char* value, size_t size);
+  ::std::string* mutable_user_id();
+  ::std::string* release_user_id();
+  void set_allocated_user_id(::std::string* user_id);
+
+  // string chat_session_id = 4;
+  void clear_chat_session_id();
+  static const int kChatSessionIdFieldNumber = 4;
+  const ::std::string& chat_session_id() const;
+  void set_chat_session_id(const ::std::string& value);
+  #if LANG_CXX11
+  void set_chat_session_id(::std::string&& value);
+  #endif
+  void set_chat_session_id(const char* value);
+  void set_chat_session_id(const char* value, size_t size);
+  ::std::string* mutable_chat_session_id();
+  ::std::string* release_chat_session_id();
+  void set_allocated_chat_session_id(::std::string* chat_session_id);
+
+  // string member_id = 5;
+  void clear_member_id();
+  static const int kMemberIdFieldNumber = 5;
+  const ::std::string& member_id() const;
+  void set_member_id(const ::std::string& value);
+  #if LANG_CXX11
+  void set_member_id(::std::string&& value);
+  #endif
+  void set_member_id(const char* value);
+  void set_member_id(const char* value, size_t size);
+  ::std::string* mutable_member_id();
+  ::std::string* release_member_id();
+  void set_allocated_member_id(::std::string* member_id);
+
+  // @@protoc_insertion_point(class_scope:chen_im.ChatSessionRemoveMemberReq)
+ private:
+
+  ::google::protobuf::internal::InternalMetadataWithArena _internal_metadata_;
+  ::google::protobuf::internal::ArenaStringPtr request_id_;
+  ::google::protobuf::internal::ArenaStringPtr session_id_;
+  ::google::protobuf::internal::ArenaStringPtr user_id_;
+  ::google::protobuf::internal::ArenaStringPtr chat_session_id_;
+  ::google::protobuf::internal::ArenaStringPtr member_id_;
+  mutable ::google::protobuf::internal::CachedSize _cached_size_;
+  friend struct ::protobuf_friend_2eproto::TableStruct;
+};
+// -------------------------------------------------------------------
+
+class ChatSessionRemoveMemberRsp : public ::google::protobuf::Message /* @@protoc_insertion_point(class_definition:chen_im.ChatSessionRemoveMemberRsp) */ {
+ public:
+  ChatSessionRemoveMemberRsp();
+  virtual ~ChatSessionRemoveMemberRsp();
+
+  ChatSessionRemoveMemberRsp(const ChatSessionRemoveMemberRsp& from);
+
+  inline ChatSessionRemoveMemberRsp& operator=(const ChatSessionRemoveMemberRsp& from) {
+    CopyFrom(from);
+    return *this;
+  }
+  #if LANG_CXX11
+  ChatSessionRemoveMemberRsp(ChatSessionRemoveMemberRsp&& from) noexcept
+    : ChatSessionRemoveMemberRsp() {
+    *this = ::std::move(from);
+  }
+
+  inline ChatSessionRemoveMemberRsp& operator=(ChatSessionRemoveMemberRsp&& from) noexcept {
+    if (GetArenaNoVirtual() == from.GetArenaNoVirtual()) {
+      if (this != &from) InternalSwap(&from);
+    } else {
+      CopyFrom(from);
+    }
+    return *this;
+  }
+  #endif
+  static const ::google::protobuf::Descriptor* descriptor();
+  static const ChatSessionRemoveMemberRsp& default_instance();
+
+  static void InitAsDefaultInstance();  // FOR INTERNAL USE ONLY
+  static inline const ChatSessionRemoveMemberRsp* internal_default_instance() {
+    return reinterpret_cast<const ChatSessionRemoveMemberRsp*>(
+               &_ChatSessionRemoveMemberRsp_default_instance_);
+  }
+  static constexpr int kIndexInFileMessages =
+    22;
+
+  void Swap(ChatSessionRemoveMemberRsp* other);
+  friend void swap(ChatSessionRemoveMemberRsp& a, ChatSessionRemoveMemberRsp& b) {
+    a.Swap(&b);
+  }
+
+  // implements Message ----------------------------------------------
+
+  inline ChatSessionRemoveMemberRsp* New() const final {
+    return CreateMaybeMessage<ChatSessionRemoveMemberRsp>(NULL);
+  }
+
+  ChatSessionRemoveMemberRsp* New(::google::protobuf::Arena* arena) const final {
+    return CreateMaybeMessage<ChatSessionRemoveMemberRsp>(arena);
+  }
+  void CopyFrom(const ::google::protobuf::Message& from) final;
+  void MergeFrom(const ::google::protobuf::Message& from) final;
+  void CopyFrom(const ChatSessionRemoveMemberRsp& from);
+  void MergeFrom(const ChatSessionRemoveMemberRsp& from);
+  void Clear() final;
+  bool IsInitialized() const final;
+
+  size_t ByteSizeLong() const final;
+  bool MergePartialFromCodedStream(
+      ::google::protobuf::io::CodedInputStream* input) final;
+  void SerializeWithCachedSizes(
+      ::google::protobuf::io::CodedOutputStream* output) const final;
+  ::google::protobuf::uint8* InternalSerializeWithCachedSizesToArray(
+      bool deterministic, ::google::protobuf::uint8* target) const final;
+  int GetCachedSize() const final { return _cached_size_.Get(); }
+
+  private:
+  void SharedCtor();
+  void SharedDtor();
+  void SetCachedSize(int size) const final;
+  void InternalSwap(ChatSessionRemoveMemberRsp* other);
+  private:
+  inline ::google::protobuf::Arena* GetArenaNoVirtual() const {
+    return NULL;
+  }
+  inline void* MaybeArenaPtr() const {
+    return NULL;
+  }
+  public:
+
+  ::google::protobuf::Metadata GetMetadata() const final;
+
+  // nested types ----------------------------------------------------
+
+  // accessors -------------------------------------------------------
+
+  // string request_id = 1;
+  void clear_request_id();
+  static const int kRequestIdFieldNumber = 1;
+  const ::std::string& request_id() const;
+  void set_request_id(const ::std::string& value);
+  #if LANG_CXX11
+  void set_request_id(::std::string&& value);
+  #endif
+  void set_request_id(const char* value);
+  void set_request_id(const char* value, size_t size);
+  ::std::string* mutable_request_id();
+  ::std::string* release_request_id();
+  void set_allocated_request_id(::std::string* request_id);
+
+  // string errmsg = 3;
+  void clear_errmsg();
+  static const int kErrmsgFieldNumber = 3;
+  const ::std::string& errmsg() const;
+  void set_errmsg(const ::std::string& value);
+  #if LANG_CXX11
+  void set_errmsg(::std::string&& value);
+  #endif
+  void set_errmsg(const char* value);
+  void set_errmsg(const char* value, size_t size);
+  ::std::string* mutable_errmsg();
+  ::std::string* release_errmsg();
+  void set_allocated_errmsg(::std::string* errmsg);
+
+  // bool success = 2;
+  void clear_success();
+  static const int kSuccessFieldNumber = 2;
+  bool success() const;
+  void set_success(bool value);
+
+  // @@protoc_insertion_point(class_scope:chen_im.ChatSessionRemoveMemberRsp)
+ private:
+
+  ::google::protobuf::internal::InternalMetadataWithArena _internal_metadata_;
+  ::google::protobuf::internal::ArenaStringPtr request_id_;
+  ::google::protobuf::internal::ArenaStringPtr errmsg_;
+  bool success_;
+  mutable ::google::protobuf::internal::CachedSize _cached_size_;
+  friend struct ::protobuf_friend_2eproto::TableStruct;
+};
 // ===================================================================
 
 class FriendService_Stub;
@@ -3014,6 +3646,14 @@ class FriendService : public ::google::protobuf::Service {
   virtual void GetPendingFriendEventList(::google::protobuf::RpcController* controller,
                        const ::chen_im::GetPendingFriendEventListReq* request,
                        ::chen_im::GetPendingFriendEventListRsp* response,
+                       ::google::protobuf::Closure* done);
+  virtual void ChatSessionAddMember(::google::protobuf::RpcController* controller,
+                       const ::chen_im::ChatSessionAddMemberReq* request,
+                       ::chen_im::ChatSessionAddMemberRsp* response,
+                       ::google::protobuf::Closure* done);
+  virtual void ChatSessionRemoveMember(::google::protobuf::RpcController* controller,
+                       const ::chen_im::ChatSessionRemoveMemberReq* request,
+                       ::chen_im::ChatSessionRemoveMemberRsp* response,
                        ::google::protobuf::Closure* done);
 
   // implements Service ----------------------------------------------
@@ -3079,6 +3719,14 @@ class FriendService_Stub : public FriendService {
   void GetPendingFriendEventList(::google::protobuf::RpcController* controller,
                        const ::chen_im::GetPendingFriendEventListReq* request,
                        ::chen_im::GetPendingFriendEventListRsp* response,
+                       ::google::protobuf::Closure* done);
+  void ChatSessionAddMember(::google::protobuf::RpcController* controller,
+                       const ::chen_im::ChatSessionAddMemberReq* request,
+                       ::chen_im::ChatSessionAddMemberRsp* response,
+                       ::google::protobuf::Closure* done);
+  void ChatSessionRemoveMember(::google::protobuf::RpcController* controller,
+                       const ::chen_im::ChatSessionRemoveMemberReq* request,
+                       ::chen_im::ChatSessionRemoveMemberRsp* response,
                        ::google::protobuf::Closure* done);
  private:
   ::google::protobuf::RpcChannel* channel_;
@@ -6528,9 +7176,819 @@ GetChatSessionMemberRsp::member_info_list() const {
   return member_info_list_;
 }
 
+// -------------------------------------------------------------------
+
+// ChatSessionAddMemberReq
+
+// string request_id = 1;
+inline void ChatSessionAddMemberReq::clear_request_id() {
+  request_id_.ClearToEmptyNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited());
+}
+inline const ::std::string& ChatSessionAddMemberReq::request_id() const {
+  // @@protoc_insertion_point(field_get:chen_im.ChatSessionAddMemberReq.request_id)
+  return request_id_.GetNoArena();
+}
+inline void ChatSessionAddMemberReq::set_request_id(const ::std::string& value) {
+  
+  request_id_.SetNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited(), value);
+  // @@protoc_insertion_point(field_set:chen_im.ChatSessionAddMemberReq.request_id)
+}
+#if LANG_CXX11
+inline void ChatSessionAddMemberReq::set_request_id(::std::string&& value) {
+  
+  request_id_.SetNoArena(
+    &::google::protobuf::internal::GetEmptyStringAlreadyInited(), ::std::move(value));
+  // @@protoc_insertion_point(field_set_rvalue:chen_im.ChatSessionAddMemberReq.request_id)
+}
+#endif
+inline void ChatSessionAddMemberReq::set_request_id(const char* value) {
+  GOOGLE_DCHECK(value != NULL);
+  
+  request_id_.SetNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited(), ::std::string(value));
+  // @@protoc_insertion_point(field_set_char:chen_im.ChatSessionAddMemberReq.request_id)
+}
+inline void ChatSessionAddMemberReq::set_request_id(const char* value, size_t size) {
+  
+  request_id_.SetNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited(),
+      ::std::string(reinterpret_cast<const char*>(value), size));
+  // @@protoc_insertion_point(field_set_pointer:chen_im.ChatSessionAddMemberReq.request_id)
+}
+inline ::std::string* ChatSessionAddMemberReq::mutable_request_id() {
+  
+  // @@protoc_insertion_point(field_mutable:chen_im.ChatSessionAddMemberReq.request_id)
+  return request_id_.MutableNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited());
+}
+inline ::std::string* ChatSessionAddMemberReq::release_request_id() {
+  // @@protoc_insertion_point(field_release:chen_im.ChatSessionAddMemberReq.request_id)
+  
+  return request_id_.ReleaseNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited());
+}
+inline void ChatSessionAddMemberReq::set_allocated_request_id(::std::string* request_id) {
+  if (request_id != NULL) {
+    
+  } else {
+    
+  }
+  request_id_.SetAllocatedNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited(), request_id);
+  // @@protoc_insertion_point(field_set_allocated:chen_im.ChatSessionAddMemberReq.request_id)
+}
+
+// string session_id = 2;
+inline void ChatSessionAddMemberReq::clear_session_id() {
+  session_id_.ClearToEmptyNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited());
+}
+inline const ::std::string& ChatSessionAddMemberReq::session_id() const {
+  // @@protoc_insertion_point(field_get:chen_im.ChatSessionAddMemberReq.session_id)
+  return session_id_.GetNoArena();
+}
+inline void ChatSessionAddMemberReq::set_session_id(const ::std::string& value) {
+  
+  session_id_.SetNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited(), value);
+  // @@protoc_insertion_point(field_set:chen_im.ChatSessionAddMemberReq.session_id)
+}
+#if LANG_CXX11
+inline void ChatSessionAddMemberReq::set_session_id(::std::string&& value) {
+  
+  session_id_.SetNoArena(
+    &::google::protobuf::internal::GetEmptyStringAlreadyInited(), ::std::move(value));
+  // @@protoc_insertion_point(field_set_rvalue:chen_im.ChatSessionAddMemberReq.session_id)
+}
+#endif
+inline void ChatSessionAddMemberReq::set_session_id(const char* value) {
+  GOOGLE_DCHECK(value != NULL);
+  
+  session_id_.SetNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited(), ::std::string(value));
+  // @@protoc_insertion_point(field_set_char:chen_im.ChatSessionAddMemberReq.session_id)
+}
+inline void ChatSessionAddMemberReq::set_session_id(const char* value, size_t size) {
+  
+  session_id_.SetNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited(),
+      ::std::string(reinterpret_cast<const char*>(value), size));
+  // @@protoc_insertion_point(field_set_pointer:chen_im.ChatSessionAddMemberReq.session_id)
+}
+inline ::std::string* ChatSessionAddMemberReq::mutable_session_id() {
+  
+  // @@protoc_insertion_point(field_mutable:chen_im.ChatSessionAddMemberReq.session_id)
+  return session_id_.MutableNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited());
+}
+inline ::std::string* ChatSessionAddMemberReq::release_session_id() {
+  // @@protoc_insertion_point(field_release:chen_im.ChatSessionAddMemberReq.session_id)
+  
+  return session_id_.ReleaseNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited());
+}
+inline void ChatSessionAddMemberReq::set_allocated_session_id(::std::string* session_id) {
+  if (session_id != NULL) {
+    
+  } else {
+    
+  }
+  session_id_.SetAllocatedNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited(), session_id);
+  // @@protoc_insertion_point(field_set_allocated:chen_im.ChatSessionAddMemberReq.session_id)
+}
+
+// string user_id = 3;
+inline void ChatSessionAddMemberReq::clear_user_id() {
+  user_id_.ClearToEmptyNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited());
+}
+inline const ::std::string& ChatSessionAddMemberReq::user_id() const {
+  // @@protoc_insertion_point(field_get:chen_im.ChatSessionAddMemberReq.user_id)
+  return user_id_.GetNoArena();
+}
+inline void ChatSessionAddMemberReq::set_user_id(const ::std::string& value) {
+  
+  user_id_.SetNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited(), value);
+  // @@protoc_insertion_point(field_set:chen_im.ChatSessionAddMemberReq.user_id)
+}
+#if LANG_CXX11
+inline void ChatSessionAddMemberReq::set_user_id(::std::string&& value) {
+  
+  user_id_.SetNoArena(
+    &::google::protobuf::internal::GetEmptyStringAlreadyInited(), ::std::move(value));
+  // @@protoc_insertion_point(field_set_rvalue:chen_im.ChatSessionAddMemberReq.user_id)
+}
+#endif
+inline void ChatSessionAddMemberReq::set_user_id(const char* value) {
+  GOOGLE_DCHECK(value != NULL);
+  
+  user_id_.SetNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited(), ::std::string(value));
+  // @@protoc_insertion_point(field_set_char:chen_im.ChatSessionAddMemberReq.user_id)
+}
+inline void ChatSessionAddMemberReq::set_user_id(const char* value, size_t size) {
+  
+  user_id_.SetNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited(),
+      ::std::string(reinterpret_cast<const char*>(value), size));
+  // @@protoc_insertion_point(field_set_pointer:chen_im.ChatSessionAddMemberReq.user_id)
+}
+inline ::std::string* ChatSessionAddMemberReq::mutable_user_id() {
+  
+  // @@protoc_insertion_point(field_mutable:chen_im.ChatSessionAddMemberReq.user_id)
+  return user_id_.MutableNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited());
+}
+inline ::std::string* ChatSessionAddMemberReq::release_user_id() {
+  // @@protoc_insertion_point(field_release:chen_im.ChatSessionAddMemberReq.user_id)
+  
+  return user_id_.ReleaseNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited());
+}
+inline void ChatSessionAddMemberReq::set_allocated_user_id(::std::string* user_id) {
+  if (user_id != NULL) {
+    
+  } else {
+    
+  }
+  user_id_.SetAllocatedNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited(), user_id);
+  // @@protoc_insertion_point(field_set_allocated:chen_im.ChatSessionAddMemberReq.user_id)
+}
+
+// string chat_session_id = 4;
+inline void ChatSessionAddMemberReq::clear_chat_session_id() {
+  chat_session_id_.ClearToEmptyNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited());
+}
+inline const ::std::string& ChatSessionAddMemberReq::chat_session_id() const {
+  // @@protoc_insertion_point(field_get:chen_im.ChatSessionAddMemberReq.chat_session_id)
+  return chat_session_id_.GetNoArena();
+}
+inline void ChatSessionAddMemberReq::set_chat_session_id(const ::std::string& value) {
+  
+  chat_session_id_.SetNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited(), value);
+  // @@protoc_insertion_point(field_set:chen_im.ChatSessionAddMemberReq.chat_session_id)
+}
+#if LANG_CXX11
+inline void ChatSessionAddMemberReq::set_chat_session_id(::std::string&& value) {
+  
+  chat_session_id_.SetNoArena(
+    &::google::protobuf::internal::GetEmptyStringAlreadyInited(), ::std::move(value));
+  // @@protoc_insertion_point(field_set_rvalue:chen_im.ChatSessionAddMemberReq.chat_session_id)
+}
+#endif
+inline void ChatSessionAddMemberReq::set_chat_session_id(const char* value) {
+  GOOGLE_DCHECK(value != NULL);
+  
+  chat_session_id_.SetNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited(), ::std::string(value));
+  // @@protoc_insertion_point(field_set_char:chen_im.ChatSessionAddMemberReq.chat_session_id)
+}
+inline void ChatSessionAddMemberReq::set_chat_session_id(const char* value, size_t size) {
+  
+  chat_session_id_.SetNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited(),
+      ::std::string(reinterpret_cast<const char*>(value), size));
+  // @@protoc_insertion_point(field_set_pointer:chen_im.ChatSessionAddMemberReq.chat_session_id)
+}
+inline ::std::string* ChatSessionAddMemberReq::mutable_chat_session_id() {
+  
+  // @@protoc_insertion_point(field_mutable:chen_im.ChatSessionAddMemberReq.chat_session_id)
+  return chat_session_id_.MutableNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited());
+}
+inline ::std::string* ChatSessionAddMemberReq::release_chat_session_id() {
+  // @@protoc_insertion_point(field_release:chen_im.ChatSessionAddMemberReq.chat_session_id)
+  
+  return chat_session_id_.ReleaseNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited());
+}
+inline void ChatSessionAddMemberReq::set_allocated_chat_session_id(::std::string* chat_session_id) {
+  if (chat_session_id != NULL) {
+    
+  } else {
+    
+  }
+  chat_session_id_.SetAllocatedNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited(), chat_session_id);
+  // @@protoc_insertion_point(field_set_allocated:chen_im.ChatSessionAddMemberReq.chat_session_id)
+}
+
+// repeated string member_id_list = 5;
+inline int ChatSessionAddMemberReq::member_id_list_size() const {
+  return member_id_list_.size();
+}
+inline void ChatSessionAddMemberReq::clear_member_id_list() {
+  member_id_list_.Clear();
+}
+inline const ::std::string& ChatSessionAddMemberReq::member_id_list(int index) const {
+  // @@protoc_insertion_point(field_get:chen_im.ChatSessionAddMemberReq.member_id_list)
+  return member_id_list_.Get(index);
+}
+inline ::std::string* ChatSessionAddMemberReq::mutable_member_id_list(int index) {
+  // @@protoc_insertion_point(field_mutable:chen_im.ChatSessionAddMemberReq.member_id_list)
+  return member_id_list_.Mutable(index);
+}
+inline void ChatSessionAddMemberReq::set_member_id_list(int index, const ::std::string& value) {
+  // @@protoc_insertion_point(field_set:chen_im.ChatSessionAddMemberReq.member_id_list)
+  member_id_list_.Mutable(index)->assign(value);
+}
+#if LANG_CXX11
+inline void ChatSessionAddMemberReq::set_member_id_list(int index, ::std::string&& value) {
+  // @@protoc_insertion_point(field_set:chen_im.ChatSessionAddMemberReq.member_id_list)
+  member_id_list_.Mutable(index)->assign(std::move(value));
+}
+#endif
+inline void ChatSessionAddMemberReq::set_member_id_list(int index, const char* value) {
+  GOOGLE_DCHECK(value != NULL);
+  member_id_list_.Mutable(index)->assign(value);
+  // @@protoc_insertion_point(field_set_char:chen_im.ChatSessionAddMemberReq.member_id_list)
+}
+inline void ChatSessionAddMemberReq::set_member_id_list(int index, const char* value, size_t size) {
+  member_id_list_.Mutable(index)->assign(
+    reinterpret_cast<const char*>(value), size);
+  // @@protoc_insertion_point(field_set_pointer:chen_im.ChatSessionAddMemberReq.member_id_list)
+}
+inline ::std::string* ChatSessionAddMemberReq::add_member_id_list() {
+  // @@protoc_insertion_point(field_add_mutable:chen_im.ChatSessionAddMemberReq.member_id_list)
+  return member_id_list_.Add();
+}
+inline void ChatSessionAddMemberReq::add_member_id_list(const ::std::string& value) {
+  member_id_list_.Add()->assign(value);
+  // @@protoc_insertion_point(field_add:chen_im.ChatSessionAddMemberReq.member_id_list)
+}
+#if LANG_CXX11
+inline void ChatSessionAddMemberReq::add_member_id_list(::std::string&& value) {
+  member_id_list_.Add(std::move(value));
+  // @@protoc_insertion_point(field_add:chen_im.ChatSessionAddMemberReq.member_id_list)
+}
+#endif
+inline void ChatSessionAddMemberReq::add_member_id_list(const char* value) {
+  GOOGLE_DCHECK(value != NULL);
+  member_id_list_.Add()->assign(value);
+  // @@protoc_insertion_point(field_add_char:chen_im.ChatSessionAddMemberReq.member_id_list)
+}
+inline void ChatSessionAddMemberReq::add_member_id_list(const char* value, size_t size) {
+  member_id_list_.Add()->assign(reinterpret_cast<const char*>(value), size);
+  // @@protoc_insertion_point(field_add_pointer:chen_im.ChatSessionAddMemberReq.member_id_list)
+}
+inline const ::google::protobuf::RepeatedPtrField< ::std::string>&
+ChatSessionAddMemberReq::member_id_list() const {
+  // @@protoc_insertion_point(field_list:chen_im.ChatSessionAddMemberReq.member_id_list)
+  return member_id_list_;
+}
+inline ::google::protobuf::RepeatedPtrField< ::std::string>*
+ChatSessionAddMemberReq::mutable_member_id_list() {
+  // @@protoc_insertion_point(field_mutable_list:chen_im.ChatSessionAddMemberReq.member_id_list)
+  return &member_id_list_;
+}
+
+// -------------------------------------------------------------------
+
+// ChatSessionAddMemberRsp
+
+// string request_id = 1;
+inline void ChatSessionAddMemberRsp::clear_request_id() {
+  request_id_.ClearToEmptyNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited());
+}
+inline const ::std::string& ChatSessionAddMemberRsp::request_id() const {
+  // @@protoc_insertion_point(field_get:chen_im.ChatSessionAddMemberRsp.request_id)
+  return request_id_.GetNoArena();
+}
+inline void ChatSessionAddMemberRsp::set_request_id(const ::std::string& value) {
+  
+  request_id_.SetNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited(), value);
+  // @@protoc_insertion_point(field_set:chen_im.ChatSessionAddMemberRsp.request_id)
+}
+#if LANG_CXX11
+inline void ChatSessionAddMemberRsp::set_request_id(::std::string&& value) {
+  
+  request_id_.SetNoArena(
+    &::google::protobuf::internal::GetEmptyStringAlreadyInited(), ::std::move(value));
+  // @@protoc_insertion_point(field_set_rvalue:chen_im.ChatSessionAddMemberRsp.request_id)
+}
+#endif
+inline void ChatSessionAddMemberRsp::set_request_id(const char* value) {
+  GOOGLE_DCHECK(value != NULL);
+  
+  request_id_.SetNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited(), ::std::string(value));
+  // @@protoc_insertion_point(field_set_char:chen_im.ChatSessionAddMemberRsp.request_id)
+}
+inline void ChatSessionAddMemberRsp::set_request_id(const char* value, size_t size) {
+  
+  request_id_.SetNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited(),
+      ::std::string(reinterpret_cast<const char*>(value), size));
+  // @@protoc_insertion_point(field_set_pointer:chen_im.ChatSessionAddMemberRsp.request_id)
+}
+inline ::std::string* ChatSessionAddMemberRsp::mutable_request_id() {
+  
+  // @@protoc_insertion_point(field_mutable:chen_im.ChatSessionAddMemberRsp.request_id)
+  return request_id_.MutableNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited());
+}
+inline ::std::string* ChatSessionAddMemberRsp::release_request_id() {
+  // @@protoc_insertion_point(field_release:chen_im.ChatSessionAddMemberRsp.request_id)
+  
+  return request_id_.ReleaseNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited());
+}
+inline void ChatSessionAddMemberRsp::set_allocated_request_id(::std::string* request_id) {
+  if (request_id != NULL) {
+    
+  } else {
+    
+  }
+  request_id_.SetAllocatedNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited(), request_id);
+  // @@protoc_insertion_point(field_set_allocated:chen_im.ChatSessionAddMemberRsp.request_id)
+}
+
+// bool success = 2;
+inline void ChatSessionAddMemberRsp::clear_success() {
+  success_ = false;
+}
+inline bool ChatSessionAddMemberRsp::success() const {
+  // @@protoc_insertion_point(field_get:chen_im.ChatSessionAddMemberRsp.success)
+  return success_;
+}
+inline void ChatSessionAddMemberRsp::set_success(bool value) {
+  
+  success_ = value;
+  // @@protoc_insertion_point(field_set:chen_im.ChatSessionAddMemberRsp.success)
+}
+
+// string errmsg = 3;
+inline void ChatSessionAddMemberRsp::clear_errmsg() {
+  errmsg_.ClearToEmptyNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited());
+}
+inline const ::std::string& ChatSessionAddMemberRsp::errmsg() const {
+  // @@protoc_insertion_point(field_get:chen_im.ChatSessionAddMemberRsp.errmsg)
+  return errmsg_.GetNoArena();
+}
+inline void ChatSessionAddMemberRsp::set_errmsg(const ::std::string& value) {
+  
+  errmsg_.SetNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited(), value);
+  // @@protoc_insertion_point(field_set:chen_im.ChatSessionAddMemberRsp.errmsg)
+}
+#if LANG_CXX11
+inline void ChatSessionAddMemberRsp::set_errmsg(::std::string&& value) {
+  
+  errmsg_.SetNoArena(
+    &::google::protobuf::internal::GetEmptyStringAlreadyInited(), ::std::move(value));
+  // @@protoc_insertion_point(field_set_rvalue:chen_im.ChatSessionAddMemberRsp.errmsg)
+}
+#endif
+inline void ChatSessionAddMemberRsp::set_errmsg(const char* value) {
+  GOOGLE_DCHECK(value != NULL);
+  
+  errmsg_.SetNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited(), ::std::string(value));
+  // @@protoc_insertion_point(field_set_char:chen_im.ChatSessionAddMemberRsp.errmsg)
+}
+inline void ChatSessionAddMemberRsp::set_errmsg(const char* value, size_t size) {
+  
+  errmsg_.SetNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited(),
+      ::std::string(reinterpret_cast<const char*>(value), size));
+  // @@protoc_insertion_point(field_set_pointer:chen_im.ChatSessionAddMemberRsp.errmsg)
+}
+inline ::std::string* ChatSessionAddMemberRsp::mutable_errmsg() {
+  
+  // @@protoc_insertion_point(field_mutable:chen_im.ChatSessionAddMemberRsp.errmsg)
+  return errmsg_.MutableNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited());
+}
+inline ::std::string* ChatSessionAddMemberRsp::release_errmsg() {
+  // @@protoc_insertion_point(field_release:chen_im.ChatSessionAddMemberRsp.errmsg)
+  
+  return errmsg_.ReleaseNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited());
+}
+inline void ChatSessionAddMemberRsp::set_allocated_errmsg(::std::string* errmsg) {
+  if (errmsg != NULL) {
+    
+  } else {
+    
+  }
+  errmsg_.SetAllocatedNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited(), errmsg);
+  // @@protoc_insertion_point(field_set_allocated:chen_im.ChatSessionAddMemberRsp.errmsg)
+}
+
+// -------------------------------------------------------------------
+
+// ChatSessionRemoveMemberReq
+
+// string request_id = 1;
+inline void ChatSessionRemoveMemberReq::clear_request_id() {
+  request_id_.ClearToEmptyNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited());
+}
+inline const ::std::string& ChatSessionRemoveMemberReq::request_id() const {
+  // @@protoc_insertion_point(field_get:chen_im.ChatSessionRemoveMemberReq.request_id)
+  return request_id_.GetNoArena();
+}
+inline void ChatSessionRemoveMemberReq::set_request_id(const ::std::string& value) {
+  
+  request_id_.SetNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited(), value);
+  // @@protoc_insertion_point(field_set:chen_im.ChatSessionRemoveMemberReq.request_id)
+}
+#if LANG_CXX11
+inline void ChatSessionRemoveMemberReq::set_request_id(::std::string&& value) {
+  
+  request_id_.SetNoArena(
+    &::google::protobuf::internal::GetEmptyStringAlreadyInited(), ::std::move(value));
+  // @@protoc_insertion_point(field_set_rvalue:chen_im.ChatSessionRemoveMemberReq.request_id)
+}
+#endif
+inline void ChatSessionRemoveMemberReq::set_request_id(const char* value) {
+  GOOGLE_DCHECK(value != NULL);
+  
+  request_id_.SetNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited(), ::std::string(value));
+  // @@protoc_insertion_point(field_set_char:chen_im.ChatSessionRemoveMemberReq.request_id)
+}
+inline void ChatSessionRemoveMemberReq::set_request_id(const char* value, size_t size) {
+  
+  request_id_.SetNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited(),
+      ::std::string(reinterpret_cast<const char*>(value), size));
+  // @@protoc_insertion_point(field_set_pointer:chen_im.ChatSessionRemoveMemberReq.request_id)
+}
+inline ::std::string* ChatSessionRemoveMemberReq::mutable_request_id() {
+  
+  // @@protoc_insertion_point(field_mutable:chen_im.ChatSessionRemoveMemberReq.request_id)
+  return request_id_.MutableNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited());
+}
+inline ::std::string* ChatSessionRemoveMemberReq::release_request_id() {
+  // @@protoc_insertion_point(field_release:chen_im.ChatSessionRemoveMemberReq.request_id)
+  
+  return request_id_.ReleaseNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited());
+}
+inline void ChatSessionRemoveMemberReq::set_allocated_request_id(::std::string* request_id) {
+  if (request_id != NULL) {
+    
+  } else {
+    
+  }
+  request_id_.SetAllocatedNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited(), request_id);
+  // @@protoc_insertion_point(field_set_allocated:chen_im.ChatSessionRemoveMemberReq.request_id)
+}
+
+// string session_id = 2;
+inline void ChatSessionRemoveMemberReq::clear_session_id() {
+  session_id_.ClearToEmptyNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited());
+}
+inline const ::std::string& ChatSessionRemoveMemberReq::session_id() const {
+  // @@protoc_insertion_point(field_get:chen_im.ChatSessionRemoveMemberReq.session_id)
+  return session_id_.GetNoArena();
+}
+inline void ChatSessionRemoveMemberReq::set_session_id(const ::std::string& value) {
+  
+  session_id_.SetNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited(), value);
+  // @@protoc_insertion_point(field_set:chen_im.ChatSessionRemoveMemberReq.session_id)
+}
+#if LANG_CXX11
+inline void ChatSessionRemoveMemberReq::set_session_id(::std::string&& value) {
+  
+  session_id_.SetNoArena(
+    &::google::protobuf::internal::GetEmptyStringAlreadyInited(), ::std::move(value));
+  // @@protoc_insertion_point(field_set_rvalue:chen_im.ChatSessionRemoveMemberReq.session_id)
+}
+#endif
+inline void ChatSessionRemoveMemberReq::set_session_id(const char* value) {
+  GOOGLE_DCHECK(value != NULL);
+  
+  session_id_.SetNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited(), ::std::string(value));
+  // @@protoc_insertion_point(field_set_char:chen_im.ChatSessionRemoveMemberReq.session_id)
+}
+inline void ChatSessionRemoveMemberReq::set_session_id(const char* value, size_t size) {
+  
+  session_id_.SetNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited(),
+      ::std::string(reinterpret_cast<const char*>(value), size));
+  // @@protoc_insertion_point(field_set_pointer:chen_im.ChatSessionRemoveMemberReq.session_id)
+}
+inline ::std::string* ChatSessionRemoveMemberReq::mutable_session_id() {
+  
+  // @@protoc_insertion_point(field_mutable:chen_im.ChatSessionRemoveMemberReq.session_id)
+  return session_id_.MutableNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited());
+}
+inline ::std::string* ChatSessionRemoveMemberReq::release_session_id() {
+  // @@protoc_insertion_point(field_release:chen_im.ChatSessionRemoveMemberReq.session_id)
+  
+  return session_id_.ReleaseNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited());
+}
+inline void ChatSessionRemoveMemberReq::set_allocated_session_id(::std::string* session_id) {
+  if (session_id != NULL) {
+    
+  } else {
+    
+  }
+  session_id_.SetAllocatedNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited(), session_id);
+  // @@protoc_insertion_point(field_set_allocated:chen_im.ChatSessionRemoveMemberReq.session_id)
+}
+
+// string user_id = 3;
+inline void ChatSessionRemoveMemberReq::clear_user_id() {
+  user_id_.ClearToEmptyNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited());
+}
+inline const ::std::string& ChatSessionRemoveMemberReq::user_id() const {
+  // @@protoc_insertion_point(field_get:chen_im.ChatSessionRemoveMemberReq.user_id)
+  return user_id_.GetNoArena();
+}
+inline void ChatSessionRemoveMemberReq::set_user_id(const ::std::string& value) {
+  
+  user_id_.SetNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited(), value);
+  // @@protoc_insertion_point(field_set:chen_im.ChatSessionRemoveMemberReq.user_id)
+}
+#if LANG_CXX11
+inline void ChatSessionRemoveMemberReq::set_user_id(::std::string&& value) {
+  
+  user_id_.SetNoArena(
+    &::google::protobuf::internal::GetEmptyStringAlreadyInited(), ::std::move(value));
+  // @@protoc_insertion_point(field_set_rvalue:chen_im.ChatSessionRemoveMemberReq.user_id)
+}
+#endif
+inline void ChatSessionRemoveMemberReq::set_user_id(const char* value) {
+  GOOGLE_DCHECK(value != NULL);
+  
+  user_id_.SetNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited(), ::std::string(value));
+  // @@protoc_insertion_point(field_set_char:chen_im.ChatSessionRemoveMemberReq.user_id)
+}
+inline void ChatSessionRemoveMemberReq::set_user_id(const char* value, size_t size) {
+  
+  user_id_.SetNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited(),
+      ::std::string(reinterpret_cast<const char*>(value), size));
+  // @@protoc_insertion_point(field_set_pointer:chen_im.ChatSessionRemoveMemberReq.user_id)
+}
+inline ::std::string* ChatSessionRemoveMemberReq::mutable_user_id() {
+  
+  // @@protoc_insertion_point(field_mutable:chen_im.ChatSessionRemoveMemberReq.user_id)
+  return user_id_.MutableNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited());
+}
+inline ::std::string* ChatSessionRemoveMemberReq::release_user_id() {
+  // @@protoc_insertion_point(field_release:chen_im.ChatSessionRemoveMemberReq.user_id)
+  
+  return user_id_.ReleaseNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited());
+}
+inline void ChatSessionRemoveMemberReq::set_allocated_user_id(::std::string* user_id) {
+  if (user_id != NULL) {
+    
+  } else {
+    
+  }
+  user_id_.SetAllocatedNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited(), user_id);
+  // @@protoc_insertion_point(field_set_allocated:chen_im.ChatSessionRemoveMemberReq.user_id)
+}
+
+// string chat_session_id = 4;
+inline void ChatSessionRemoveMemberReq::clear_chat_session_id() {
+  chat_session_id_.ClearToEmptyNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited());
+}
+inline const ::std::string& ChatSessionRemoveMemberReq::chat_session_id() const {
+  // @@protoc_insertion_point(field_get:chen_im.ChatSessionRemoveMemberReq.chat_session_id)
+  return chat_session_id_.GetNoArena();
+}
+inline void ChatSessionRemoveMemberReq::set_chat_session_id(const ::std::string& value) {
+  
+  chat_session_id_.SetNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited(), value);
+  // @@protoc_insertion_point(field_set:chen_im.ChatSessionRemoveMemberReq.chat_session_id)
+}
+#if LANG_CXX11
+inline void ChatSessionRemoveMemberReq::set_chat_session_id(::std::string&& value) {
+  
+  chat_session_id_.SetNoArena(
+    &::google::protobuf::internal::GetEmptyStringAlreadyInited(), ::std::move(value));
+  // @@protoc_insertion_point(field_set_rvalue:chen_im.ChatSessionRemoveMemberReq.chat_session_id)
+}
+#endif
+inline void ChatSessionRemoveMemberReq::set_chat_session_id(const char* value) {
+  GOOGLE_DCHECK(value != NULL);
+  
+  chat_session_id_.SetNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited(), ::std::string(value));
+  // @@protoc_insertion_point(field_set_char:chen_im.ChatSessionRemoveMemberReq.chat_session_id)
+}
+inline void ChatSessionRemoveMemberReq::set_chat_session_id(const char* value, size_t size) {
+  
+  chat_session_id_.SetNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited(),
+      ::std::string(reinterpret_cast<const char*>(value), size));
+  // @@protoc_insertion_point(field_set_pointer:chen_im.ChatSessionRemoveMemberReq.chat_session_id)
+}
+inline ::std::string* ChatSessionRemoveMemberReq::mutable_chat_session_id() {
+  
+  // @@protoc_insertion_point(field_mutable:chen_im.ChatSessionRemoveMemberReq.chat_session_id)
+  return chat_session_id_.MutableNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited());
+}
+inline ::std::string* ChatSessionRemoveMemberReq::release_chat_session_id() {
+  // @@protoc_insertion_point(field_release:chen_im.ChatSessionRemoveMemberReq.chat_session_id)
+  
+  return chat_session_id_.ReleaseNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited());
+}
+inline void ChatSessionRemoveMemberReq::set_allocated_chat_session_id(::std::string* chat_session_id) {
+  if (chat_session_id != NULL) {
+    
+  } else {
+    
+  }
+  chat_session_id_.SetAllocatedNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited(), chat_session_id);
+  // @@protoc_insertion_point(field_set_allocated:chen_im.ChatSessionRemoveMemberReq.chat_session_id)
+}
+
+// string member_id = 5;
+inline void ChatSessionRemoveMemberReq::clear_member_id() {
+  member_id_.ClearToEmptyNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited());
+}
+inline const ::std::string& ChatSessionRemoveMemberReq::member_id() const {
+  // @@protoc_insertion_point(field_get:chen_im.ChatSessionRemoveMemberReq.member_id)
+  return member_id_.GetNoArena();
+}
+inline void ChatSessionRemoveMemberReq::set_member_id(const ::std::string& value) {
+  
+  member_id_.SetNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited(), value);
+  // @@protoc_insertion_point(field_set:chen_im.ChatSessionRemoveMemberReq.member_id)
+}
+#if LANG_CXX11
+inline void ChatSessionRemoveMemberReq::set_member_id(::std::string&& value) {
+  
+  member_id_.SetNoArena(
+    &::google::protobuf::internal::GetEmptyStringAlreadyInited(), ::std::move(value));
+  // @@protoc_insertion_point(field_set_rvalue:chen_im.ChatSessionRemoveMemberReq.member_id)
+}
+#endif
+inline void ChatSessionRemoveMemberReq::set_member_id(const char* value) {
+  GOOGLE_DCHECK(value != NULL);
+  
+  member_id_.SetNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited(), ::std::string(value));
+  // @@protoc_insertion_point(field_set_char:chen_im.ChatSessionRemoveMemberReq.member_id)
+}
+inline void ChatSessionRemoveMemberReq::set_member_id(const char* value, size_t size) {
+  
+  member_id_.SetNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited(),
+      ::std::string(reinterpret_cast<const char*>(value), size));
+  // @@protoc_insertion_point(field_set_pointer:chen_im.ChatSessionRemoveMemberReq.member_id)
+}
+inline ::std::string* ChatSessionRemoveMemberReq::mutable_member_id() {
+  
+  // @@protoc_insertion_point(field_mutable:chen_im.ChatSessionRemoveMemberReq.member_id)
+  return member_id_.MutableNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited());
+}
+inline ::std::string* ChatSessionRemoveMemberReq::release_member_id() {
+  // @@protoc_insertion_point(field_release:chen_im.ChatSessionRemoveMemberReq.member_id)
+  
+  return member_id_.ReleaseNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited());
+}
+inline void ChatSessionRemoveMemberReq::set_allocated_member_id(::std::string* member_id) {
+  if (member_id != NULL) {
+    
+  } else {
+    
+  }
+  member_id_.SetAllocatedNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited(), member_id);
+  // @@protoc_insertion_point(field_set_allocated:chen_im.ChatSessionRemoveMemberReq.member_id)
+}
+
+// -------------------------------------------------------------------
+
+// ChatSessionRemoveMemberRsp
+
+// string request_id = 1;
+inline void ChatSessionRemoveMemberRsp::clear_request_id() {
+  request_id_.ClearToEmptyNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited());
+}
+inline const ::std::string& ChatSessionRemoveMemberRsp::request_id() const {
+  // @@protoc_insertion_point(field_get:chen_im.ChatSessionRemoveMemberRsp.request_id)
+  return request_id_.GetNoArena();
+}
+inline void ChatSessionRemoveMemberRsp::set_request_id(const ::std::string& value) {
+  
+  request_id_.SetNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited(), value);
+  // @@protoc_insertion_point(field_set:chen_im.ChatSessionRemoveMemberRsp.request_id)
+}
+#if LANG_CXX11
+inline void ChatSessionRemoveMemberRsp::set_request_id(::std::string&& value) {
+  
+  request_id_.SetNoArena(
+    &::google::protobuf::internal::GetEmptyStringAlreadyInited(), ::std::move(value));
+  // @@protoc_insertion_point(field_set_rvalue:chen_im.ChatSessionRemoveMemberRsp.request_id)
+}
+#endif
+inline void ChatSessionRemoveMemberRsp::set_request_id(const char* value) {
+  GOOGLE_DCHECK(value != NULL);
+  
+  request_id_.SetNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited(), ::std::string(value));
+  // @@protoc_insertion_point(field_set_char:chen_im.ChatSessionRemoveMemberRsp.request_id)
+}
+inline void ChatSessionRemoveMemberRsp::set_request_id(const char* value, size_t size) {
+  
+  request_id_.SetNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited(),
+      ::std::string(reinterpret_cast<const char*>(value), size));
+  // @@protoc_insertion_point(field_set_pointer:chen_im.ChatSessionRemoveMemberRsp.request_id)
+}
+inline ::std::string* ChatSessionRemoveMemberRsp::mutable_request_id() {
+  
+  // @@protoc_insertion_point(field_mutable:chen_im.ChatSessionRemoveMemberRsp.request_id)
+  return request_id_.MutableNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited());
+}
+inline ::std::string* ChatSessionRemoveMemberRsp::release_request_id() {
+  // @@protoc_insertion_point(field_release:chen_im.ChatSessionRemoveMemberRsp.request_id)
+  
+  return request_id_.ReleaseNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited());
+}
+inline void ChatSessionRemoveMemberRsp::set_allocated_request_id(::std::string* request_id) {
+  if (request_id != NULL) {
+    
+  } else {
+    
+  }
+  request_id_.SetAllocatedNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited(), request_id);
+  // @@protoc_insertion_point(field_set_allocated:chen_im.ChatSessionRemoveMemberRsp.request_id)
+}
+
+// bool success = 2;
+inline void ChatSessionRemoveMemberRsp::clear_success() {
+  success_ = false;
+}
+inline bool ChatSessionRemoveMemberRsp::success() const {
+  // @@protoc_insertion_point(field_get:chen_im.ChatSessionRemoveMemberRsp.success)
+  return success_;
+}
+inline void ChatSessionRemoveMemberRsp::set_success(bool value) {
+  
+  success_ = value;
+  // @@protoc_insertion_point(field_set:chen_im.ChatSessionRemoveMemberRsp.success)
+}
+
+// string errmsg = 3;
+inline void ChatSessionRemoveMemberRsp::clear_errmsg() {
+  errmsg_.ClearToEmptyNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited());
+}
+inline const ::std::string& ChatSessionRemoveMemberRsp::errmsg() const {
+  // @@protoc_insertion_point(field_get:chen_im.ChatSessionRemoveMemberRsp.errmsg)
+  return errmsg_.GetNoArena();
+}
+inline void ChatSessionRemoveMemberRsp::set_errmsg(const ::std::string& value) {
+  
+  errmsg_.SetNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited(), value);
+  // @@protoc_insertion_point(field_set:chen_im.ChatSessionRemoveMemberRsp.errmsg)
+}
+#if LANG_CXX11
+inline void ChatSessionRemoveMemberRsp::set_errmsg(::std::string&& value) {
+  
+  errmsg_.SetNoArena(
+    &::google::protobuf::internal::GetEmptyStringAlreadyInited(), ::std::move(value));
+  // @@protoc_insertion_point(field_set_rvalue:chen_im.ChatSessionRemoveMemberRsp.errmsg)
+}
+#endif
+inline void ChatSessionRemoveMemberRsp::set_errmsg(const char* value) {
+  GOOGLE_DCHECK(value != NULL);
+  
+  errmsg_.SetNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited(), ::std::string(value));
+  // @@protoc_insertion_point(field_set_char:chen_im.ChatSessionRemoveMemberRsp.errmsg)
+}
+inline void ChatSessionRemoveMemberRsp::set_errmsg(const char* value, size_t size) {
+  
+  errmsg_.SetNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited(),
+      ::std::string(reinterpret_cast<const char*>(value), size));
+  // @@protoc_insertion_point(field_set_pointer:chen_im.ChatSessionRemoveMemberRsp.errmsg)
+}
+inline ::std::string* ChatSessionRemoveMemberRsp::mutable_errmsg() {
+  
+  // @@protoc_insertion_point(field_mutable:chen_im.ChatSessionRemoveMemberRsp.errmsg)
+  return errmsg_.MutableNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited());
+}
+inline ::std::string* ChatSessionRemoveMemberRsp::release_errmsg() {
+  // @@protoc_insertion_point(field_release:chen_im.ChatSessionRemoveMemberRsp.errmsg)
+  
+  return errmsg_.ReleaseNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited());
+}
+inline void ChatSessionRemoveMemberRsp::set_allocated_errmsg(::std::string* errmsg) {
+  if (errmsg != NULL) {
+    
+  } else {
+    
+  }
+  errmsg_.SetAllocatedNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited(), errmsg);
+  // @@protoc_insertion_point(field_set_allocated:chen_im.ChatSessionRemoveMemberRsp.errmsg)
+}
+
 #ifdef __GNUC__
   #pragma GCC diagnostic pop
 #endif  // __GNUC__
+// -------------------------------------------------------------------
+
+// -------------------------------------------------------------------
+
+// -------------------------------------------------------------------
+
+// -------------------------------------------------------------------
+
 // -------------------------------------------------------------------
 
 // -------------------------------------------------------------------

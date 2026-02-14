@@ -10,3 +10,7 @@ export { default as ApprovalModal } from './ApprovalModal';
 export { default as ApprovalModalAntd } from './ApprovalModalAntd';
 export { default as MarkdownRenderer } from './MarkdownRenderer';
 export { default as StreamingMarkdown } from './StreamingMarkdown';
+
+// GlobalAgent 组件
+export { default as GlobalAgentChat } from './GlobalAgentChat';
+export { default as MessageBubble } from './MessageBubble';

@@ -9,6 +9,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { sendTextMessage, sendImageMessage, sendFileMessage, searchMessages } from '../api/messageApi';
 import MessageInput from './MessageInput';
 import SessionInfoModal from './SessionInfoModal';
+import SessionMembersModal from './SessionMembersModal';
 import Avatar from './Avatar';
 import UserInfoCard from './UserInfoCard';
 
@@ -155,6 +156,7 @@ export default function MessageArea() {
     const messagesContainerRef = useRef(null);
     const prevSessionIdRef = useRef(null);
     const [showSessionInfo, setShowSessionInfo] = useState(false);
+    const [showMembersModal, setShowMembersModal] = useState(false);
     const [showSearch, setShowSearch] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
     const [searchResults, setSearchResults] = useState([]);
@@ -447,6 +449,15 @@ export default function MessageArea() {
                         </svg>
                     </button>
                     <button
+                        onClick={() => setShowMembersModal(true)}
+                        className="p-2 hover:bg-[var(--color-surface)] rounded-lg transition-colors text-[var(--color-text-muted)]"
+                        title="成员管理"
+                    >
+                        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
+                        </svg>
+                    </button>
+                    <button
                         onClick={() => setShowSessionInfo(true)}
                         className="p-2 hover:bg-[var(--color-surface)] rounded-lg transition-colors text-[var(--color-text-muted)]"
                     >
@@ -467,6 +478,15 @@ export default function MessageArea() {
                     >
                         <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                        </svg>
+                    </button>
+                    <button
+                        onClick={() => setShowMembersModal(true)}
+                        className="p-2 hover:bg-[var(--color-surface)] rounded-lg transition-colors text-[var(--color-text-muted)]"
+                        title="成员管理"
+                    >
+                        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
                         </svg>
                     </button>
                     <button
@@ -588,6 +608,15 @@ export default function MessageArea() {
                 <SessionInfoModal
                     session={currentSession}
                     onClose={() => setShowSessionInfo(false)}
+                />
+            )}
+
+            {/* 成员管理弹窗 */}
+            {showMembersModal && currentSession && (
+                <SessionMembersModal
+                    chatSessionId={currentSession.chat_session_id}
+                    chatSessionName={currentSession.chat_session_name}
+                    onClose={() => setShowMembersModal(false)}
                 />
             )}
 

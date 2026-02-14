@@ -517,6 +517,136 @@ namespace chen_im
             }
         }
 
+        // 添加会话成员
+        virtual void ChatSessionAddMember(::google::protobuf::RpcController *controller,
+                                          const ::chen_im::ChatSessionAddMemberReq *request,
+                                          ::chen_im::ChatSessionAddMemberRsp *response,
+                                          ::google::protobuf::Closure *done)
+        {
+            brpc::ClosureGuard rpc_guard(done);
+            // 1. 定义错误回调
+            auto err_response = [this, response](const std::string &request_id,
+                                                 const std::string &errmsg) -> void
+            {
+                response->set_request_id(request_id);
+                response->set_success(false);
+                response->set_errmsg(errmsg);
+                return;
+            };
+            // 2. 提取请求参数
+            std::string request_id = request->request_id();
+            std::string uid = request->user_id();
+            std::string cssid = request->chat_session_id();
+            
+            // 3. 验证操作者是否是会话成员
+            auto existing_members = _mysql_chat_session_member->get_members(cssid);
+            bool is_member = false;
+            for (const auto &id : existing_members)
+            {
+                if (id == uid)
+                {
+                    is_member = true;
+                    break;
+                }
+            }
+            if (!is_member)
+            {
+                LOG_ERROR("{} - 用户 {} 不是会话 {} 的成员，无权添加成员", request_id, uid, cssid);
+                return err_response(request_id, "您不是该会话的成员，无权添加成员");
+            }
+            
+            // 4. 添加新成员到数据库
+            std::vector<ChatSessionMember> new_members;
+            for (int i = 0; i < request->member_id_list_size(); i++)
+            {
+                std::string member_id = request->member_id_list(i);
+                // 检查是否已经是成员
+                bool already_member = false;
+                for (const auto &id : existing_members)
+                {
+                    if (id == member_id)
+                    {
+                        already_member = true;
+                        break;
+                    }
+                }
+                if (!already_member)
+                {
+                    ChatSessionMember csm(cssid, member_id);
+                    new_members.push_back(csm);
+                }
+            }
+            
+            if (!new_members.empty())
+            {
+                bool ret = _mysql_chat_session_member->append(new_members);
+                if (ret == false)
+                {
+                    LOG_ERROR("{} - 向数据库添加会话成员失败", request_id);
+                    return err_response(request_id, "向数据库添加会话成员失败");
+                }
+            }
+            
+            // 5. 组织响应
+            response->set_request_id(request_id);
+            response->set_success(true);
+            LOG_INFO("{} - 成功添加 {} 个成员到会话 {}", request_id, new_members.size(), cssid);
+        }
+
+        // 删除会话成员
+        virtual void ChatSessionRemoveMember(::google::protobuf::RpcController *controller,
+                                             const ::chen_im::ChatSessionRemoveMemberReq *request,
+                                             ::chen_im::ChatSessionRemoveMemberRsp *response,
+                                             ::google::protobuf::Closure *done)
+        {
+            brpc::ClosureGuard rpc_guard(done);
+            // 1. 定义错误回调
+            auto err_response = [this, response](const std::string &request_id,
+                                                 const std::string &errmsg) -> void
+            {
+                response->set_request_id(request_id);
+                response->set_success(false);
+                response->set_errmsg(errmsg);
+                return;
+            };
+            // 2. 提取请求参数
+            std::string request_id = request->request_id();
+            std::string uid = request->user_id();
+            std::string cssid = request->chat_session_id();
+            std::string member_id = request->member_id();
+            
+            // 3. 验证操作者是否是会话成员（或者是要删除自己）
+            auto existing_members = _mysql_chat_session_member->get_members(cssid);
+            bool is_member = false;
+            for (const auto &id : existing_members)
+            {
+                if (id == uid)
+                {
+                    is_member = true;
+                    break;
+                }
+            }
+            if (!is_member)
+            {
+                LOG_ERROR("{} - 用户 {} 不是会话 {} 的成员，无权删除成员", request_id, uid, cssid);
+                return err_response(request_id, "您不是该会话的成员，无权删除成员");
+            }
+            
+            // 4. 从数据库删除成员
+            ChatSessionMember csm(cssid, member_id);
+            bool ret = _mysql_chat_session_member->remove(csm);
+            if (ret == false)
+            {
+                LOG_ERROR("{} - 从数据库删除会话成员失败", request_id);
+                return err_response(request_id, "从数据库删除会话成员失败");
+            }
+            
+            // 5. 组织响应
+            response->set_request_id(request_id);
+            response->set_success(true);
+            LOG_INFO("{} - 成功从会话 {} 删除成员 {}", request_id, cssid, member_id);
+        }
+
     private:
         // 从消息存储子服务中，取某个聊天会话id下的最近一条消息
         bool _get_recent_msg(const std::string &request_id,

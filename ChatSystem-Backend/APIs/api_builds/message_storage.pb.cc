@@ -166,6 +166,7 @@ const ::google::protobuf::uint32 TableStruct::offsets[] GOOGLE_PROTOBUF_ATTRIBUT
   GOOGLE_PROTOBUF_GENERATED_MESSAGE_FIELD_OFFSET(::chen_im::GetHistoryMsgReq, over_time_),
   GOOGLE_PROTOBUF_GENERATED_MESSAGE_FIELD_OFFSET(::chen_im::GetHistoryMsgReq, user_id_),
   GOOGLE_PROTOBUF_GENERATED_MESSAGE_FIELD_OFFSET(::chen_im::GetHistoryMsgReq, session_id_),
+  GOOGLE_PROTOBUF_GENERATED_MESSAGE_FIELD_OFFSET(::chen_im::GetHistoryMsgReq, exclude_file_content_),
   ~0u,  // no _has_bits_
   GOOGLE_PROTOBUF_GENERATED_MESSAGE_FIELD_OFFSET(::chen_im::GetHistoryMsgRsp, _internal_metadata_),
   ~0u,  // no _extensions_
@@ -186,6 +187,7 @@ const ::google::protobuf::uint32 TableStruct::offsets[] GOOGLE_PROTOBUF_ATTRIBUT
   GOOGLE_PROTOBUF_GENERATED_MESSAGE_FIELD_OFFSET(::chen_im::GetRecentMsgReq, cur_time_),
   GOOGLE_PROTOBUF_GENERATED_MESSAGE_FIELD_OFFSET(::chen_im::GetRecentMsgReq, user_id_),
   GOOGLE_PROTOBUF_GENERATED_MESSAGE_FIELD_OFFSET(::chen_im::GetRecentMsgReq, session_id_),
+  GOOGLE_PROTOBUF_GENERATED_MESSAGE_FIELD_OFFSET(::chen_im::GetRecentMsgReq, exclude_file_content_),
   ~0u,  // no _has_bits_
   GOOGLE_PROTOBUF_GENERATED_MESSAGE_FIELD_OFFSET(::chen_im::GetRecentMsgRsp, _internal_metadata_),
   ~0u,  // no _extensions_
@@ -217,11 +219,11 @@ const ::google::protobuf::uint32 TableStruct::offsets[] GOOGLE_PROTOBUF_ATTRIBUT
 };
 static const ::google::protobuf::internal::MigrationSchema schemas[] GOOGLE_PROTOBUF_ATTRIBUTE_SECTION_VARIABLE(protodesc_cold) = {
   { 0, -1, sizeof(::chen_im::GetHistoryMsgReq)},
-  { 11, -1, sizeof(::chen_im::GetHistoryMsgRsp)},
-  { 20, -1, sizeof(::chen_im::GetRecentMsgReq)},
-  { 31, -1, sizeof(::chen_im::GetRecentMsgRsp)},
-  { 40, -1, sizeof(::chen_im::MsgSearchReq)},
-  { 50, -1, sizeof(::chen_im::MsgSearchRsp)},
+  { 12, -1, sizeof(::chen_im::GetHistoryMsgRsp)},
+  { 21, -1, sizeof(::chen_im::GetRecentMsgReq)},
+  { 33, -1, sizeof(::chen_im::GetRecentMsgRsp)},
+  { 42, -1, sizeof(::chen_im::MsgSearchReq)},
+  { 52, -1, sizeof(::chen_im::MsgSearchRsp)},
 };
 
 static ::google::protobuf::Message const * const file_default_instances[] = {
@@ -255,34 +257,35 @@ void AddDescriptorsImpl() {
   InitDefaults();
   static const char descriptor[] GOOGLE_PROTOBUF_ATTRIBUTE_SECTION_VARIABLE(protodesc_cold) = {
       "\n\025message_storage.proto\022\007chen_im\032\nbase.p"
-      "roto\"\213\001\n\020GetHistoryMsgReq\022\022\n\nrequest_id\030"
+      "roto\"\251\001\n\020GetHistoryMsgReq\022\022\n\nrequest_id\030"
       "\001 \001(\t\022\027\n\017chat_session_id\030\002 \001(\t\022\022\n\nstart_"
       "time\030\003 \001(\003\022\021\n\tover_time\030\004 \001(\003\022\017\n\007user_id"
-      "\030\005 \001(\t\022\022\n\nsession_id\030\006 \001(\t\"o\n\020GetHistory"
-      "MsgRsp\022\022\n\nrequest_id\030\001 \001(\t\022\017\n\007success\030\002 "
-      "\001(\010\022\016\n\006errmsg\030\003 \001(\t\022&\n\010msg_list\030\004 \003(\0132\024."
-      "chen_im.MessageInfo\"\210\001\n\017GetRecentMsgReq\022"
-      "\022\n\nrequest_id\030\001 \001(\t\022\027\n\017chat_session_id\030\002"
-      " \001(\t\022\021\n\tmsg_count\030\003 \001(\003\022\020\n\010cur_time\030\004 \001("
-      "\003\022\017\n\007user_id\030\005 \001(\t\022\022\n\nsession_id\030\006 \001(\t\"n"
-      "\n\017GetRecentMsgRsp\022\022\n\nrequest_id\030\001 \001(\t\022\017\n"
-      "\007success\030\002 \001(\010\022\016\n\006errmsg\030\003 \001(\t\022&\n\010msg_li"
-      "st\030\004 \003(\0132\024.chen_im.MessageInfo\"t\n\014MsgSea"
-      "rchReq\022\022\n\nrequest_id\030\001 \001(\t\022\017\n\007user_id\030\002 "
-      "\001(\t\022\022\n\nsession_id\030\003 \001(\t\022\027\n\017chat_session_"
-      "id\030\004 \001(\t\022\022\n\nsearch_key\030\005 \001(\t\"k\n\014MsgSearc"
-      "hRsp\022\022\n\nrequest_id\030\001 \001(\t\022\017\n\007success\030\002 \001("
-      "\010\022\016\n\006errmsg\030\003 \001(\t\022&\n\010msg_list\030\004 \003(\0132\024.ch"
-      "en_im.MessageInfo2\331\001\n\021MsgStorageService\022"
-      "E\n\rGetHistoryMsg\022\031.chen_im.GetHistoryMsg"
-      "Req\032\031.chen_im.GetHistoryMsgRsp\022B\n\014GetRec"
-      "entMsg\022\030.chen_im.GetRecentMsgReq\032\030.chen_"
-      "im.GetRecentMsgRsp\0229\n\tMsgSearch\022\025.chen_i"
-      "m.MsgSearchReq\032\025.chen_im.MsgSearchRspB\003\200"
-      "\001\001b\006proto3"
+      "\030\005 \001(\t\022\022\n\nsession_id\030\006 \001(\t\022\034\n\024exclude_fi"
+      "le_content\030\007 \001(\010\"o\n\020GetHistoryMsgRsp\022\022\n\n"
+      "request_id\030\001 \001(\t\022\017\n\007success\030\002 \001(\010\022\016\n\006err"
+      "msg\030\003 \001(\t\022&\n\010msg_list\030\004 \003(\0132\024.chen_im.Me"
+      "ssageInfo\"\246\001\n\017GetRecentMsgReq\022\022\n\nrequest"
+      "_id\030\001 \001(\t\022\027\n\017chat_session_id\030\002 \001(\t\022\021\n\tms"
+      "g_count\030\003 \001(\003\022\020\n\010cur_time\030\004 \001(\003\022\017\n\007user_"
+      "id\030\005 \001(\t\022\022\n\nsession_id\030\006 \001(\t\022\034\n\024exclude_"
+      "file_content\030\007 \001(\010\"n\n\017GetRecentMsgRsp\022\022\n"
+      "\nrequest_id\030\001 \001(\t\022\017\n\007success\030\002 \001(\010\022\016\n\006er"
+      "rmsg\030\003 \001(\t\022&\n\010msg_list\030\004 \003(\0132\024.chen_im.M"
+      "essageInfo\"t\n\014MsgSearchReq\022\022\n\nrequest_id"
+      "\030\001 \001(\t\022\017\n\007user_id\030\002 \001(\t\022\022\n\nsession_id\030\003 "
+      "\001(\t\022\027\n\017chat_session_id\030\004 \001(\t\022\022\n\nsearch_k"
+      "ey\030\005 \001(\t\"k\n\014MsgSearchRsp\022\022\n\nrequest_id\030\001"
+      " \001(\t\022\017\n\007success\030\002 \001(\010\022\016\n\006errmsg\030\003 \001(\t\022&\n"
+      "\010msg_list\030\004 \003(\0132\024.chen_im.MessageInfo2\331\001"
+      "\n\021MsgStorageService\022E\n\rGetHistoryMsg\022\031.c"
+      "hen_im.GetHistoryMsgReq\032\031.chen_im.GetHis"
+      "toryMsgRsp\022B\n\014GetRecentMsg\022\030.chen_im.Get"
+      "RecentMsgReq\032\030.chen_im.GetRecentMsgRsp\0229"
+      "\n\tMsgSearch\022\025.chen_im.MsgSearchReq\032\025.che"
+      "n_im.MsgSearchRspB\003\200\001\001b\006proto3"
   };
   ::google::protobuf::DescriptorPool::InternalAddGeneratedFile(
-      descriptor, 1010);
+      descriptor, 1070);
   ::google::protobuf::MessageFactory::InternalRegisterGeneratedFile(
     "message_storage.proto", &protobuf_RegisterTypes);
   ::protobuf_base_2eproto::AddDescriptors();
@@ -312,6 +315,7 @@ const int GetHistoryMsgReq::kStartTimeFieldNumber;
 const int GetHistoryMsgReq::kOverTimeFieldNumber;
 const int GetHistoryMsgReq::kUserIdFieldNumber;
 const int GetHistoryMsgReq::kSessionIdFieldNumber;
+const int GetHistoryMsgReq::kExcludeFileContentFieldNumber;
 #endif  // !defined(_MSC_VER) || _MSC_VER >= 1900
 
 GetHistoryMsgReq::GetHistoryMsgReq()
@@ -342,8 +346,8 @@ GetHistoryMsgReq::GetHistoryMsgReq(const GetHistoryMsgReq& from)
     session_id_.AssignWithDefault(&::google::protobuf::internal::GetEmptyStringAlreadyInited(), from.session_id_);
   }
   ::memcpy(&start_time_, &from.start_time_,
-    static_cast<size_t>(reinterpret_cast<char*>(&over_time_) -
-    reinterpret_cast<char*>(&start_time_)) + sizeof(over_time_));
+    static_cast<size_t>(reinterpret_cast<char*>(&exclude_file_content_) -
+    reinterpret_cast<char*>(&start_time_)) + sizeof(exclude_file_content_));
   // @@protoc_insertion_point(copy_constructor:chen_im.GetHistoryMsgReq)
 }
 
@@ -353,8 +357,8 @@ void GetHistoryMsgReq::SharedCtor() {
   user_id_.UnsafeSetDefault(&::google::protobuf::internal::GetEmptyStringAlreadyInited());
   session_id_.UnsafeSetDefault(&::google::protobuf::internal::GetEmptyStringAlreadyInited());
   ::memset(&start_time_, 0, static_cast<size_t>(
-      reinterpret_cast<char*>(&over_time_) -
-      reinterpret_cast<char*>(&start_time_)) + sizeof(over_time_));
+      reinterpret_cast<char*>(&exclude_file_content_) -
+      reinterpret_cast<char*>(&start_time_)) + sizeof(exclude_file_content_));
 }
 
 GetHistoryMsgReq::~GetHistoryMsgReq() {
@@ -394,8 +398,8 @@ void GetHistoryMsgReq::Clear() {
   user_id_.ClearToEmptyNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited());
   session_id_.ClearToEmptyNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited());
   ::memset(&start_time_, 0, static_cast<size_t>(
-      reinterpret_cast<char*>(&over_time_) -
-      reinterpret_cast<char*>(&start_time_)) + sizeof(over_time_));
+      reinterpret_cast<char*>(&exclude_file_content_) -
+      reinterpret_cast<char*>(&start_time_)) + sizeof(exclude_file_content_));
   _internal_metadata_.Clear();
 }
 
@@ -501,6 +505,20 @@ bool GetHistoryMsgReq::MergePartialFromCodedStream(
         break;
       }
 
+      // bool exclude_file_content = 7;
+      case 7: {
+        if (static_cast< ::google::protobuf::uint8>(tag) ==
+            static_cast< ::google::protobuf::uint8>(56u /* 56 & 0xFF */)) {
+
+          DO_((::google::protobuf::internal::WireFormatLite::ReadPrimitive<
+                   bool, ::google::protobuf::internal::WireFormatLite::TYPE_BOOL>(
+                 input, &exclude_file_content_)));
+        } else {
+          goto handle_unusual;
+        }
+        break;
+      }
+
       default: {
       handle_unusual:
         if (tag == 0) {
@@ -577,6 +595,11 @@ void GetHistoryMsgReq::SerializeWithCachedSizes(
       6, this->session_id(), output);
   }
 
+  // bool exclude_file_content = 7;
+  if (this->exclude_file_content() != 0) {
+    ::google::protobuf::internal::WireFormatLite::WriteBool(7, this->exclude_file_content(), output);
+  }
+
   if ((_internal_metadata_.have_unknown_fields() &&  ::google::protobuf::internal::GetProto3PreserveUnknownsDefault())) {
     ::google::protobuf::internal::WireFormat::SerializeUnknownFields(
         (::google::protobuf::internal::GetProto3PreserveUnknownsDefault()   ? _internal_metadata_.unknown_fields()   : _internal_metadata_.default_instance()), output);
@@ -645,6 +668,11 @@ void GetHistoryMsgReq::SerializeWithCachedSizes(
         6, this->session_id(), target);
   }
 
+  // bool exclude_file_content = 7;
+  if (this->exclude_file_content() != 0) {
+    target = ::google::protobuf::internal::WireFormatLite::WriteBoolToArray(7, this->exclude_file_content(), target);
+  }
+
   if ((_internal_metadata_.have_unknown_fields() &&  ::google::protobuf::internal::GetProto3PreserveUnknownsDefault())) {
     target = ::google::protobuf::internal::WireFormat::SerializeUnknownFieldsToArray(
         (::google::protobuf::internal::GetProto3PreserveUnknownsDefault()   ? _internal_metadata_.unknown_fields()   : _internal_metadata_.default_instance()), target);
@@ -704,6 +732,11 @@ size_t GetHistoryMsgReq::ByteSizeLong() const {
         this->over_time());
   }
 
+  // bool exclude_file_content = 7;
+  if (this->exclude_file_content() != 0) {
+    total_size += 1 + 1;
+  }
+
   int cached_size = ::google::protobuf::internal::ToCachedSize(total_size);
   SetCachedSize(cached_size);
   return total_size;
@@ -753,6 +786,9 @@ void GetHistoryMsgReq::MergeFrom(const GetHistoryMsgReq& from) {
   if (from.over_time() != 0) {
     set_over_time(from.over_time());
   }
+  if (from.exclude_file_content() != 0) {
+    set_exclude_file_content(from.exclude_file_content());
+  }
 }
 
 void GetHistoryMsgReq::CopyFrom(const ::google::protobuf::Message& from) {
@@ -789,6 +825,7 @@ void GetHistoryMsgReq::InternalSwap(GetHistoryMsgReq* other) {
     GetArenaNoVirtual());
   swap(start_time_, other->start_time_);
   swap(over_time_, other->over_time_);
+  swap(exclude_file_content_, other->exclude_file_content_);
   _internal_metadata_.Swap(&other->_internal_metadata_);
 }
 
@@ -1194,6 +1231,7 @@ const int GetRecentMsgReq::kMsgCountFieldNumber;
 const int GetRecentMsgReq::kCurTimeFieldNumber;
 const int GetRecentMsgReq::kUserIdFieldNumber;
 const int GetRecentMsgReq::kSessionIdFieldNumber;
+const int GetRecentMsgReq::kExcludeFileContentFieldNumber;
 #endif  // !defined(_MSC_VER) || _MSC_VER >= 1900
 
 GetRecentMsgReq::GetRecentMsgReq()
@@ -1224,8 +1262,8 @@ GetRecentMsgReq::GetRecentMsgReq(const GetRecentMsgReq& from)
     session_id_.AssignWithDefault(&::google::protobuf::internal::GetEmptyStringAlreadyInited(), from.session_id_);
   }
   ::memcpy(&msg_count_, &from.msg_count_,
-    static_cast<size_t>(reinterpret_cast<char*>(&cur_time_) -
-    reinterpret_cast<char*>(&msg_count_)) + sizeof(cur_time_));
+    static_cast<size_t>(reinterpret_cast<char*>(&exclude_file_content_) -
+    reinterpret_cast<char*>(&msg_count_)) + sizeof(exclude_file_content_));
   // @@protoc_insertion_point(copy_constructor:chen_im.GetRecentMsgReq)
 }
 
@@ -1235,8 +1273,8 @@ void GetRecentMsgReq::SharedCtor() {
   user_id_.UnsafeSetDefault(&::google::protobuf::internal::GetEmptyStringAlreadyInited());
   session_id_.UnsafeSetDefault(&::google::protobuf::internal::GetEmptyStringAlreadyInited());
   ::memset(&msg_count_, 0, static_cast<size_t>(
-      reinterpret_cast<char*>(&cur_time_) -
-      reinterpret_cast<char*>(&msg_count_)) + sizeof(cur_time_));
+      reinterpret_cast<char*>(&exclude_file_content_) -
+      reinterpret_cast<char*>(&msg_count_)) + sizeof(exclude_file_content_));
 }
 
 GetRecentMsgReq::~GetRecentMsgReq() {
@@ -1276,8 +1314,8 @@ void GetRecentMsgReq::Clear() {
   user_id_.ClearToEmptyNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited());
   session_id_.ClearToEmptyNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited());
   ::memset(&msg_count_, 0, static_cast<size_t>(
-      reinterpret_cast<char*>(&cur_time_) -
-      reinterpret_cast<char*>(&msg_count_)) + sizeof(cur_time_));
+      reinterpret_cast<char*>(&exclude_file_content_) -
+      reinterpret_cast<char*>(&msg_count_)) + sizeof(exclude_file_content_));
   _internal_metadata_.Clear();
 }
 
@@ -1383,6 +1421,20 @@ bool GetRecentMsgReq::MergePartialFromCodedStream(
         break;
       }
 
+      // bool exclude_file_content = 7;
+      case 7: {
+        if (static_cast< ::google::protobuf::uint8>(tag) ==
+            static_cast< ::google::protobuf::uint8>(56u /* 56 & 0xFF */)) {
+
+          DO_((::google::protobuf::internal::WireFormatLite::ReadPrimitive<
+                   bool, ::google::protobuf::internal::WireFormatLite::TYPE_BOOL>(
+                 input, &exclude_file_content_)));
+        } else {
+          goto handle_unusual;
+        }
+        break;
+      }
+
       default: {
       handle_unusual:
         if (tag == 0) {
@@ -1459,6 +1511,11 @@ void GetRecentMsgReq::SerializeWithCachedSizes(
       6, this->session_id(), output);
   }
 
+  // bool exclude_file_content = 7;
+  if (this->exclude_file_content() != 0) {
+    ::google::protobuf::internal::WireFormatLite::WriteBool(7, this->exclude_file_content(), output);
+  }
+
   if ((_internal_metadata_.have_unknown_fields() &&  ::google::protobuf::internal::GetProto3PreserveUnknownsDefault())) {
     ::google::protobuf::internal::WireFormat::SerializeUnknownFields(
         (::google::protobuf::internal::GetProto3PreserveUnknownsDefault()   ? _internal_metadata_.unknown_fields()   : _internal_metadata_.default_instance()), output);
@@ -1527,6 +1584,11 @@ void GetRecentMsgReq::SerializeWithCachedSizes(
         6, this->session_id(), target);
   }
 
+  // bool exclude_file_content = 7;
+  if (this->exclude_file_content() != 0) {
+    target = ::google::protobuf::internal::WireFormatLite::WriteBoolToArray(7, this->exclude_file_content(), target);
+  }
+
   if ((_internal_metadata_.have_unknown_fields() &&  ::google::protobuf::internal::GetProto3PreserveUnknownsDefault())) {
     target = ::google::protobuf::internal::WireFormat::SerializeUnknownFieldsToArray(
         (::google::protobuf::internal::GetProto3PreserveUnknownsDefault()   ? _internal_metadata_.unknown_fields()   : _internal_metadata_.default_instance()), target);
@@ -1586,6 +1648,11 @@ size_t GetRecentMsgReq::ByteSizeLong() const {
         this->cur_time());
   }
 
+  // bool exclude_file_content = 7;
+  if (this->exclude_file_content() != 0) {
+    total_size += 1 + 1;
+  }
+
   int cached_size = ::google::protobuf::internal::ToCachedSize(total_size);
   SetCachedSize(cached_size);
   return total_size;
@@ -1635,6 +1702,9 @@ void GetRecentMsgReq::MergeFrom(const GetRecentMsgReq& from) {
   if (from.cur_time() != 0) {
     set_cur_time(from.cur_time());
   }
+  if (from.exclude_file_content() != 0) {
+    set_exclude_file_content(from.exclude_file_content());
+  }
 }
 
 void GetRecentMsgReq::CopyFrom(const ::google::protobuf::Message& from) {
@@ -1671,6 +1741,7 @@ void GetRecentMsgReq::InternalSwap(GetRecentMsgReq* other) {
     GetArenaNoVirtual());
   swap(msg_count_, other->msg_count_);
   swap(cur_time_, other->cur_time_);
+  swap(exclude_file_content_, other->exclude_file_content_);
   _internal_metadata_.Swap(&other->_internal_metadata_);
 }
 
