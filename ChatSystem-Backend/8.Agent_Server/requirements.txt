@@ -17,6 +17,9 @@ httpx>=0.26.0
 # MySQL 异步驱动
 aiomysql>=0.2.0
 
+# Redis 异步客户端（上下文/任务缓存）
+redis>=5.0.0
+
 # SSE
 sse-starlette>=2.0.0
 

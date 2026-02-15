@@ -17,6 +17,7 @@ if str(src_dir) not in sys.path:
     sys.path.insert(0, str(src_dir))
 
 from runtime.sse_bus import sse_bus
+from runtime.dual_writer import dual_writer, TodoItem as DualWriterTodoItem
 
 
 # Todo 状态枚举
@@ -236,7 +237,17 @@ async def add_todos(
         )
         todos.append(todo)
         added.append(todo)
-        
+
+        # 持久化到 DualWriter
+        todo_record = DualWriterTodoItem(
+            todo_id=todo.id,
+            task_id=task_id,
+            content=text,
+            status="pending",
+            sequence=len(todos) - 1
+        )
+        await dual_writer.write_todo(todo_record)
+
         await sse_bus.publish(task_id, "todo_added", {
             "todo": {
                 "id": todo.id,
@@ -244,7 +255,7 @@ async def add_todos(
                 "status": todo.status
             }
         })
-    
+
     logger.info(f"[{task_id}] Added {len(added)} todos")
     return f"成功添加 {len(added)} 个 Todo 项: " + ", ".join(t.text for t in added)
 
@@ -279,10 +290,17 @@ async def update_todo(
     
     old_status = todo.status
     todo.status = status
-    
+
     if status == TodoStatus.COMPLETED:
         todo.completed_at = datetime.now()
-    
+
+    # 持久化状态更新到 DualWriter
+    dw_status_map = {
+        "idle": "pending", "running": "in_progress",
+        "completed": "completed", "failed": "cancelled", "skipped": "cancelled"
+    }
+    await dual_writer.update_todo_status(task_id, todo_id, dw_status_map.get(status, status))
+
     # 发布状态更新事件
     await sse_bus.publish(task_id, "todo_status", {
         "todoId": todo_id,

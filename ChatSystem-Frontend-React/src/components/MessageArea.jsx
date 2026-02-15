@@ -3,7 +3,6 @@
  */
 
 import { useState, useRef, useEffect, useCallback } from 'react';
-import { AnimatePresence } from 'motion/react';
 import { useChat } from '../contexts/ChatContext';
 import { useAuth } from '../contexts/AuthContext';
 import { useAgent } from '../contexts/AgentContext';
@@ -161,8 +160,8 @@ function messagesToChatHistory(messages, currentUserId) {
         }));
 }
 
-export default function MessageArea() {
-    const { currentSession, currentMessages, addMessage, updateMessageStatus, fetchImage, getCachedImage } = useChat();
+export default function MessageArea({ showAgentPanel, onToggleAgentPanel, hasRunningTasks }) {
+    const { currentSession, currentMessages, addMessage, updateMessageStatus, fetchImage, getCachedImage, loadMessages, loadSessions } = useChat();
     const { user, sessionId } = useAuth();
     const { startTask } = useAgent();
     const messagesEndRef = useRef(null);
@@ -175,7 +174,6 @@ export default function MessageArea() {
     const [searchResults, setSearchResults] = useState([]);
     const [searching, setSearching] = useState(false);
     const [selectedUser, setSelectedUser] = useState(null);
-    const [userCardPosition, setUserCardPosition] = useState({ x: 0, y: 0 });
 
     // 智能滚动：切换会话时瞬间到底部，新消息时平滑滚动
     useEffect(() => {
@@ -195,9 +193,10 @@ export default function MessageArea() {
 
     // 监听 SessionAgent 完成事件，将回复写入聊天
     useEffect(() => {
-        const handler = (e) => {
+        const handler = async (e) => {
             const { chatSessionId: targetSessionId, finalText } = e.detail || {};
-            if (!targetSessionId || !finalText || !addMessage) return;
+            if (!targetSessionId || !finalText) return;
+            // 立即添加本地消息用于实时显示
             const agentMessage = {
                 message_id: `agent_${Date.now()}`,
                 chat_session_id: targetSessionId,
@@ -206,10 +205,15 @@ export default function MessageArea() {
                 message: { message_type: 0, string_message: { content: finalText } },
             };
             addMessage(targetSessionId, agentMessage);
+            // 延迟重新从服务器加载消息和会话列表，确保显示持久化版本
+            setTimeout(() => {
+                loadMessages(targetSessionId);
+                loadSessions();
+            }, 1500);
         };
         window.addEventListener('session-agent-done', handler);
         return () => window.removeEventListener('session-agent-done', handler);
-    }, [addMessage]);
+    }, [addMessage, loadMessages, loadSessions]);
 
     // 发送文本消息（含 @ 触发 SessionAgent）
     const handleSendMessage = async (content) => {
@@ -379,16 +383,16 @@ export default function MessageArea() {
         setSearching(false);
     };
 
-    // 点击头像显示用户信息
-    const handleAvatarClick = (sender, event) => {
+    // 点击头像显示用户信息（toggle 方式）
+    const handleAvatarClick = (sender) => {
         // 不显示自己的信息卡
         if (sender?.user_id === user?.user_id) return;
         
-        const rect = event.currentTarget.getBoundingClientRect();
-        setUserCardPosition({
-            x: rect.left + rect.width / 2,
-            y: rect.bottom
-        });
+        // 如果已经显示同一用户，则关闭
+        if (selectedUser?.user_id === sender?.user_id) {
+            setSelectedUser(null);
+            return;
+        }
         setSelectedUser(sender);
     };
 
@@ -480,205 +484,219 @@ export default function MessageArea() {
     }
 
     return (
-        <div className="h-full flex flex-col relative">
-            {/* 头部 - 桌面端显示，移动端由父组件MobileMessageArea处理 */}
-            <div className="hidden lg:flex h-16 px-6 items-center justify-between border-b border-[var(--color-border)] bg-[var(--color-surface-elevated)]/80 backdrop-blur-sm shrink-0">
-                <div>
-                    <h2 className="font-semibold text-[var(--color-text)] truncate max-w-[200px]">{currentSession.chat_session_name}</h2>
-                </div>
-                <div className="flex items-center gap-2">
-                    <button
-                        onClick={() => setShowSearch(!showSearch)}
-                        className={`p-2 hover:bg-[var(--color-surface)] rounded-lg transition-colors ${showSearch ? 'bg-[var(--color-primary-light)] text-[var(--color-primary)]' : 'text-[var(--color-text-muted)]'}`}
-                    >
-                        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                        </svg>
-                    </button>
-                    <button
-                        onClick={() => setShowMembersModal(true)}
-                        className="p-2 hover:bg-[var(--color-surface)] rounded-lg transition-colors text-[var(--color-text-muted)]"
-                        title="成员管理"
-                    >
-                        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
-                        </svg>
-                    </button>
-                    <button
-                        onClick={() => setShowSessionInfo(true)}
-                        className="p-2 hover:bg-[var(--color-surface)] rounded-lg transition-colors text-[var(--color-text-muted)]"
-                    >
-                        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z" />
-                        </svg>
-                    </button>
-                </div>
-            </div>
-
-            {/* 移动端头部 - 显示会话名称 */}
-            <div className="lg:hidden h-14 px-4 flex items-center justify-between border-b border-[var(--color-border)] bg-[var(--color-surface-elevated)]/80 backdrop-blur-sm shrink-0">
-                <h2 className="font-semibold text-[var(--color-text)] truncate flex-1">{currentSession.chat_session_name}</h2>
-                <div className="flex items-center gap-2">
-                    <button
-                        onClick={() => setShowSearch(!showSearch)}
-                        className={`p-2 hover:bg-[var(--color-surface)] rounded-lg transition-colors ${showSearch ? 'bg-[var(--color-primary-light)] text-[var(--color-primary)]' : 'text-[var(--color-text-muted)]'}`}
-                    >
-                        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                        </svg>
-                    </button>
-                    <button
-                        onClick={() => setShowMembersModal(true)}
-                        className="p-2 hover:bg-[var(--color-surface)] rounded-lg transition-colors text-[var(--color-text-muted)]"
-                        title="成员管理"
-                    >
-                        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
-                        </svg>
-                    </button>
-                    <button
-                        onClick={() => setShowSessionInfo(true)}
-                        className="p-2 hover:bg-[var(--color-surface)] rounded-lg transition-colors text-[var(--color-text-muted)]"
-                    >
-                        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z" />
-                        </svg>
-                    </button>
-                </div>
-            </div>
-
-            {/* 消息列表 */}
-            <div ref={messagesContainerRef} className="flex-1 overflow-y-auto p-4 md:p-6 space-y-4">
-                {currentMessages.length === 0 ? (
-                    <div className="text-center text-[var(--color-text-muted)] py-10">
-                        <p>暂无消息，发送一条消息开始对话吧</p>
+        <div className="h-full flex relative">
+            {/* 消息主体 */}
+            <div className="flex-1 flex flex-col min-w-0 relative">
+                {/* 头部 - 桌面端显示，移动端由父组件MobileMessageArea处理 */}
+                <div className="hidden lg:flex h-16 px-6 items-center justify-between border-b border-[var(--color-border)] bg-[var(--color-surface-elevated)]/80 backdrop-blur-sm shrink-0">
+                    <div>
+                        <h2 className="font-semibold text-[var(--color-text)] truncate max-w-[200px]">{currentSession.chat_session_name}</h2>
                     </div>
-                ) : (
-                    currentMessages.map((msg, index) => {
-                        const isMe = msg.sender?.user_id === user?.user_id;
-                        const isImageMsg = msg.message?.message_type === 1;
-
-                        return (
-                            <div
-                                key={msg.message_id || index}
-                                className={`flex items-end gap-3 ${isMe ? 'flex-row-reverse' : ''}`}
+                    <div className="flex items-center gap-2">
+                        <button
+                            onClick={() => setShowSearch(!showSearch)}
+                            className={`p-2 hover:bg-[var(--color-surface)] rounded-lg transition-colors ${showSearch ? 'bg-[var(--color-primary-light)] text-[var(--color-primary)]' : 'text-[var(--color-text-muted)]'}`}
+                        >
+                            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                            </svg>
+                        </button>
+                        <button
+                            onClick={() => setShowMembersModal(true)}
+                            className="p-2 hover:bg-[var(--color-surface)] rounded-lg transition-colors text-[var(--color-text-muted)]"
+                            title="成员管理"
+                        >
+                            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
+                            </svg>
+                        </button>
+                        <button
+                            onClick={() => setShowSessionInfo(true)}
+                            className="p-2 hover:bg-[var(--color-surface)] rounded-lg transition-colors text-[var(--color-text-muted)]"
+                        >
+                            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z" />
+                            </svg>
+                        </button>
+                        {onToggleAgentPanel && (
+                            <button
+                                onClick={onToggleAgentPanel}
+                                className={`relative p-2 rounded-lg transition-colors ${showAgentPanel ? 'bg-[var(--color-primary-light)] text-[var(--color-primary)]' : 'text-[var(--color-text-muted)] hover:bg-[var(--color-surface)]'}`}
+                                title={showAgentPanel ? '关闭 Agent 面板' : '打开 Agent 面板'}
                             >
-                                {/* 头像 - 使用 Avatar 组件 */}
-                                <Avatar
-                                    src={msg.sender?.avatar}
-                                    name={msg.sender?.nickname}
-                                    size="md"
-                                    onClick={!isMe ? (e) => handleAvatarClick(msg.sender, e) : undefined}
-                                    className={!isMe ? 'cursor-pointer' : ''}
-                                />
+                                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+                                </svg>
+                                {hasRunningTasks && !showAgentPanel && (
+                                    <span className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 bg-green-500 rounded-full animate-pulse" />
+                                )}
+                            </button>
+                        )}
+                    </div>
+                </div>
 
-                                {/* 消息气泡 */}
-                                <div className={`max-w-[75%] md:max-w-[60%] ${isMe ? 'items-end' : 'items-start'}`}>
-                                    {!isMe && (
-                                        <p className="text-xs text-[var(--color-text-muted)] mb-1 ml-1">
-                                            {msg.sender?.nickname}
-                                        </p>
-                                    )}
-
-                                    <div className={`
-                                        ${isImageMsg ? '' : 'px-4 py-2.5'}
-                                        rounded-2xl
-                                        ${isMe
-                                            ? (isImageMsg ? '' : 'bg-[var(--color-bubble-self)] text-[var(--color-bubble-self-text)]') + ' rounded-br-md'
-                                            : (isImageMsg ? '' : 'bg-[var(--color-bubble-other)] text-[var(--color-bubble-other-text)] shadow-sm') + ' rounded-bl-md'
-                                        }
-                                    `}>
-                                        {renderMessageContent(msg)}
-                                    </div>
-
-                                    <p className={`text-xs text-[var(--color-text-muted)] mt-1 ${isMe ? 'text-right mr-1' : 'ml-1'}`}>
-                                        {formatTime(msg.timestamp)}
-                                        {msg._pending && <span className="ml-1 opacity-50">发送中...</span>}
-                                    </p>
-                                </div>
-                            </div>
-                        );
-                    })
-                )}
-                <div ref={messagesEndRef} />
-            </div>
-
-            {/* 消息输入区 */}
-            <MessageInput
-                onSend={handleSendMessage}
-                onSendImage={handleSendImage}
-                onSendFile={handleSendFile}
-            />
-
-            {/* 搜索栏 */}
-            {showSearch && (
-                <div className="absolute top-16 left-0 right-0 bg-white border-b border-gray-100 p-3 shadow-md z-10">
-                    <div className="flex gap-2">
-                        <input
-                            type="text"
-                            value={searchQuery}
-                            onChange={(e) => setSearchQuery(e.target.value)}
-                            onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
-                            placeholder="搜索消息..."
-                            className="flex-1 px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#0B4F6C]/20 focus:border-[#0B4F6C]"
-                        />
+                {/* 移动端头部 - 显示会话名称 */}
+                <div className="lg:hidden h-14 px-4 flex items-center justify-between border-b border-[var(--color-border)] bg-[var(--color-surface-elevated)]/80 backdrop-blur-sm shrink-0">
+                    <h2 className="font-semibold text-[var(--color-text)] truncate flex-1">{currentSession.chat_session_name}</h2>
+                    <div className="flex items-center gap-2">
                         <button
-                            onClick={handleSearch}
-                            disabled={searching}
-                            className="px-4 py-2 bg-[#0B4F6C] text-white rounded-lg text-sm hover:bg-[#0a4560] transition-colors disabled:opacity-50"
+                            onClick={() => setShowSearch(!showSearch)}
+                            className={`p-2 hover:bg-[var(--color-surface)] rounded-lg transition-colors ${showSearch ? 'bg-[var(--color-primary-light)] text-[var(--color-primary)]' : 'text-[var(--color-text-muted)]'}`}
                         >
-                            {searching ? '...' : '搜索'}
+                            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                            </svg>
                         </button>
                         <button
-                            onClick={() => { setShowSearch(false); setSearchResults([]); setSearchQuery(''); }}
-                            className="px-3 py-2 text-gray-500 hover:bg-gray-100 rounded-lg text-sm"
+                            onClick={() => setShowMembersModal(true)}
+                            className="p-2 hover:bg-[var(--color-surface)] rounded-lg transition-colors text-[var(--color-text-muted)]"
+                            title="成员管理"
                         >
-                            取消
+                            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
+                            </svg>
+                        </button>
+                        <button
+                            onClick={() => setShowSessionInfo(true)}
+                            className="p-2 hover:bg-[var(--color-surface)] rounded-lg transition-colors text-[var(--color-text-muted)]"
+                        >
+                            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z" />
+                            </svg>
                         </button>
                     </div>
-                    {searchResults.length > 0 && (
-                        <div className="mt-2 max-h-60 overflow-y-auto">
-                            <p className="text-xs text-gray-400 mb-2">找到 {searchResults.length} 条结果</p>
-                            {searchResults.map((msg, idx) => (
-                                <div key={idx} className="p-2 hover:bg-gray-50 rounded text-sm">
-                                    <span className="text-gray-400">{msg.sender?.nickname}: </span>
-                                    <span>{msg.message?.string_message?.content || '[消息]'}</span>
-                                </div>
-                            ))}
-                        </div>
-                    )}
                 </div>
-            )}
 
-            {/* 会话信息弹窗 */}
-            {showSessionInfo && (
-                <SessionInfoModal
-                    session={currentSession}
-                    onClose={() => setShowSessionInfo(false)}
+                {/* 消息列表 */}
+                <div ref={messagesContainerRef} className="flex-1 overflow-y-auto p-4 md:p-6 space-y-4">
+                    {currentMessages.length === 0 ? (
+                        <div className="text-center text-[var(--color-text-muted)] py-10">
+                            <p>暂无消息，发送一条消息开始对话吧</p>
+                        </div>
+                    ) : (
+                        currentMessages.map((msg, index) => {
+                            const isMe = msg.sender?.user_id === user?.user_id;
+                            const isImageMsg = msg.message?.message_type === 1;
+
+                            return (
+                                <div
+                                    key={msg.message_id || index}
+                                    className={`flex items-end gap-3 ${isMe ? 'flex-row-reverse' : ''}`}
+                                >
+                                    {/* 头像 - 使用 Avatar 组件 */}
+                                    <Avatar
+                                        src={msg.sender?.avatar}
+                                        name={msg.sender?.nickname}
+                                        size="md"
+                                        onClick={!isMe ? () => handleAvatarClick(msg.sender) : undefined}
+                                        className={!isMe ? 'cursor-pointer' : ''}
+                                    />
+
+                                    {/* 消息气泡 */}
+                                    <div className={`max-w-[75%] md:max-w-[60%] ${isMe ? 'items-end' : 'items-start'}`}>
+                                        {!isMe && (
+                                            <p className="text-xs text-[var(--color-text-muted)] mb-1 ml-1">
+                                                {msg.sender?.nickname}
+                                            </p>
+                                        )}
+
+                                        <div className={`
+                                            ${isImageMsg ? '' : 'px-4 py-2.5'}
+                                            rounded-2xl
+                                            ${isMe
+                                                ? (isImageMsg ? '' : 'bg-[var(--color-bubble-self)] text-[var(--color-bubble-self-text)]') + ' rounded-br-md'
+                                                : (isImageMsg ? '' : 'bg-[var(--color-bubble-other)] text-[var(--color-bubble-other-text)] shadow-sm') + ' rounded-bl-md'
+                                            }
+                                        `}>
+                                            {renderMessageContent(msg)}
+                                        </div>
+
+                                        <p className={`text-xs text-[var(--color-text-muted)] mt-1 ${isMe ? 'text-right mr-1' : 'ml-1'}`}>
+                                            {formatTime(msg.timestamp)}
+                                            {msg._pending && <span className="ml-1 opacity-50">发送中...</span>}
+                                        </p>
+                                    </div>
+                                </div>
+                            );
+                        })
+                    )}
+                    <div ref={messagesEndRef} />
+                </div>
+
+                {/* 消息输入区 */}
+                <MessageInput
+                    onSend={handleSendMessage}
+                    onSendImage={handleSendImage}
+                    onSendFile={handleSendFile}
                 />
-            )}
 
-            {/* 成员管理弹窗 */}
-            {showMembersModal && currentSession && (
-                <SessionMembersModal
-                    chatSessionId={currentSession.chat_session_id}
-                    chatSessionName={currentSession.chat_session_name}
-                    onClose={() => setShowMembersModal(false)}
-                />
-            )}
+                {/* 搜索栏 */}
+                {showSearch && (
+                    <div className="absolute top-16 left-0 right-0 bg-white border-b border-gray-100 p-3 shadow-md z-10">
+                        <div className="flex gap-2">
+                            <input
+                                type="text"
+                                value={searchQuery}
+                                onChange={(e) => setSearchQuery(e.target.value)}
+                                onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
+                                placeholder="搜索消息..."
+                                className="flex-1 px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#0B4F6C]/20 focus:border-[#0B4F6C]"
+                            />
+                            <button
+                                onClick={handleSearch}
+                                disabled={searching}
+                                className="px-4 py-2 bg-[#0B4F6C] text-white rounded-lg text-sm hover:bg-[#0a4560] transition-colors disabled:opacity-50"
+                            >
+                                {searching ? '...' : '搜索'}
+                            </button>
+                            <button
+                                onClick={() => { setShowSearch(false); setSearchResults([]); setSearchQuery(''); }}
+                                className="px-3 py-2 text-gray-500 hover:bg-gray-100 rounded-lg text-sm"
+                            >
+                                取消
+                            </button>
+                        </div>
+                        {searchResults.length > 0 && (
+                            <div className="mt-2 max-h-60 overflow-y-auto">
+                                <p className="text-xs text-gray-400 mb-2">找到 {searchResults.length} 条结果</p>
+                                {searchResults.map((msg, idx) => (
+                                    <div key={idx} className="p-2 hover:bg-gray-50 rounded text-sm">
+                                        <span className="text-gray-400">{msg.sender?.nickname}: </span>
+                                        <span>{msg.message?.string_message?.content || '[消息]'}</span>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                    </div>
+                )}
 
-            {/* 用户信息卡片 */}
-            <AnimatePresence>
-                {selectedUser && (
-                    <UserInfoCard
-                        user={selectedUser}
-                        position={userCardPosition}
-                        onClose={handleCloseUserCard}
-                        onSendMessage={handleSendToUser}
-                        onViewProfile={handleViewUserProfile}
+                {/* 会话信息弹窗 */}
+                {showSessionInfo && (
+                    <SessionInfoModal
+                        session={currentSession}
+                        onClose={() => setShowSessionInfo(false)}
                     />
                 )}
-            </AnimatePresence>
+
+                {/* 成员管理弹窗 */}
+                {showMembersModal && currentSession && (
+                    <SessionMembersModal
+                        chatSessionId={currentSession.chat_session_id}
+                        chatSessionName={currentSession.chat_session_name}
+                        onClose={() => setShowMembersModal(false)}
+                    />
+                )}
+            </div>
+
+            {/* 用户信息弹窗 */}
+            {selectedUser && (
+                <UserInfoCard
+                    user={selectedUser}
+                    onClose={handleCloseUserCard}
+                    onSendMessage={handleSendToUser}
+                    onViewProfile={handleViewUserProfile}
+                />
+            )}
         </div>
     );
 }

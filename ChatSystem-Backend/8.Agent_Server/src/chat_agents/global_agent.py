@@ -1,20 +1,20 @@
 """
-GlobalAgent - 用户个人的全局 Agent
-从左侧边栏打开，独立于聊天会话
+GlobalAgent - 用户个人的全局 Agent（重构版）
+
+从左侧边栏打开，独立于聊天会话。
+支持多会话管理和持久化。
 
 特点：
 1. 用户专属：每个用户有自己的 GlobalAgent
 2. 跨会话：可以访问用户的所有会话数据
-3. 持久对话：维护用户与 Agent 之间的独立对话历史
+3. 会话管理：支持创建、切换、持久化会话
 4. 任务派发：可以创建 TaskAgent 执行具体任务
-
-与 SessionAgent 的区别：
-- GlobalAgent: 用户的私人助手，从左侧边栏访问，跨会话
-- SessionAgent: 群聊/单聊中的成员，在特定会话中活动
 """
 import asyncio
 import uuid
 from typing import Optional, AsyncIterator, Any, Annotated, List, Dict
+from datetime import datetime, timezone
+from dataclasses import dataclass
 from loguru import logger
 
 from agents import (
@@ -28,7 +28,11 @@ from agents import (
     Tool,
     function_tool,
 )
-from openai.types.responses import ResponseTextDeltaEvent
+from agents.items import ReasoningItem
+from openai.types.responses import (
+    ResponseTextDeltaEvent,
+    ResponseFunctionCallArgumentsDeltaEvent,
+)
 
 import sys
 from pathlib import Path
@@ -38,6 +42,13 @@ if str(src_dir) not in sys.path:
 
 from config import settings
 from runtime import sse_bus, task_manager, Task, TaskStatus
+from runtime.redis_client import redis_cache, RedisKeys
+from runtime.dual_writer import (
+    dual_writer,
+    TaskRecord,
+    ThoughtChainNode,
+    ThoughtChainNodeType,
+)
 from providers import get_default_provider
 from tools.sdk_tools import (
     web_search, web_open, web_find, 
@@ -52,6 +63,8 @@ from tools.db_tools import (
     get_user_info,
     search_messages,
     get_user_sessions,
+    get_db_pool,
+    execute_query,
 )
 
 
@@ -83,6 +96,11 @@ GLOBAL_AGENT_SYSTEM_PROMPT = """你是用户的私人 AI 助手。你可以帮�
 ### 代码执行
 - `python_execute(code)` - 执行 Python 代码（需审批）
 
+## 输出格式
+- 使用 Markdown 格式输出
+- 支持代码块、列表、表格
+- 复杂分析可用 mermaid 图表
+
 ## 使用指南
 1. 当用户询问聊天相关内容时，先用 `get_user_sessions` 找到相关会话
 2. 然后用 `get_chat_history` 或 `search_messages` 获取具体内容
@@ -106,22 +124,85 @@ def get_pending_global_task(parent_task_id: str) -> Optional[dict]:
     return _pending_global_tasks.pop(parent_task_id, None)
 
 
+@dataclass
+class GlobalAgentConversation:
+    """Global Agent 会话"""
+    conversation_id: str
+    user_id: str
+    title: str
+    created_at: str
+    updated_at: str
+    
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "conversation_id": self.conversation_id,
+            "user_id": self.user_id,
+            "title": self.title,
+            "created_at": self.created_at,
+            "updated_at": self.updated_at
+        }
+
+
+@dataclass
+class GlobalStreamState:
+    """Global Agent 流式处理状态"""
+    task_id: str
+    user_id: str
+    conversation_id: str
+    
+    # 内容累积
+    full_response: str = ""
+    reasoning_content: str = ""
+    
+    # ThoughtChain 追踪
+    thought_chain_sequence: int = 0
+    current_chain_id: Optional[str] = None
+    
+    # 工具调用追踪
+    tool_calls: List[Dict[str, Any]] = None
+    
+    def __post_init__(self):
+        if self.tool_calls is None:
+            self.tool_calls = []
+
+
 class GlobalAgentHooks(AgentHooks):
     """GlobalAgent 生命周期钩子"""
     
-    def __init__(self, task_id: str, user_id: str):
-        self.task_id = task_id
-        self.user_id = user_id
+    def __init__(self, state: GlobalStreamState):
+        self.state = state
     
     async def on_start(self, context: AgentHookContext, agent: Agent) -> None:
-        logger.info(f"[{self.task_id}] GlobalAgent started for user {self.user_id}")
+        logger.info(f"[{self.state.task_id}] GlobalAgent started for user {self.state.user_id}")
     
     async def on_end(self, context: RunContextWrapper, agent: Agent, output: Any) -> None:
-        logger.info(f"[{self.task_id}] GlobalAgent ended")
+        logger.info(f"[{self.state.task_id}] GlobalAgent ended")
     
     async def on_tool_start(self, context: RunContextWrapper, agent: Agent, tool: Tool) -> None:
-        logger.info(f"[{self.task_id}] Tool {tool.name} started")
-        await sse_bus.publish(self.task_id, "tool_call", {
+        logger.info(f"[{self.state.task_id}] Tool {tool.name} started")
+        
+        # 创建 ThoughtChain 节点
+        chain_id = str(uuid.uuid4())
+        self.state.current_chain_id = chain_id
+        self.state.thought_chain_sequence += 1
+        
+        node = ThoughtChainNode(
+            chain_id=chain_id,
+            task_id=self.state.task_id,
+            node_type=ThoughtChainNodeType.TOOL_CALL.value,
+            title=f"调用工具: {tool.name}",
+            status="running",
+            sequence=self.state.thought_chain_sequence
+        )
+        await dual_writer.write_thought_chain_node(node)
+        
+        # 发送 thought_chain SSE 事件
+        await sse_bus.publish(self.state.task_id, "thought_chain", {
+            "node": node.to_dict()
+        })
+        
+        await sse_bus.publish(self.state.task_id, "tool_call", {
+            "chain_id": chain_id,
             "tool_name": tool.name,
             "status": "executing"
         })
@@ -129,12 +210,29 @@ class GlobalAgentHooks(AgentHooks):
     async def on_tool_end(
         self, context: RunContextWrapper, agent: Agent, tool: Tool, result: str
     ) -> None:
-        logger.info(f"[{self.task_id}] Tool {tool.name} ended")
-        await sse_bus.publish(self.task_id, "tool_output", {
+        logger.info(f"[{self.state.task_id}] Tool {tool.name} ended")
+        
+        if self.state.current_chain_id:
+            await dual_writer.update_thought_chain_status(
+                self.state.current_chain_id,
+                "success",
+                result[:2000] if len(result) > 2000 else result
+            )
+            # 发送 thought_chain_update SSE 事件
+            await sse_bus.publish(self.state.task_id, "thought_chain_update", {
+                "chain_id": self.state.current_chain_id,
+                "status": "success",
+                "content": result[:2000] if len(result) > 2000 else result
+            })
+        
+        await sse_bus.publish(self.state.task_id, "tool_output", {
+            "chain_id": self.state.current_chain_id,
             "tool_name": tool.name,
             "result_preview": result[:500] if len(result) > 500 else result,
             "status": "completed"
         })
+        
+        self.state.current_chain_id = None
 
 
 # 创建任务的工具（GlobalAgent 专用）
@@ -146,26 +244,12 @@ async def create_global_task(
     """
     创建一个后台任务来执行复杂的多步骤工作。
     任务会在后台运行，用户可以在任务面板查看进度。
-    
-    使用场景：
-    - 需要分析多个会话的复杂任务
-    - 需要搜索+分析+总结的研究任务
-    - 需要执行多段代码的数据处理
-    - 任何需要较长时间的复杂工作
-    
-    参数：
-    - description: 任务描述
-    - target_session_id: 如果任务与特定会话相关，提供会话 ID
-    
-    返回任务 ID，用户可以用它查看任务进度。
     """
     parent_task_id = current_task_id.get()
     user_id = current_user_id.get()
     
-    # 创建子任务
     child_task_id = f"task_{uuid.uuid4().hex[:12]}"
     
-    # 存储待执行任务信息
     _pending_global_tasks[parent_task_id] = {
         "child_task_id": child_task_id,
         "description": description,
@@ -173,7 +257,6 @@ async def create_global_task(
         "chat_session_id": target_session_id
     }
     
-    # 通知前端有新任务创建
     await sse_bus.publish(parent_task_id, "task_created", {
         "task_id": child_task_id,
         "description": description,
@@ -186,41 +269,258 @@ async def create_global_task(
     return f"任务已创建，ID: {child_task_id}。您可以在右侧任务面板查看进度。"
 
 
-def create_global_agent(task_id: str, user_id: str) -> Agent:
-    """
-    创建全局 Agent 实例
+# ==================== 会话管理 API ====================
+
+class GlobalAgentConversationService:
+    """Global Agent 会话管理服务"""
     
-    Args:
-        task_id: 任务 ID
-        user_id: 用户 ID
-    """
-    # 设置工具执行上下文
-    set_tool_context(task_id, user_id)
+    async def create_conversation(
+        self,
+        user_id: str,
+        title: str = "新对话",
+        conversation_id: Optional[str] = None
+    ) -> GlobalAgentConversation:
+        """创建新会话"""
+        conversation_id = conversation_id or str(uuid.uuid4())
+        now = datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S')
+        
+        try:
+            pool = await get_db_pool()
+            async with pool.acquire() as conn:
+                async with conn.cursor() as cursor:
+                    sql = """
+                        INSERT INTO agent_conversation 
+                        (conversation_id, user_id, title, created_at, updated_at)
+                        VALUES (%s, %s, %s, %s, %s)
+                    """
+                    await cursor.execute(sql, (conversation_id, user_id, title, now, now))
+                    await conn.commit()
+            
+            logger.info(f"Created global agent conversation: {conversation_id}")
+            return GlobalAgentConversation(
+                conversation_id=conversation_id,
+                user_id=user_id,
+                title=title,
+                created_at=now,
+                updated_at=now
+            )
+        except Exception as e:
+            logger.error(f"Failed to create conversation: {e}")
+            raise
     
-    # 构建带用户信息的系统提示词
+    async def get_conversation(
+        self,
+        conversation_id: str
+    ) -> Optional[GlobalAgentConversation]:
+        """获取会话"""
+        try:
+            rows = await execute_query(
+                "SELECT * FROM agent_conversation WHERE conversation_id = %s",
+                (conversation_id,)
+            )
+            if rows:
+                row = rows[0]
+                return GlobalAgentConversation(
+                    conversation_id=row['conversation_id'],
+                    user_id=row['user_id'],
+                    title=row['title'],
+                    created_at=str(row['created_at']),
+                    updated_at=str(row['updated_at'])
+                )
+            return None
+        except Exception as e:
+            logger.error(f"Failed to get conversation: {e}")
+            return None
+    
+    async def list_conversations(
+        self,
+        user_id: str,
+        limit: int = 50
+    ) -> List[GlobalAgentConversation]:
+        """列出用户的所有会话"""
+        try:
+            rows = await execute_query(
+                """SELECT * FROM agent_conversation 
+                   WHERE user_id = %s 
+                   ORDER BY updated_at DESC 
+                   LIMIT %s""",
+                (user_id, limit)
+            )
+            return [
+                GlobalAgentConversation(
+                    conversation_id=row['conversation_id'],
+                    user_id=row['user_id'],
+                    title=row['title'],
+                    created_at=str(row['created_at']),
+                    updated_at=str(row['updated_at'])
+                )
+                for row in rows
+            ]
+        except Exception as e:
+            logger.error(f"Failed to list conversations: {e}")
+            return []
+    
+    async def update_conversation_title(
+        self,
+        conversation_id: str,
+        title: str
+    ) -> bool:
+        """更新会话标题"""
+        try:
+            pool = await get_db_pool()
+            async with pool.acquire() as conn:
+                async with conn.cursor() as cursor:
+                    sql = "UPDATE agent_conversation SET title = %s WHERE conversation_id = %s"
+                    await cursor.execute(sql, (title, conversation_id))
+                    await conn.commit()
+            return True
+        except Exception as e:
+            logger.error(f"Failed to update conversation title: {e}")
+            return False
+    
+    async def delete_conversation(
+        self,
+        conversation_id: str
+    ) -> bool:
+        """删除会话"""
+        try:
+            pool = await get_db_pool()
+            async with pool.acquire() as conn:
+                async with conn.cursor() as cursor:
+                    # 消息会通过外键级联删除
+                    sql = "DELETE FROM agent_conversation WHERE conversation_id = %s"
+                    await cursor.execute(sql, (conversation_id,))
+                    await conn.commit()
+            
+            # 清除 Redis 缓存
+            cache_key = f"agent:global:*:{conversation_id}"
+            # Note: 这里简化处理，实际可能需要扫描删除
+            
+            logger.info(f"Deleted global agent conversation: {conversation_id}")
+            return True
+        except Exception as e:
+            logger.error(f"Failed to delete conversation: {e}")
+            return False
+    
+    async def add_message(
+        self,
+        conversation_id: str,
+        role: str,
+        content: str,
+        metadata: Optional[Dict] = None
+    ) -> str:
+        """添加消息到会话"""
+        message_id = str(uuid.uuid4())
+        
+        try:
+            pool = await get_db_pool()
+            async with pool.acquire() as conn:
+                async with conn.cursor() as cursor:
+                    sql = """
+                        INSERT INTO agent_conversation_message 
+                        (message_id, conversation_id, role, content, metadata)
+                        VALUES (%s, %s, %s, %s, %s)
+                    """
+                    import json
+                    metadata_json = json.dumps(metadata, ensure_ascii=False) if metadata else None
+                    await cursor.execute(sql, (message_id, conversation_id, role, content, metadata_json))
+                    
+                    # 更新会话的 updated_at
+                    await cursor.execute(
+                        "UPDATE agent_conversation SET updated_at = NOW() WHERE conversation_id = %s",
+                        (conversation_id,)
+                    )
+                    await conn.commit()
+            
+            # 同时写入 Redis 缓存
+            # 获取 user_id
+            conv = await self.get_conversation(conversation_id)
+            if conv:
+                cache_key = RedisKeys.global_conversation(conv.user_id, conversation_id)
+                await redis_cache.rpush(cache_key, {
+                    "message_id": message_id,
+                    "role": role,
+                    "content": content,
+                    "metadata": metadata
+                }, ttl=settings.redis_context_ttl)
+            
+            return message_id
+        except Exception as e:
+            logger.error(f"Failed to add message: {e}")
+            raise
+    
+    async def get_messages(
+        self,
+        conversation_id: str,
+        limit: int = 50
+    ) -> List[Dict[str, Any]]:
+        """获取会话消息"""
+        try:
+            # 先尝试从 Redis 获取
+            conv = await self.get_conversation(conversation_id)
+            if conv:
+                cache_key = RedisKeys.global_conversation(conv.user_id, conversation_id)
+                cached = await redis_cache.lrange(cache_key, -limit, -1)
+                if cached:
+                    return cached
+            
+            # 从 MySQL 获取
+            rows = await execute_query(
+                """SELECT * FROM agent_conversation_message 
+                   WHERE conversation_id = %s 
+                   ORDER BY created_at DESC 
+                   LIMIT %s""",
+                (conversation_id, limit)
+            )
+            
+            import json
+            messages = []
+            for row in reversed(rows):  # 反转顺序
+                metadata = row.get('metadata')
+                if metadata and isinstance(metadata, str):
+                    metadata = json.loads(metadata)
+                messages.append({
+                    "message_id": row['message_id'],
+                    "role": row['role'],
+                    "content": row['content'],
+                    "metadata": metadata,
+                    "created_at": str(row['created_at'])
+                })
+            
+            return messages
+        except Exception as e:
+            logger.error(f"Failed to get messages: {e}")
+            return []
+
+
+# 全局会话服务实例
+global_conversation_service = GlobalAgentConversationService()
+
+
+# ==================== Agent 运行 ====================
+
+def create_global_agent(state: GlobalStreamState) -> Agent:
+    """创建全局 Agent 实例"""
+    set_tool_context(state.task_id, state.user_id)
+    
     instructions = GLOBAL_AGENT_SYSTEM_PROMPT + f"""
 
 ## 当前用户
-- 用户 ID: {user_id}
+- 用户 ID: {state.user_id}
 
 使用数据库工具时，可以直接使用此用户 ID 查询用户相关数据。
 """
     
-    # GlobalAgent 工具集
     tools = [
-        # 数据库工具（访问用户数据）
         get_user_sessions,
         get_chat_history,
         get_session_members,
         get_user_info,
         search_messages,
-        # 任务管理
         create_global_task,
-        # 信息检索
         web_search,
         web_open,
         web_find,
-        # 代码执行
         python_execute_with_approval,
     ]
     
@@ -228,20 +528,16 @@ def create_global_agent(task_id: str, user_id: str) -> Agent:
         name="GlobalAgent",
         instructions=instructions,
         tools=tools,
-        hooks=GlobalAgentHooks(task_id, user_id),
+        hooks=GlobalAgentHooks(state),
     )
 
 
 def _build_input_from_history(chat_history: Optional[List[Dict]], new_input: str):
-    """
-    将聊天历史 + 新输入转换为 Runner 的 input 格式。
-    支持多轮对话：input 可以是 str 或 list[TResponseInputItem]。
-    格式: [{"role": "user"|"assistant", "content": "..."}, ...]
-    """
+    """将聊天历史 + 新输入转换为 Runner 的 input 格式"""
     if not chat_history:
         return new_input
     items = []
-    for msg in chat_history[-20:]:  # 最多取最近 20 条
+    for msg in chat_history[-20:]:
         role = msg.get("role", "user")
         content = msg.get("content", "")
         if content:
@@ -254,37 +550,90 @@ def _build_input_from_history(chat_history: Optional[List[Dict]], new_input: str
 
 async def run_global_agent(
     task: Task,
+    conversation_id: Optional[str] = None,
     chat_history: Optional[List[Dict]] = None
 ) -> AsyncIterator[dict]:
     """
     运行全局 Agent（流式）
     
-    这是用户的私人助手，从左侧边栏打开。
-    支持多轮对话：传入 chat_history 时会将历史 + 新输入一起传给模型。
+    支持会话持久化：
+    - 传入 conversation_id 时，会从数据库加载历史并保存新消息
+    - 不传时，使用传入的 chat_history（内存模式）
     """
     task_id = task.id
     user_id = task.user_id
     
-    logger.info(f"Starting GlobalAgent for task {task_id}, user={user_id}, history_len={len(chat_history or [])}")
+    # 如果没有 conversation_id，自动创建会话
+    if not conversation_id:
+        conversation_id = str(uuid.uuid4())
+        # 创建会话记录到数据库
+        try:
+            await global_conversation_service.create_conversation(
+                user_id=user_id,
+                conversation_id=conversation_id,
+                title=task.input_text[:50] if task.input_text else "新对话"
+            )
+            logger.info(f"Created new conversation: {conversation_id}")
+        except Exception as e:
+            logger.warning(f"Failed to create conversation record: {e}")
+    else:
+        # 确保会话存在，如果不存在则创建
+        existing = await global_conversation_service.get_conversation(conversation_id)
+        if not existing:
+            try:
+                await global_conversation_service.create_conversation(
+                    user_id=user_id,
+                    conversation_id=conversation_id,
+                    title=task.input_text[:50] if task.input_text else "新对话"
+                )
+                logger.info(f"Created missing conversation: {conversation_id}")
+            except Exception as e:
+                logger.warning(f"Failed to create missing conversation: {e}")
+    
+    logger.info(f"Starting GlobalAgent for task {task_id}, user={user_id}, conversation={conversation_id}")
+    
+    # 创建流式状态
+    state = GlobalStreamState(
+        task_id=task_id,
+        user_id=user_id,
+        conversation_id=conversation_id
+    )
     
     try:
         # 更新状态为运行中
         await task_manager.update_task_status(task_id, TaskStatus.RUNNING)
         
+        # 记录任务到数据库
+        task_record = TaskRecord(
+            task_id=task_id,
+            user_id=user_id,
+            task_type="global",
+            status="running",
+            conversation_id=conversation_id,
+            input_text=task.input_text
+        )
+        await dual_writer.write_task(task_record)
+        
         # 发送初始化事件
         await sse_bus.publish(task_id, "init", {
             "task_id": task_id,
             "task_type": "global_agent",
-            "user_id": user_id
+            "user_id": user_id,
+            "conversation_id": conversation_id
         })
         
+        # 获取聊天历史
+        if not chat_history:
+            # 尝试从数据库加载
+            chat_history = await global_conversation_service.get_messages(conversation_id)
+        
         # 创建 Agent
-        agent = create_global_agent(task_id, user_id)
+        agent = create_global_agent(state)
         
         # 获取模型提供者
         provider = get_default_provider()
         
-        # 构建输入（多轮时传入历史 + 新消息）
+        # 构建输入
         runner_input = _build_input_from_history(chat_history, task.input_text)
         
         # 运行流式 Agent
@@ -295,41 +644,101 @@ async def run_global_agent(
             run_config=run_config
         )
         
-        # 收集完整响应
-        full_response = ""
+        # 追踪状态
+        reasoning_started = False
+        output_started = False
+        event_sequence = 0
         
         # 处理流式事件
         async for event in result.stream_events():
-            # 处理文本增量
+            event_sequence += 1
+            
             if event.type == "raw_response_event":
-                if isinstance(event.data, ResponseTextDeltaEvent):
-                    delta = event.data.delta
+                data = event.data
+                
+                # Reasoning 内容
+                if data.type == "response.reasoning_text.delta":
+                    delta = data.delta
                     if delta:
-                        full_response += delta
-                        # 发送消息增量
-                        await sse_bus.publish(task_id, "message", {
+                        if not reasoning_started:
+                            reasoning_started = True
+                            state.thought_chain_sequence += 1
+                            chain_id = str(uuid.uuid4())
+                            node = ThoughtChainNode(
+                                chain_id=chain_id,
+                                task_id=task_id,
+                                node_type=ThoughtChainNodeType.REASONING.value,
+                                title="思考中...",
+                                status="running",
+                                sequence=state.thought_chain_sequence
+                            )
+                            await dual_writer.write_thought_chain_node(node)
+                            state.current_chain_id = chain_id
+                            
+                            # 发送 thought_chain SSE 事件
+                            await sse_bus.publish(task_id, "thought_chain", {
+                                "node": node.to_dict()
+                            })
+                        
+                        state.reasoning_content += delta
+                        await sse_bus.publish(task_id, "reasoning_delta", {
                             "content": delta,
                             "delta": True
                         })
+                        yield {"type": "reasoning_delta", "content": delta}
+                
+                # 输出文本增量
+                elif isinstance(data, ResponseTextDeltaEvent):
+                    delta = data.delta
+                    if delta:
+                        if reasoning_started and not output_started:
+                            output_started = True
+                            if state.current_chain_id:
+                                await dual_writer.update_thought_chain_status(
+                                    state.current_chain_id,
+                                    "success",
+                                    state.reasoning_content[:2000]
+                                )
+                                # 发送 thought_chain_update SSE 事件
+                                await sse_bus.publish(task_id, "thought_chain_update", {
+                                    "chain_id": state.current_chain_id,
+                                    "status": "success",
+                                    "content": state.reasoning_content[:2000]
+                                })
+                        
+                        state.full_response += delta
+                        await sse_bus.publish(task_id, "message", {
+                            "content": delta,
+                            "delta": True,
+                            "format": "xmarkdown"
+                        })
                         yield {"type": "message_delta", "content": delta}
             
-            # 处理 run_item 事件
             elif event.type == "run_item_stream_event":
                 if event.item.type == "tool_call_item":
                     tool_name = getattr(event.item.raw_item, 'name', 'unknown')
-                    logger.info(f"Tool called: {tool_name}")
-                    
-                elif event.item.type == "tool_call_output_item":
-                    output = event.item.output
-                    logger.info(f"Tool output received: {output[:100]}...")
+                    logger.debug(f"Tool called: {tool_name}")
         
         # 流结束后处理
-        final_text = full_response.strip() if full_response else "处理完成"
+        final_text = state.full_response.strip() if state.full_response else "处理完成"
+        
+        # 保存消息到会话（如果是持久化会话）
+        try:
+            # 保存用户消息
+            await global_conversation_service.add_message(
+                conversation_id, "user", task.input_text
+            )
+            # 保存助手消息
+            await global_conversation_service.add_message(
+                conversation_id, "assistant", final_text,
+                metadata={"thinking": state.reasoning_content[:2000]} if state.reasoning_content else None
+            )
+        except Exception as e:
+            logger.warning(f"Failed to persist messages: {e}")
         
         # 检查是否有创建的子任务需要启动
         pending = get_pending_global_task(task_id)
         if pending:
-            # 启动子任务（在后台）
             from .task_agent import run_task_agent
             
             child_task = Task(
@@ -340,7 +749,6 @@ async def run_global_agent(
                 chat_session_id=pending.get("chat_session_id")
             )
             
-            # 注册子任务
             await task_manager.create_task(
                 task_id=child_task.id,
                 user_id=child_task.user_id,
@@ -349,39 +757,28 @@ async def run_global_agent(
                 chat_session_id=child_task.chat_session_id
             )
             
-            # 在后台运行子任务
             asyncio.create_task(_run_global_child_task(child_task))
-            
             logger.info(f"Started global child task {child_task.id}")
         
         # 更新任务状态
-        await task_manager.update_task_status(
-            task_id,
-            TaskStatus.DONE,
-            result=final_text
-        )
+        await task_manager.update_task_status(task_id, TaskStatus.DONE, result=final_text)
+        await dual_writer.update_task_status(task_id, "completed", result=final_text)
         
         # 发送完成事件
         await sse_bus.publish(task_id, "done", {
-            "final_text": final_text
+            "final_text": final_text,
+            "conversation_id": conversation_id
         })
         
-        yield {"type": "done", "result": final_text}
+        yield {"type": "done", "result": final_text, "conversation_id": conversation_id}
         
     except Exception as e:
         logger.error(f"GlobalAgent error: {e}", exc_info=True)
         
-        # 更新任务状态为失败
-        await task_manager.update_task_status(
-            task_id,
-            TaskStatus.FAILED,
-            error=str(e)
-        )
+        await task_manager.update_task_status(task_id, TaskStatus.FAILED, error=str(e))
+        await dual_writer.update_task_status(task_id, "failed", error=str(e))
         
-        # 发送错误事件
-        await sse_bus.publish(task_id, "error", {
-            "message": str(e)
-        })
+        await sse_bus.publish(task_id, "error", {"message": str(e)})
         
         yield {"type": "error", "error": str(e)}
 
@@ -392,19 +789,21 @@ async def _run_global_child_task(task: Task):
     
     try:
         async for _ in run_task_agent(task):
-            pass  # 消费所有事件
+            pass
     except Exception as e:
         logger.error(f"Global child task {task.id} failed: {e}")
 
 
-# Agent 配置（用于导出）
-global_agent_config = {
-    "name": "global_agent",
-    "instructions": GLOBAL_AGENT_SYSTEM_PROMPT,
-    "model": settings.openrouter_model,
-    "tools": [
-        "get_user_sessions", "get_chat_history", "get_session_members",
-        "get_user_info", "search_messages", "create_global_task",
-        "web_search", "web_open", "web_find", "python_execute"
-    ]
-}
+# 导出配置
+def get_global_agent_config() -> dict:
+    """获取 GlobalAgent 配置"""
+    return {
+        "name": "global_agent",
+        "instructions": GLOBAL_AGENT_SYSTEM_PROMPT,
+        "model": settings.openrouter_model,
+        "tools": [
+            "get_user_sessions", "get_chat_history", "get_session_members",
+            "get_user_info", "search_messages", "create_global_task",
+            "web_search", "web_open", "web_find", "python_execute"
+        ]
+    }

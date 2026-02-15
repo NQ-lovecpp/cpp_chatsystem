@@ -5,6 +5,7 @@
  */
 
 import { useState, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { motion } from 'motion/react';
 import { useAuth } from '../contexts/AuthContext';
 import { setNickname, setDescription, setAvatar, getUserInfo } from '../api/userApi';
@@ -134,8 +135,8 @@ export default function UserProfileModal({ onClose }) {
         }
     };
 
-    return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+    return createPortal(
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/50 backdrop-blur-sm">
             <motion.div 
                 className="bg-[var(--color-surface-elevated)] rounded-2xl shadow-2xl w-full max-w-md mx-4 overflow-hidden"
                 initial={{ opacity: 0, scale: 0.95 }}
@@ -309,6 +310,7 @@ export default function UserProfileModal({ onClose }) {
                     )}
                 </div>
             </motion.div>
-        </div>
+        </div>,
+        document.body
     );
 }

@@ -75,7 +75,12 @@ async def main():
         result = await Runner.run(
             first_agent,
             input=result.to_input_list()
-            + [{"content": "Can you generate a random number between 0 and 100?", "role": "user"}],
+            + [ 
+                {
+                    "content": "Can you generate a random number between 0 and 100?", 
+                    "role": "user"
+                }
+              ],
         )
 
         print("Step 2 done")

@@ -12,6 +12,7 @@
   "dependencies": {
     "@ant-design/icons": "^6.1.0",
     "@ant-design/x": "^2.2.2",
+    "@ant-design/x-markdown": "^2.2.2",
     "antd": "^6.3.0",
     "click-to-react-component": "^1.1.3",
     "dayjs": "^1.11.19",

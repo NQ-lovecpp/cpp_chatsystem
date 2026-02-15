@@ -16,6 +16,7 @@
  */
 
 import { useState, useCallback } from 'react';
+import { motion, AnimatePresence } from 'motion/react';
 import { useAuth } from '../contexts/AuthContext';
 import { ChatProvider, useChat } from '../contexts/ChatContext';
 import { AgentProvider, useAgent } from '../contexts/AgentContext';
@@ -24,7 +25,7 @@ import SessionList from '../components/SessionList';
 import MessageArea from '../components/MessageArea';
 import FriendList from '../components/FriendList';
 import SettingsPanel from '../components/SettingsPanel';
-import { TaskSidebar, TaskDetailPanel, GlobalAgentChat, GlobalAgentSidePanel } from '../components/agent';
+import { TaskSidebar, GlobalAgentChat, GlobalAgentSidePanel } from '../components/agent';
 import ApprovalModalAntd from '../components/agent/ApprovalModalAntd';
 
 // 移动端消息区域包装组件
@@ -48,32 +49,6 @@ function MobileMessageArea({ onBack }) {
     );
 }
 
-// Agent 面板切换按钮
-function AgentToggleButton({ showAgentPanel, setShowAgentPanel, hasRunningTasks }) {
-    return (
-        <div className="hidden lg:flex items-center shrink-0">
-            <button
-                onClick={() => setShowAgentPanel(!showAgentPanel)}
-                className={`
-                    relative p-2 rounded-l-lg transition-all duration-200
-                    ${showAgentPanel 
-                        ? 'bg-[var(--color-primary)] text-white shadow-md' 
-                        : 'bg-[var(--color-surface-elevated)] hover:bg-[var(--color-surface)] text-[var(--color-text-secondary)] border border-r-0 border-[var(--color-border)]'
-                    }
-                `}
-                title={showAgentPanel ? '关闭 Agent 面板' : '打开 Agent 面板'}
-            >
-                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
-                </svg>
-                {hasRunningTasks && !showAgentPanel && (
-                    <span className="absolute -top-1 -right-1 w-3 h-3 bg-green-500 rounded-full border-2 border-[var(--color-surface-elevated)] animate-pulse" />
-                )}
-            </button>
-        </div>
-    );
-}
-
 // 将聊天消息转为 Agent 所需的 chat_history 格式 [{role, content}, ...]
 function messagesToChatHistory(messages, currentUserId) {
     if (!messages?.length || !currentUserId) return [];
@@ -85,7 +60,7 @@ function messagesToChatHistory(messages, currentUserId) {
         }));
 }
 
-// 右侧 Agent 面板（桌面端）- Chat 标签下的 SessionAgent
+// 右侧 Agent 面板（桌面端）- Chat 标签下仅显示任务中心
 function AgentSidePanel() {
     const { currentSession, currentMessages } = useChat();
     const { user } = useAuth();
@@ -94,18 +69,11 @@ function AgentSidePanel() {
 
     return (
         <div className="flex flex-col h-full min-h-0">
-            {/* 上方：任务详情 */}
-            <div className="flex-1 min-h-0 overflow-hidden">
-                <TaskDetailPanel />
-            </div>
-            {/* 下方：任务列表（仅展示当前会话的 session/task 任务） */}
-            <div className="h-[280px] border-t border-[var(--color-border)] shrink-0 overflow-hidden">
-                <TaskSidebar 
-                    className="h-full" 
-                    chatSessionId={chatSessionId} 
-                    chatHistory={chatHistory} 
-                />
-            </div>
+            <TaskSidebar 
+                className="h-full" 
+                chatSessionId={chatSessionId} 
+                chatHistory={chatHistory} 
+            />
         </div>
     );
 }
@@ -152,7 +120,7 @@ function ChatPageContent() {
             </div>
 
             {/* 主内容区域 */}
-            <div className="flex flex-1 relative z-10 min-w-0 p-0 md:p-3 gap-0 md:gap-3">
+            <div className="flex flex-1 relative z-10 min-w-0 p-0 md:p-3 md:pl-0 gap-0">
 
                 {isSettingsTab ? (
                     /* ===== 设置面板：独占全宽 ===== */
@@ -166,7 +134,7 @@ function ChatPageContent() {
                         {activeTab !== 'agent' && (
                             <div className={`
                                 w-full md:w-80 lg:w-80 shrink-0
-                                md:rounded-2xl border-r md:border border-[var(--color-border)] 
+                                md:rounded-l-2xl border-r md:border md:border-r-0 border-[var(--color-border)]
                                 bg-[var(--color-surface-elevated)]/95 backdrop-blur-xl flex flex-col
                                 ${showMobileChat ? 'hidden lg:flex' : 'flex'}
                                 pb-16 md:pb-0 overflow-hidden
@@ -179,7 +147,7 @@ function ChatPageContent() {
 
                         {/* 右列：消息区域 + Agent 面板 */}
                         <div className={`
-                            flex-1 md:rounded-2xl md:border border-[var(--color-border)]
+                            flex-1 md:rounded-r-2xl md:border md:border-l-0 border-[var(--color-border)]
                             bg-[var(--color-surface)]/60 backdrop-blur-sm min-w-0
                             ${showMobileChat ? 'flex' : 'hidden lg:flex'}
                             flex-col overflow-hidden
@@ -192,26 +160,33 @@ function ChatPageContent() {
                                     {/* 消息区域 - 始终可见，flex-1 自适应 */}
                                     <div className="flex-1 flex flex-col min-w-0 min-h-0">
                                         <div className="hidden lg:flex flex-col h-full min-h-0">
-                                            <MessageArea />
+                                            <MessageArea
+                                                showAgentPanel={showAgentPanel}
+                                                onToggleAgentPanel={() => setShowAgentPanel(v => !v)}
+                                                hasRunningTasks={hasRunningTasks}
+                                            />
                                         </div>
                                         <div className="lg:hidden flex flex-col h-full min-h-0">
                                             <MobileMessageArea onBack={handleMobileBack} />
                                         </div>
                                     </div>
-                                    
-                                    {/* Agent 切换按钮 */}
-                                    <AgentToggleButton 
-                                        showAgentPanel={showAgentPanel}
-                                        setShowAgentPanel={setShowAgentPanel}
-                                        hasRunningTasks={hasRunningTasks}
-                                    />
-                                    
-                                    {/* Agent 右侧面板 */}
-                                    {showAgentPanel && (
-                                        <div className="hidden lg:flex w-[320px] xl:w-[360px] border-l border-[var(--color-border)] flex-col shrink-0 min-h-0">
-                                            <AgentSidePanel />
-                                        </div>
-                                    )}
+
+                                    {/* Agent 右侧面板（带滑入动画） */}
+                                    <AnimatePresence>
+                                        {showAgentPanel && (
+                                            <motion.div
+                                                initial={{ width: 0, opacity: 0 }}
+                                                animate={{ width: 340, opacity: 1 }}
+                                                exit={{ width: 0, opacity: 0 }}
+                                                transition={{ type: 'spring', stiffness: 400, damping: 30 }}
+                                                className="hidden lg:flex border-l border-[var(--color-border)] flex-col shrink-0 min-h-0 overflow-hidden"
+                                            >
+                                                <div className="w-[340px] h-full">
+                                                    <AgentSidePanel />
+                                                </div>
+                                            </motion.div>
+                                        )}
+                                    </AnimatePresence>
                                 </div>
                             )}
 

@@ -17,7 +17,7 @@ from loguru import logger
 import uvicorn
 
 from config import settings
-from routers import tasks_router, events_router, approvals_router
+from routers import tasks_router, events_router, approvals_router, agent_router
 
 
 # 配置日志
@@ -65,6 +65,48 @@ async def global_exception_handler(request: Request, exc: Exception):
 app.include_router(tasks_router, prefix="/agent")
 app.include_router(events_router, prefix="/agent")
 app.include_router(approvals_router, prefix="/agent")
+app.include_router(agent_router, prefix="/agent")
+
+
+# 启动事件
+@app.on_event("startup")
+async def startup_event():
+    """服务启动时初始化"""
+    # 初始化 Agent 用户
+    from services.agent_user_service import agent_user_service
+    try:
+        await agent_user_service.ensure_agent_users()
+        logger.info("Agent users initialized successfully")
+    except Exception as e:
+        logger.warning(f"Failed to initialize agent users: {e}")
+    
+    # 启动 DualWriter 后台写入器
+    from runtime.dual_writer import dual_writer
+    try:
+        await dual_writer.start()
+        logger.info("DualWriter background writer started")
+    except Exception as e:
+        logger.warning(f"Failed to start dual writer: {e}")
+
+
+@app.on_event("shutdown")
+async def shutdown_event():
+    """服务关闭时清理"""
+    # 停止 DualWriter 后台写入器
+    from runtime.dual_writer import dual_writer
+    try:
+        await dual_writer.stop()
+        logger.info("DualWriter stopped")
+    except Exception as e:
+        logger.warning(f"Error stopping dual writer: {e}")
+    
+    # 关闭 Redis 连接
+    from runtime.redis_client import close_redis_client
+    try:
+        await close_redis_client()
+        logger.info("Redis connection closed")
+    except Exception as e:
+        logger.warning(f"Error closing Redis: {e}")
 
 
 # 挂载静态文件
@@ -172,7 +214,7 @@ def main():
         "main:app",
         host=settings.host,
         port=settings.port,
-        reload=settings.debug,
+        reload=False,  # 禁用 reload 避免 subprocess 使用系统 Python
         log_level="debug" if settings.debug else "info"
     )
 

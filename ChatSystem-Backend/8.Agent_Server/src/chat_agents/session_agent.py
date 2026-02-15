@@ -1,19 +1,20 @@
 """
-SessionAgent - 会话 Agent
-作为聊天会话中的一个特殊用户存在，拥有以下特点：
+SessionAgent - 会话 Agent（Handoff 版）
 
-1. 作为会话成员：可以被添加到群聊中，有自己的用户身份
-2. 直接拥有聊天上下文：收到消息时自动包含近期聊天历史
-3. @ 触发机制：用户在消息中 @ 该 Agent 时触发流式回复
-4. 可派生 TaskAgent：复杂任务可以创建 TaskAgent 执行
-
-与 TaskAgent 的区别：
-- SessionAgent: 直接在聊天中回复，拥有实时上下文
-- TaskAgent: 在右侧边栏执行任务，通过工具查询上下文
+作为聊天会话中的一个实际用户存在，特点：
+1. 作为会话成员：在 user 表中有记录，可被添加到群聊
+2. 上下文管理：从 Redis 缓存/MySQL 获取聊天上下文
+3. @ 触发机制：用户通过 @agent 触发
+4. 双写机制：消息同时写入 Redis 和 MySQL
+5. 流式输出：支持 reasoning、tool_calls、ThoughtChain
+6. Handoff：复杂任务 handoff 给 TaskAgent，完成后交回
 """
 import asyncio
 import uuid
+import json
 from typing import Optional, AsyncIterator, Any, Annotated, List, Dict
+from datetime import datetime
+from dataclasses import dataclass, asdict
 from loguru import logger
 
 from agents import (
@@ -28,7 +29,11 @@ from agents import (
     function_tool,
     handoff,
 )
-from openai.types.responses import ResponseTextDeltaEvent
+from agents.items import ReasoningItem
+from openai.types.responses import (
+    ResponseTextDeltaEvent,
+    ResponseFunctionCallArgumentsDeltaEvent,
+)
 
 import sys
 from pathlib import Path
@@ -38,29 +43,30 @@ if str(src_dir) not in sys.path:
 
 from config import settings
 from runtime import sse_bus, task_manager, Task, TaskStatus
-from providers import get_default_provider, get_openrouter_provider
+from runtime.context_manager import context_manager, ContextMessage
+from runtime.dual_writer import (
+    dual_writer,
+    AgentMessage,
+    TaskRecord,
+    ThoughtChainNode,
+    ThoughtChainNodeType,
+    TodoItem
+)
+from providers import get_default_provider, get_openrouter_provider, get_openai_provider
+from services.agent_user_service import agent_user_service, AgentUserConfig
 from tools.sdk_tools import (
-    web_search, web_open, web_find, 
+    web_search, web_open, web_find,
     python_execute, python_execute_with_approval,
     set_tool_context
 )
-
-
-# SessionAgent 的用户 ID 前缀（用于标识 Agent 用户）
-SESSION_AGENT_USER_ID_PREFIX = "agent_"
-
-# 默认 SessionAgent 用户信息
-DEFAULT_SESSION_AGENT_INFO = {
-    "user_id": "agent_assistant",
-    "nickname": "AI 助手",
-    "description": "我是智能助手，可以帮助解答问题、执行任务",
-    "avatar_id": None,  # 可以设置默认头像
-}
-
-
-def get_session_agent_user_id(chat_session_id: str) -> str:
-    """获取会话的 Agent 用户 ID"""
-    return f"{SESSION_AGENT_USER_ID_PREFIX}{chat_session_id[:8]}"
+from tools.todo_tools import add_todos, update_todo, list_todos
+from tools.db_tools import (
+    get_chat_history,
+    get_session_members,
+    get_user_info,
+    search_messages,
+    get_user_sessions,
+)
 
 
 # SessionAgent 系统提示词
@@ -73,349 +79,643 @@ SESSION_AGENT_SYSTEM_PROMPT = """你是聊天会话中的 AI 助手成员。你�
 
 ## 你的能力
 1. **直接回答**：根据聊天上下文回答问题
-2. **创建任务**：复杂任务使用 `create_task` 创建后台任务
+2. **执行复杂任务**：当需要多步骤工作时（搜索+分析+总结、数据处理等），直接转交给 TaskAgent 执行
 3. **搜索信息**：使用网页搜索获取最新信息
 4. **执行代码**：执行 Python 代码（需要审批）
 
-## 何时创建任务
-当请求涉及以下情况时，应创建任务：
+## 输出格式
+- 使用 Markdown 格式输出
+- 支持代码块、列表、表格
+- 复杂图表可用 mermaid 代码块
+
+## 何时转交 TaskAgent
+当请求涉及以下情况时，应 handoff 给 TaskAgent：
 - 需要多步骤处理（如研究报告、数据分析）
-- 需要较长执行时间
+- 需要搜索多个信息源并综合分析
+- 需要创建任务步骤清单并逐步执行
 - 用户明确要求后台执行
 
 ## 回复风格
 - 简洁友好，像朋友聊天
-- 使用中文回复
+- 使用中文回复（除非用户使用其他语言）
 - 根据上下文自然回应
-- 回复不要太长，保持对话感
 
 请自然地参与对话！
 """
 
 
-# 用于存储待执行任务的队列
-_pending_tasks: dict[str, dict] = {}
+# TaskAgent 系统提示词
+TASK_AGENT_SYSTEM_PROMPT = """你是一个专注的任务执行助手。你的职责是高效完成分配给你的具体任务。
+
+## 重要：获取上下文
+你不直接拥有聊天历史，需要主动使用数据库工具获取上下文：
+- 当任务涉及"总结对话"、"回顾讨论"等时，**必须先调用 `get_chat_history`** 获取聊天记录
+- 当需要了解会话成员时，使用 `get_session_members`
+- 当需要查找特定话题时，使用 `search_messages`
+
+## 工作流程
+1. **理解任务**：分析用户需求，确定需要哪些信息
+2. **获取上下文**：如需要，调用数据库工具获取相关聊天记录
+3. **规划步骤**：使用 `add_todos` 创建任务步骤清单
+4. **执行任务**：按步骤执行，完成后使用 `update_todo` 更新状态
+5. **交回结果**：任务完成后，handoff 回 SessionAgent 让它给出最终回复
+
+## 可用工具
+
+### 数据库工具（获取项目数据）
+- `get_chat_history(chat_session_id, limit, offset)` - 获取会话的聊天历史
+- `get_session_members(chat_session_id)` - 获取会话成员列表
+- `get_user_info(user_id)` - 获取用户详细信息
+- `search_messages(chat_session_id, keyword)` - 搜索会话中的消息
+- `get_user_sessions(user_id)` - 获取用户的会话列表
+
+### 任务管理工具
+- `add_todos(texts)` - 添加任务步骤清单
+- `update_todo(todo_id, status)` - 更新步骤状态 (running/completed/failed/skipped)
+- `list_todos()` - 查看当前所有步骤
+
+### 信息检索工具
+- `web_search(query)` - 搜索网页信息
+- `web_open(url_or_id)` - 打开网页查看详情
+- `web_find(pattern)` - 在页面中查找内容
+
+### 代码执行工具
+- `python_execute(code)` - 执行 Python 代码（需审批）
+
+## 注意事项
+- 使用 Todo 工具跟踪进度，让用户了解执行状态
+- 任务完成后务必 handoff 回 SessionAgent
+- 回复简洁专业，使用中文
+"""
 
 
-def get_pending_task(parent_task_id: str) -> Optional[dict]:
-    """获取并移除待执行的子任务"""
-    return _pending_tasks.pop(parent_task_id, None)
+@dataclass
+class StreamState:
+    """流式处理状态"""
+    task_id: str
+    chat_session_id: str
+    agent_user_id: str
+
+    # 内容累积
+    full_response: str = ""
+    reasoning_content: str = ""
+
+    # 当前 agent 追踪
+    current_agent: str = "SessionAgent"
+
+    # TaskAgent 输出（侧边栏显示）
+    task_agent_output: str = ""
+
+    # ThoughtChain 追踪
+    thought_chain_sequence: int = 0
+    current_tool_chain_id: Optional[str] = None
+
+    # 工具调用追踪
+    tool_calls: List[Dict[str, Any]] = None
+    current_tool_call: Optional[Dict[str, Any]] = None
+
+    def __post_init__(self):
+        if self.tool_calls is None:
+            self.tool_calls = []
 
 
 class SessionAgentHooks(AgentHooks):
     """SessionAgent 生命周期钩子"""
-    
-    def __init__(self, task_id: str, chat_session_id: str):
-        self.task_id = task_id
-        self.chat_session_id = chat_session_id
+
+    def __init__(self, state: StreamState):
+        self.state = state
         self.event_counter = 0
-    
+
     async def on_start(self, context: AgentHookContext, agent: Agent) -> None:
         self.event_counter += 1
-        logger.info(f"[{self.task_id}] SessionAgent started in session {self.chat_session_id}")
-    
+        logger.info(f"[{self.state.task_id}] SessionAgent started in session {self.state.chat_session_id}")
+
     async def on_end(self, context: RunContextWrapper, agent: Agent, output: Any) -> None:
         self.event_counter += 1
-        logger.info(f"[{self.task_id}] SessionAgent ended")
-    
+        logger.info(f"[{self.state.task_id}] SessionAgent ended")
+
     async def on_tool_start(self, context: RunContextWrapper, agent: Agent, tool: Tool) -> None:
         self.event_counter += 1
-        logger.info(f"[{self.task_id}] Tool {tool.name} started")
-        await sse_bus.publish(self.task_id, "tool_call", {
+        logger.info(f"[{self.state.task_id}] Tool {tool.name} started (agent: {self.state.current_agent})")
+
+        # 创建 ThoughtChain 节点
+        chain_id = str(uuid.uuid4())
+        self.state.current_tool_chain_id = chain_id
+        self.state.thought_chain_sequence += 1
+
+        node = ThoughtChainNode(
+            chain_id=chain_id,
+            task_id=self.state.task_id,
+            node_type=ThoughtChainNodeType.TOOL_CALL.value,
+            title=f"调用工具: {tool.name}",
+            description=f"正在执行 {tool.name}",
+            status="running",
+            sequence=self.state.thought_chain_sequence
+        )
+        await dual_writer.write_thought_chain_node(node)
+
+        await sse_bus.publish(self.state.task_id, "thought_chain", {
+            "node": node.to_dict()
+        })
+
+        self.state.current_tool_call = {
+            "chain_id": chain_id,
+            "tool_name": tool.name,
+            "start_time": datetime.now().isoformat(),
+            "arguments": ""
+        }
+
+        await sse_bus.publish(self.state.task_id, "tool_call", {
+            "chain_id": chain_id,
             "tool_name": tool.name,
             "status": "executing"
         })
-    
+
     async def on_tool_end(
         self, context: RunContextWrapper, agent: Agent, tool: Tool, result: str
     ) -> None:
         self.event_counter += 1
-        logger.info(f"[{self.task_id}] Tool {tool.name} ended")
-        await sse_bus.publish(self.task_id, "tool_output", {
+        logger.info(f"[{self.state.task_id}] Tool {tool.name} ended")
+
+        if self.state.current_tool_chain_id:
+            await dual_writer.update_thought_chain_status(
+                self.state.current_tool_chain_id,
+                "success",
+                result[:2000] if len(result) > 2000 else result
+            )
+            await sse_bus.publish(self.state.task_id, "thought_chain_update", {
+                "chain_id": self.state.current_tool_chain_id,
+                "status": "success",
+                "content": result[:2000] if len(result) > 2000 else result
+            })
+
+        if self.state.current_tool_call:
+            self.state.current_tool_call["result"] = result[:500] if len(result) > 500 else result
+            self.state.current_tool_call["end_time"] = datetime.now().isoformat()
+            self.state.tool_calls.append(self.state.current_tool_call)
+            self.state.current_tool_call = None
+
+        await sse_bus.publish(self.state.task_id, "tool_output", {
+            "chain_id": self.state.current_tool_chain_id,
             "tool_name": tool.name,
             "result_preview": result[:500] if len(result) > 500 else result,
             "status": "completed"
         })
 
-
-# 创建任务的工具
-from tools.sdk_tools import current_task_id, current_user_id
-
-@function_tool
-async def create_task(
-    description: Annotated[str, "任务描述，清晰说明需要完成什么"]
-) -> str:
-    """
-    创建一个后台任务来执行复杂的多步骤工作。
-    任务会在后台运行，用户可以在任务面板查看进度。
-    
-    使用场景：
-    - 需要搜索+分析+总结的研究任务
-    - 需要执行多段代码的数据处理
-    - 任何需要较长时间的复杂工作
-    
-    返回任务 ID，用户可以用它查看任务进度。
-    """
-    parent_task_id = current_task_id.get()
-    user_id = current_user_id.get()
-    
-    # 创建子任务
-    child_task_id = f"task_{uuid.uuid4().hex[:12]}"
-    
-    # 存储待执行任务信息
-    _pending_tasks[parent_task_id] = {
-        "child_task_id": child_task_id,
-        "description": description,
-        "user_id": user_id
-    }
-    
-    # 通知前端有新任务创建
-    await sse_bus.publish(parent_task_id, "task_created", {
-        "task_id": child_task_id,
-        "description": description,
-        "parent_task_id": parent_task_id
-    })
-    
-    logger.info(f"Created child task {child_task_id} from {parent_task_id}")
-    
-    return f"任务已创建，ID: {child_task_id}。用户可以在右侧任务面板查看进度。"
+        self.state.current_tool_chain_id = None
 
 
-def create_session_agent(
-    task_id: str, 
-    user_id: str, 
-    chat_session_id: str,
-    chat_history: Optional[List[Dict]] = None,
+class TaskAgentHooks(AgentHooks):
+    """TaskAgent 生命周期钩子（在 handoff 模式下复用 StreamState）"""
+
+    def __init__(self, state: StreamState):
+        self.state = state
+
+    async def on_start(self, context: AgentHookContext, agent: Agent) -> None:
+        logger.info(f"[{self.state.task_id}] TaskAgent started (handoff)")
+
+    async def on_end(self, context: RunContextWrapper, agent: Agent, output: Any) -> None:
+        logger.info(f"[{self.state.task_id}] TaskAgent ended (handoff)")
+
+    async def on_tool_start(self, context: RunContextWrapper, agent: Agent, tool: Tool) -> None:
+        logger.info(f"[{self.state.task_id}] TaskAgent tool {tool.name} starting")
+
+        chain_id = str(uuid.uuid4())
+        self.state.current_tool_chain_id = chain_id
+        self.state.thought_chain_sequence += 1
+
+        if tool.name in ['add_todos', 'update_todo', 'list_todos']:
+            title = f"任务管理: {tool.name}"
+        else:
+            title = f"调用工具: {tool.name}"
+
+        node = ThoughtChainNode(
+            chain_id=chain_id,
+            task_id=self.state.task_id,
+            node_type=ThoughtChainNodeType.TOOL_CALL.value,
+            title=title,
+            description=f"正在执行 {tool.name}",
+            status="running",
+            sequence=self.state.thought_chain_sequence
+        )
+        await dual_writer.write_thought_chain_node(node)
+
+        await sse_bus.publish(self.state.task_id, "thought_chain", {
+            "node": node.to_dict()
+        })
+
+        self.state.current_tool_call = {
+            "chain_id": chain_id,
+            "tool_name": tool.name,
+            "start_time": datetime.now().isoformat(),
+            "arguments": ""
+        }
+
+        await sse_bus.publish(self.state.task_id, "tool_call", {
+            "chain_id": chain_id,
+            "tool_name": tool.name,
+            "status": "executing",
+            "sequence": self.state.thought_chain_sequence
+        })
+
+    async def on_tool_end(
+        self, context: RunContextWrapper, agent: Agent, tool: Tool, result: str
+    ) -> None:
+        logger.info(f"[{self.state.task_id}] TaskAgent tool {tool.name} completed")
+
+        if self.state.current_tool_chain_id:
+            await dual_writer.update_thought_chain_status(
+                self.state.current_tool_chain_id,
+                "success",
+                result[:2000] if len(result) > 2000 else result
+            )
+            await sse_bus.publish(self.state.task_id, "thought_chain_update", {
+                "chain_id": self.state.current_tool_chain_id,
+                "status": "success",
+                "content": result[:2000] if len(result) > 2000 else result
+            })
+
+        if self.state.current_tool_call:
+            self.state.current_tool_call["result"] = result[:500] if len(result) > 500 else result
+            self.state.current_tool_call["end_time"] = datetime.now().isoformat()
+            self.state.tool_calls.append(self.state.current_tool_call)
+            self.state.current_tool_call = None
+
+        await sse_bus.publish(self.state.task_id, "tool_output", {
+            "chain_id": self.state.current_tool_chain_id,
+            "tool_name": tool.name,
+            "result_preview": result[:300] if len(result) > 300 else result,
+            "status": "completed"
+        })
+
+        self.state.current_tool_chain_id = None
+
+
+def create_session_agents(
+    state: StreamState,
+    context_messages: List[ContextMessage],
     use_approval: bool = True
 ) -> Agent:
     """
-    创建会话 Agent 实例
-    
-    Args:
-        task_id: 任务 ID
-        user_id: 请求用户 ID
-        chat_session_id: 聊天会话 ID
-        chat_history: 聊天历史（可选，用于构建上下文）
-        use_approval: 是否需要审批才能执行危险操作
+    创建 SessionAgent + TaskAgent（带双向 handoff）
+
+    返回 session_agent（入口 agent）
     """
-    # 设置工具执行上下文
-    set_tool_context(task_id, user_id)
-    
-    # 构建带上下文的系统提示词
+    set_tool_context(state.task_id, state.agent_user_id)
+
+    # 构建带上下文的 SessionAgent 提示词
     instructions = SESSION_AGENT_SYSTEM_PROMPT
-    
-    if chat_history:
-        # 将聊天历史加入提示词
+    if context_messages:
         history_text = "\n## 近期聊天记录\n"
-        for msg in chat_history[-20:]:  # 最多取最近 20 条
-            sender = msg.get("sender_nickname", msg.get("sender_id", "未知"))
-            content = msg.get("content", "")
+        for msg in context_messages[-20:]:
+            sender = msg.nickname
+            content = msg.content
             if content:
-                history_text += f"- {sender}: {content}\n"
-        
+                prefix = "[AI]" if msg.is_agent else ""
+                history_text += f"- {prefix}{sender}: {content[:200]}\n"
         instructions = SESSION_AGENT_SYSTEM_PROMPT + history_text
-    
-    # 选择工具集
+
+    # TaskAgent 提示词补充上下文
+    task_instructions = TASK_AGENT_SYSTEM_PROMPT
+    if state.chat_session_id:
+        task_instructions += f"""
+
+## 当前上下文
+- 当前用户 ID: {state.agent_user_id}
+- 关联会话 ID: {state.chat_session_id}
+
+如果任务需要了解聊天内容，请使用 `get_chat_history("{state.chat_session_id}")` 获取。
+"""
+
     python_tool = python_execute_with_approval if use_approval else python_execute
-    
-    tools = [
-        create_task,  # 创建后台任务
-        web_search,
-        web_open,
-        web_find,
-        python_tool,
-    ]
-    
-    return Agent(
+
+    # 创建 TaskAgent
+    task_agent = Agent(
+        name="TaskAgent",
+        instructions=task_instructions,
+        tools=[
+            get_chat_history, get_session_members, get_user_info,
+            search_messages, get_user_sessions,
+            add_todos, update_todo, list_todos,
+            web_search, web_open, web_find,
+            python_tool,
+        ],
+        hooks=TaskAgentHooks(state),
+    )
+
+    # 创建 SessionAgent（带 handoff 到 TaskAgent）
+    session_agent = Agent(
         name="SessionAgent",
         instructions=instructions,
-        tools=tools,
-        hooks=SessionAgentHooks(task_id, chat_session_id),
+        tools=[web_search, web_open, web_find, python_tool],
+        handoffs=[
+            handoff(
+                agent=task_agent,
+                tool_name_override="delegate_to_task_agent",
+                tool_description_override="将复杂的多步骤任务转交给 TaskAgent 执行。TaskAgent 会创建任务清单、搜索信息、执行代码等。适用于需要较长时间处理的请求。"
+            )
+        ],
+        hooks=SessionAgentHooks(state),
     )
+
+    # TaskAgent 完成后 handoff 回 SessionAgent
+    task_agent.handoffs = [
+        handoff(
+            agent=session_agent,
+            tool_name_override="return_to_session_agent",
+            tool_description_override="任务执行完毕后，将结果交回 SessionAgent 进行最终回复。当所有步骤完成、结果已整理好时调用。"
+        )
+    ]
+
+    return session_agent
 
 
 async def run_session_agent(
-    task: Task, 
-    chat_history: Optional[List[Dict]] = None,
-    use_approval: bool = True
+    task: Task,
+    agent_user_id: Optional[str] = None,
+    use_approval: bool = True,
+    chat_history: Optional[list] = None
 ) -> AsyncIterator[dict]:
     """
-    运行会话 Agent（流式）
-    
-    这是在聊天会话中触发的 Agent，直接拥有聊天上下文。
-    
-    Args:
-        task: 任务对象
-        chat_history: 聊天历史列表，每项包含 sender_id, sender_nickname, content, timestamp
-        use_approval: 是否需要审批
+    运行会话 Agent（流式，带 Handoff）
+
+    同一 SSE 流中：
+    - 当 current_agent=SessionAgent 时，message 事件渲染到聊天
+    - 当 current_agent=TaskAgent 时，message 事件渲染到右侧边栏
     """
     task_id = task.id
     user_id = task.user_id
     chat_session_id = task.chat_session_id
-    
-    logger.info(f"Starting SessionAgent for task {task_id}, session={chat_session_id}, use_approval={use_approval}")
-    
+
+    if not agent_user_id:
+        default_agent = agent_user_service.get_default_agent()
+        agent_user_id = default_agent.user_id
+
+    agent_config = await agent_user_service.get_agent_user(agent_user_id)
+    if not agent_config:
+        agent_config = agent_user_service.get_default_agent()
+
+    logger.info(f"Starting SessionAgent (handoff mode) for task {task_id}, session={chat_session_id}")
+
+    state = StreamState(
+        task_id=task_id,
+        chat_session_id=chat_session_id,
+        agent_user_id=agent_user_id
+    )
+
     try:
-        # 更新状态为运行中
         await task_manager.update_task_status(task_id, TaskStatus.RUNNING)
-        
-        # 发送初始化事件
+
+        task_record = TaskRecord(
+            task_id=task_id,
+            user_id=user_id,
+            task_type="session",
+            status="running",
+            chat_session_id=chat_session_id,
+            input_text=task.input_text
+        )
+        await dual_writer.write_task(task_record)
+
         await sse_bus.publish(task_id, "init", {
             "task_id": task_id,
             "task_type": "session_agent",
-            "chat_session_id": chat_session_id
+            "chat_session_id": chat_session_id,
+            "agent_user_id": agent_user_id,
+            "agent_nickname": agent_config.nickname
         })
-        
-        # 创建 Agent
-        agent = create_session_agent(
-            task_id, user_id, chat_session_id, 
-            chat_history=chat_history,
-            use_approval=use_approval
-        )
-        
-        # 获取模型提供者
-        provider = get_default_provider()
-        
-        # 运行流式 Agent
+
+        # 获取上下文
+        context_messages = await context_manager.get_context(chat_session_id)
+        logger.info(f"Loaded {len(context_messages)} context messages for session {chat_session_id}")
+
+        # 创建 agent 组（带 handoff）
+        session_agent = create_session_agents(state, context_messages, use_approval=use_approval)
+
+        # 运行
+        provider = agent_user_service.get_provider_for_agent(agent_user_id)
         run_config = RunConfig(model_provider=provider)
         result = Runner.run_streamed(
-            agent,
+            session_agent,
             input=task.input_text,
             run_config=run_config
         )
-        
-        # 收集完整响应
-        full_response = ""
-        
-        # 处理流式事件
+
+        reasoning_started = False
+        output_started = False
+        event_sequence = 0
+
         async for event in result.stream_events():
-            # 处理文本增量
+            event_sequence += 1
+
+            # Agent 切换事件
+            if event.type == "agent_updated_stream_event":
+                new_agent_name = event.new_agent.name
+                old_agent = state.current_agent
+                state.current_agent = new_agent_name
+
+                # 切到 TaskAgent 时重置输出状态
+                if new_agent_name == "TaskAgent":
+                    reasoning_started = False
+                    output_started = False
+                    state.task_agent_output = ""
+                elif new_agent_name == "SessionAgent" and old_agent == "TaskAgent":
+                    reasoning_started = False
+                    output_started = False
+
+                logger.info(f"[{task_id}] Agent switch: {old_agent} -> {new_agent_name}")
+
+                await sse_bus.publish(task_id, "agent_switch", {
+                    "agent": new_agent_name,
+                    "previous": old_agent
+                })
+                continue
+
             if event.type == "raw_response_event":
-                if isinstance(event.data, ResponseTextDeltaEvent):
-                    delta = event.data.delta
+                data = event.data
+
+                # Reasoning 内容
+                if data.type == "response.reasoning_text.delta":
+                    delta = data.delta
                     if delta:
-                        full_response += delta
-                        # 发送消息增量
-                        await sse_bus.publish(task_id, "message", {
+                        if not reasoning_started:
+                            reasoning_started = True
+                            state.thought_chain_sequence += 1
+                            chain_id = str(uuid.uuid4())
+                            node = ThoughtChainNode(
+                                chain_id=chain_id,
+                                task_id=task_id,
+                                node_type=ThoughtChainNodeType.REASONING.value,
+                                title="思考中..." if state.current_agent == "SessionAgent" else "分析任务...",
+                                status="running",
+                                sequence=state.thought_chain_sequence
+                            )
+                            await dual_writer.write_thought_chain_node(node)
+                            state.current_tool_chain_id = chain_id
+
+                            await sse_bus.publish(task_id, "thought_chain", {
+                                "node": node.to_dict()
+                            })
+
+                        state.reasoning_content += delta
+                        await sse_bus.publish(task_id, "reasoning_delta", {
                             "content": delta,
                             "delta": True
                         })
+                        yield {"type": "reasoning_delta", "content": delta}
+
+                # Reasoning 摘要
+                elif data.type == "response.reasoning_summary_text.delta":
+                    delta = data.delta
+                    if delta:
+                        await sse_bus.publish(task_id, "reasoning_summary", {
+                            "content": delta,
+                            "delta": True
+                        })
+
+                # 输出文本增量
+                elif isinstance(data, ResponseTextDeltaEvent):
+                    delta = data.delta
+                    if delta:
+                        if reasoning_started and not output_started:
+                            output_started = True
+                            if state.current_tool_chain_id:
+                                await dual_writer.update_thought_chain_status(
+                                    state.current_tool_chain_id,
+                                    "success",
+                                    state.reasoning_content[:2000]
+                                )
+                                await sse_bus.publish(task_id, "thought_chain_update", {
+                                    "chain_id": state.current_tool_chain_id,
+                                    "status": "success",
+                                    "content": state.reasoning_content[:2000]
+                                })
+
+                        if state.current_agent == "TaskAgent":
+                            state.task_agent_output += delta
+                            await sse_bus.publish(task_id, "message", {
+                                "content": delta,
+                                "delta": True,
+                                "format": "xmarkdown",
+                                "agent": "TaskAgent"
+                            })
+                        else:
+                            state.full_response += delta
+                            await sse_bus.publish(task_id, "message", {
+                                "content": delta,
+                                "delta": True,
+                                "format": "xmarkdown",
+                                "agent": "SessionAgent"
+                            })
                         yield {"type": "message_delta", "content": delta}
-            
-            # 处理 run_item 事件
+
+                # 工具调用参数流式
+                elif isinstance(data, ResponseFunctionCallArgumentsDeltaEvent):
+                    if state.current_tool_call:
+                        state.current_tool_call["arguments"] += data.delta
+                        await sse_bus.publish(task_id, "tool_args_delta", {
+                            "chain_id": state.current_tool_chain_id,
+                            "delta": data.delta
+                        })
+
+                elif data.type == "response.output_item.added":
+                    if getattr(data.item, "type", None) == "function_call":
+                        function_name = getattr(data.item, "name", "unknown")
+                        logger.info(f"Function call started: {function_name}")
+
             elif event.type == "run_item_stream_event":
                 if event.item.type == "tool_call_item":
                     tool_name = getattr(event.item.raw_item, 'name', 'unknown')
-                    logger.info(f"Tool called: {tool_name}")
-                    
+                    logger.debug(f"Tool called: {tool_name}")
                 elif event.item.type == "tool_call_output_item":
                     output = event.item.output
-                    logger.info(f"Tool output received: {output[:100]}...")
-                    
-                elif event.item.type == "message_output_item":
-                    message = ItemHelpers.text_message_output(event.item)
-                    if message and message != full_response:
-                        pass
-            
-            # Agent 更新事件
-            elif event.type == "agent_updated_stream_event":
-                logger.info(f"Agent updated: {event.new_agent.name}")
-        
+                    logger.debug(f"Tool output: {output[:100]}...")
+
+            await dual_writer.write_task_event(task_id, event.type, {"sequence": event_sequence}, event_sequence)
+
         # 流结束后处理
-        final_text = full_response.strip() if full_response else "处理完成"
-        
-        # 检查是否有创建的子任务需要启动
-        pending = get_pending_task(task_id)
-        if pending:
-            # 启动子任务（在后台）
-            from .task_agent import run_task_agent
-            
-            child_task = Task(
-                id=pending["child_task_id"],
-                user_id=pending["user_id"],
-                input_text=pending["description"],
-                task_type="task",
-                chat_session_id=chat_session_id
-            )
-            
-            # 注册子任务
-            await task_manager.create_task(
-                task_id=child_task.id,
-                user_id=child_task.user_id,
-                input_text=child_task.input_text,
-                task_type="task",
-                chat_session_id=child_task.chat_session_id
-            )
-            
-            # 在后台运行子任务
-            asyncio.create_task(_run_child_task(child_task))
-            
-            logger.info(f"Started child task {child_task.id}")
-        
-        # 更新任务状态
-        await task_manager.update_task_status(
-            task_id,
-            TaskStatus.DONE,
-            result=final_text
+        final_text = state.full_response.strip() if state.full_response else "处理完成"
+
+        # 构建 Agent 消息并双写（只写 SessionAgent 的输出到聊天）
+        message_metadata = {
+            "model": agent_config.model,
+            "provider": agent_config.provider,
+            "tool_calls": state.tool_calls,
+        }
+        if state.reasoning_content:
+            message_metadata["thinking"] = state.reasoning_content[:5000]
+        if state.task_agent_output:
+            message_metadata["task_agent_output"] = state.task_agent_output[:5000]
+
+        agent_message = AgentMessage(
+            message_id=str(uuid.uuid4()),
+            session_id=chat_session_id,
+            user_id=agent_user_id,
+            content=final_text,
+            content_type="xmarkdown",
+            metadata=message_metadata
         )
-        
+
+        await dual_writer.write_agent_message(agent_message, agent_config.nickname)
+
+        # 更新任务状态
+        await task_manager.update_task_status(task_id, TaskStatus.DONE, result=final_text)
+        await dual_writer.update_task_status(task_id, "completed", result=final_text)
+
         # 发送完成事件
         await sse_bus.publish(task_id, "done", {
-            "final_text": final_text
+            "final_text": final_text,
+            "metadata": message_metadata
         })
-        
-        yield {"type": "done", "result": final_text}
-        
+
+        yield {"type": "done", "result": final_text, "metadata": message_metadata}
+
     except Exception as e:
         logger.error(f"SessionAgent error: {e}", exc_info=True)
-        
-        # 更新任务状态为失败
-        await task_manager.update_task_status(
-            task_id,
-            TaskStatus.FAILED,
-            error=str(e)
-        )
-        
-        # 发送错误事件
-        await sse_bus.publish(task_id, "error", {
-            "message": str(e)
-        })
-        
+
+        await task_manager.update_task_status(task_id, TaskStatus.FAILED, error=str(e))
+        await dual_writer.update_task_status(task_id, "failed", error=str(e))
+        await sse_bus.publish(task_id, "error", {"message": str(e)})
+
         yield {"type": "error", "error": str(e)}
 
 
-async def _run_child_task(task: Task):
-    """在后台运行子任务"""
-    from .task_agent import run_task_agent
-    
-    try:
-        async for _ in run_task_agent(task):
-            pass  # 消费所有事件
-    except Exception as e:
-        logger.error(f"Child task {task.id} failed: {e}")
+async def run_session_agent_simple(
+    input_text: str,
+    task_id: str = "test",
+    user_id: str = "test",
+    chat_session_id: str = "test_session"
+) -> str:
+    """简单运行 Agent（非流式，用于测试）"""
+    context_messages = await context_manager.get_context(chat_session_id)
 
+    state = StreamState(
+        task_id=task_id,
+        chat_session_id=chat_session_id,
+        agent_user_id=agent_user_service.get_default_agent().user_id
+    )
 
-async def run_session_agent_simple(input_text: str, task_id: str = "test", user_id: str = "test") -> str:
-    """
-    简单运行 Agent（非流式，用于测试）
-    """
-    agent = create_session_agent(task_id, user_id, "test_session", use_approval=False)
+    agent = create_session_agents(state, context_messages, use_approval=False)
     provider = get_default_provider()
-    
+
     result = await Runner.run(
         agent,
         input=input_text,
         run_config=RunConfig(model_provider=provider)
     )
-    
+
     return result.final_output
 
 
-# Agent 配置（用于导出）
-session_agent_config = {
-    "name": "session_agent",
-    "instructions": SESSION_AGENT_SYSTEM_PROMPT,
-    "model": settings.openrouter_model,
-    "tools": ["create_task", "web_search", "web_open", "web_find", "python_execute"],
-    "user_info": DEFAULT_SESSION_AGENT_INFO,
-}
+# Agent 配置导出
+def get_session_agent_config() -> dict:
+    """获取 SessionAgent 配置"""
+    default_agent = agent_user_service.get_default_agent()
+    return {
+        "name": "session_agent",
+        "instructions": SESSION_AGENT_SYSTEM_PROMPT,
+        "model": default_agent.model,
+        "provider": default_agent.provider,
+        "tools": ["web_search", "web_open", "web_find", "python_execute"],
+        "handoffs": ["TaskAgent"],
+        "user_info": default_agent.to_dict(),
+    }

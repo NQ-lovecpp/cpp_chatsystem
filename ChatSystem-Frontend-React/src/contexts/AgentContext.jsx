@@ -61,6 +61,7 @@ function createTaskObject(taskId, inputText, taskType = 'session', parentTaskId 
         status: TaskStatus.PENDING,
         messages: [],
         todos: [],
+        thoughtChain: [],  // 思维链节点
         pendingApprovals: [],
         progress: 0,
         createdAt: Date.now(),
@@ -200,6 +201,51 @@ export function AgentProvider({ children }) {
         });
     }, []);
 
+    // 添加/更新 ThoughtChain 节点
+    const addOrUpdateThoughtChainNode = useCallback((taskId, node) => {
+        setTasks(prev => {
+            if (!prev[taskId]) return prev;
+            const task = prev[taskId];
+            const existingIndex = task.thoughtChain.findIndex(n => n.chain_id === node.chain_id);
+            
+            let newChain;
+            if (existingIndex >= 0) {
+                // 更新现有节点
+                newChain = [...task.thoughtChain];
+                newChain[existingIndex] = { ...newChain[existingIndex], ...node };
+            } else {
+                // 添加新节点
+                newChain = [...task.thoughtChain, node];
+            }
+            
+            return {
+                ...prev,
+                [taskId]: {
+                    ...task,
+                    thoughtChain: newChain,
+                    updatedAt: Date.now(),
+                }
+            };
+        });
+    }, []);
+
+    // 更新 ThoughtChain 节点状态
+    const updateThoughtChainStatus = useCallback((taskId, chainId, status, content) => {
+        setTasks(prev => {
+            if (!prev[taskId]) return prev;
+            const task = prev[taskId];
+            const newChain = task.thoughtChain.map(n => 
+                n.chain_id === chainId 
+                    ? { ...n, status, ...(content !== undefined ? { content } : {}) }
+                    : n
+            );
+            return {
+                ...prev,
+                [taskId]: { ...task, thoughtChain: newChain, updatedAt: Date.now() }
+            };
+        });
+    }, []);
+
     // 更新 Todo 状态
     const updateTodoStatus = useCallback((taskId, todoId, status) => {
         setTasks(prev => {
@@ -257,6 +303,15 @@ export function AgentProvider({ children }) {
         setActiveGlobalConversationId(conversationId);
         setGlobalAgentTaskId(null);
     }, []);
+
+    // 删除 GlobalAgent 会话
+    const deleteGlobalConversation = useCallback((conversationId) => {
+        setGlobalConversations(prev => prev.filter(c => c.id !== conversationId));
+        if (activeGlobalConversationId === conversationId) {
+            setActiveGlobalConversationId(null);
+            setGlobalAgentTaskId(null);
+        }
+    }, [activeGlobalConversationId]);
 
     // 添加消息到指定 GlobalAgent 会话
     const addMessageToGlobalConversation = useCallback((conversationId, message) => {
@@ -334,29 +389,16 @@ export function AgentProvider({ children }) {
                 },
                 
                 onReasoningDelta: (data) => {
-                    if (data.content) {
-                        addMessageToTask(taskId, {
-                            type: MessageType.REASONING,
-                            content: data.content,
-                        });
-                    }
+                    // 不创建新消息，reasoning 通过 ThoughtChain 展示
+                    // 仅在 debug 时记录
                 },
                 
                 onToolCall: (data) => {
-                    addMessageToTask(taskId, {
-                        type: MessageType.TOOL_CALL,
-                        toolName: data.tool_name,
-                        arguments: data.arguments,
-                        status: data.status,
-                        requiresApproval: data.requires_approval,
-                    });
+                    // 工具调用通过 ThoughtChain 展示，不创建消息气泡
                 },
                 
                 onToolOutput: (data) => {
-                    updateToolCall(taskId, data.tool_name, {
-                        output: data.result ?? data.result_preview,
-                        status: data.status,
-                    });
+                    // 工具输出通过 ThoughtChain 展示，不创建消息气泡
                 },
                 
                 onInterruption: (data) => {
@@ -393,6 +435,20 @@ export function AgentProvider({ children }) {
                 
                 onTodoStatus: (data) => {
                     updateTodoStatus(taskId, data.todoId, data.status);
+                },
+                
+                onThoughtChain: (data) => {
+                    // 添加或更新思维链节点
+                    if (data.node) {
+                        addOrUpdateThoughtChainNode(taskId, data.node);
+                    }
+                },
+                
+                onThoughtChainUpdate: (data) => {
+                    // 更新思维链节点状态
+                    if (data.chain_id) {
+                        updateThoughtChainStatus(taskId, data.chain_id, data.status, data.content);
+                    }
                 },
                 
                 onDone: (data) => {
@@ -488,7 +544,8 @@ export function AgentProvider({ children }) {
             return null;
         }
     }, [sessionId, addMessageToTask, updateLastAssistantMessage, updateToolCall, 
-        addTodoToTask, updateTodoStatus, updateTask, cleanupTask]);
+        addTodoToTask, updateTodoStatus, addOrUpdateThoughtChainNode, updateThoughtChainStatus,
+        updateTask, cleanupTask]);
 
     // 订阅子任务事件
     const subscribeChildTask = useCallback((taskId) => {
@@ -572,6 +629,18 @@ export function AgentProvider({ children }) {
                 updateTask(taskId, { progress: data.progress });
             },
             
+            onThoughtChain: (data) => {
+                if (data.node) {
+                    addOrUpdateThoughtChainNode(taskId, data.node);
+                }
+            },
+            
+            onThoughtChainUpdate: (data) => {
+                if (data.chain_id) {
+                    updateThoughtChainStatus(taskId, data.chain_id, data.status, data.content);
+                }
+            },
+            
             onInterruption: (data) => {
                 if (data.approval) {
                     setTasks(prev => {
@@ -642,7 +711,8 @@ export function AgentProvider({ children }) {
         
         unsubscribeMapRef.current[taskId] = unsubscribe;
     }, [sessionId, addMessageToTask, updateToolCall, addTodoToTask, 
-        updateTodoStatus, updateTask, cleanupTask]);
+        updateTodoStatus, addOrUpdateThoughtChainNode, updateThoughtChainStatus,
+        updateTask, cleanupTask]);
 
     // 取消任务
     const cancelTask = useCallback(async (taskId) => {
@@ -755,6 +825,7 @@ export function AgentProvider({ children }) {
         setActiveGlobalConversationId,
         createGlobalConversation,
         switchGlobalConversation,
+        deleteGlobalConversation,
         addMessageToGlobalConversation,
         removeLastMessageFromGlobalConversation,
         taskMessages,
@@ -773,6 +844,10 @@ export function AgentProvider({ children }) {
         handleApproval,
         clearError,
         reset,
+        
+        // ThoughtChain 相关
+        addOrUpdateThoughtChainNode,
+        updateThoughtChainStatus,
         
         // 便捷方法
         approveApproval: (taskId, approvalId) => handleApproval(taskId, approvalId, true),

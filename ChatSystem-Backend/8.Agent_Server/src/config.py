@@ -17,14 +17,14 @@ class Settings(BaseSettings):
     port: int = 8080
     
     # OpenAI 配置
-    openai_api_key: Optional[str] = None
-    openai_base_url: Optional[str] = None
+    openai_api_key: Optional[str] = os.getenv("OPENAI_API_KEY")
+    openai_base_url: Optional[str] = "https://api.openai.com/v1"
     openai_model: str = "o4-mini"
     
     # OpenRouter 配置
-    openrouter_api_key: Optional[str] = None
+    openrouter_api_key: Optional[str] = os.getenv("OPENROUTER_API_KEY")
     openrouter_base_url: str = "https://openrouter.ai/api/v1"
-    openrouter_model: str = "openai/gpt-oss-120b"
+    openrouter_model: str = "deepseek/deepseek-v3.2"
     
     # 代理配置 (Clash)
     http_proxy: Optional[str] = None
@@ -53,6 +53,19 @@ class Settings(BaseSettings):
     mysql_password: str = ""
     mysql_database: str = "chen_im"
     mysql_pool_size: int = 5
+    
+    # Redis 缓存配置
+    redis_host: str = "127.0.0.1"
+    redis_port: int = 6379
+    redis_password: Optional[str] = None
+    redis_db: int = 0
+    redis_context_ttl: int = 86400  # 上下文缓存 TTL（24小时）
+    redis_task_ttl: int = 7200       # 任务缓存 TTL（2小时）
+    
+    # Agent 配置
+    agent_context_limit: int = 50    # 上下文消息数量限制
+    agent_o4_mini_user_id: str = "agent-o4-mini"
+    agent_gpt_oss_user_id: str = "agent-gpt-oss-120b"
     
     class Config:
         env_file = ".env"

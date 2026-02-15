@@ -8,24 +8,26 @@ Agent 类型：
 3. TaskAgent - 后台任务执行者，由其他 Agent 派生或用户直接创建
 """
 from .session_agent import (
-    session_agent_config, 
-    run_session_agent, 
+    get_session_agent_config,
+    run_session_agent,
     run_session_agent_simple,
     create_session_agent,
-    SESSION_AGENT_USER_ID_PREFIX,
-    DEFAULT_SESSION_AGENT_INFO,
-    get_session_agent_user_id,
 )
 from .global_agent import (
-    global_agent_config, 
+    get_global_agent_config,
     run_global_agent,
     create_global_agent,
 )
 from .task_agent import (
-    task_agent_config, 
-    run_task_agent, 
+    get_task_agent_config,
+    run_task_agent,
     create_task_agent,
 )
+
+# 兼容别名
+session_agent_config = get_session_agent_config
+global_agent_config = get_global_agent_config
+task_agent_config = get_task_agent_config
 
 # 工具执行器
 from .tool_executor import (
@@ -44,8 +46,7 @@ from .tool_executor import (
 __all__ = [
     # Session Agent (聊天会话中的 AI 成员)
     "session_agent_config", "run_session_agent", "run_session_agent_simple",
-    "create_session_agent", "SESSION_AGENT_USER_ID_PREFIX", 
-    "DEFAULT_SESSION_AGENT_INFO", "get_session_agent_user_id",
+    "create_session_agent",
     
     # Global Agent (用户的私人助手)
     "global_agent_config", "run_global_agent", "create_global_agent",

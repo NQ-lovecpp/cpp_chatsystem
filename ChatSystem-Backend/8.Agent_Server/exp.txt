@@ -1,0 +1,2105 @@
+特殊词槽：
+import { Sender, type SenderProps, XProvider } from '@ant-design/x';
+import { Button, Flex, GetRef, message, Slider } from 'antd';
+import React, { useRef, useState } from 'react';
+
+type SlotConfig = SenderProps['slotConfig'];
+
+const otherSlotConfig: SlotConfig = [
+  { type: 'text', value: 'I want to travel to ' },
+  {
+    type: 'content',
+    key: 'location',
+    props: { defaultValue: 'Beijing', placeholder: '[Please enter the location]' },
+  },
+  { type: 'text', value: 'by' },
+  {
+    type: 'select',
+    key: 'transportation',
+    props: {
+      defaultValue: 'airplane',
+      options: ['airplane', 'high-speed rail', 'cruise ship'],
+      placeholder: 'Please choose a mode of transportation',
+    },
+  },
+  { type: 'text', value: 'with a group of 3 people, and each person has a budget of' },
+  {
+    type: 'custom',
+    key: 'priceRange',
+    props: {
+      defaultValue: [3000, 6000],
+    },
+    customRender: (value: any, onChange: (value: any) => void, props) => {
+      return (
+        <div
+          style={{
+            width: '200px',
+            paddingInline: 20,
+            display: 'inline-block',
+            alignItems: 'center',
+          }}
+        >
+          <Slider
+            {...props}
+            max={8000}
+            min={1000}
+            style={{ margin: 0 }}
+            range
+            value={value}
+            onChange={onChange}
+          />
+        </div>
+      );
+    },
+    formatResult: (value: any) => {
+      return `between ${value[0]} and ${value[1]} RMB.`;
+    },
+  },
+  { type: 'text', value: 'Please' },
+  { type: 'tag', key: 'tag', props: { label: '@Travel Planner ', value: 'travelTool' } },
+  { type: 'text', value: 'help me create a travel itinerary,Use account ' },
+  {
+    type: 'input',
+    key: 'account',
+    props: {
+      placeholder: 'Please enter a account',
+    },
+  },
+  { type: 'text', value: '.' },
+];
+
+const altSlotConfig: SlotConfig = [
+  { type: 'text', value: 'My favorite city is ' },
+  {
+    type: 'select',
+    key: 'city',
+    props: {
+      defaultValue: 'London',
+      options: ['London', 'Paris', 'New York'],
+      placeholder: 'Select a city',
+    },
+  },
+  { type: 'text', value: ', and I want to travel with ' },
+  { type: 'input', key: 'partner', props: { placeholder: 'Enter a name' } },
+];
+
+const slotConfig = {
+  otherSlotConfig,
+  altSlotConfig,
+};
+const skillConfig = {
+  value: 'travelId',
+  title: 'Travel Planner',
+  toolTip: {
+    title: 'Travel Skill',
+  },
+  closable: {
+    onClose: () => {
+      console.log('close');
+    },
+  },
+};
+const App: React.FC = () => {
+  const [slotConfigKey, setSlotConfigKey] = useState<keyof typeof slotConfig | false>(
+    'otherSlotConfig',
+  );
+  const [messageApi, contextHolder] = message.useMessage();
+  const senderRef = useRef<GetRef<typeof Sender>>(null);
+  const [value, setValue] = useState<string>('');
+  const [skill, setSkill] = useState<SenderProps['skill']>(skillConfig);
+  const [skillValue, setSkillValue] = useState<string>('');
+  const [slotValue, setSlotValue] = useState<string>('');
+  return (
+    <Flex vertical gap={16}>
+      {contextHolder}
+      {/* 操作按钮区 */}
+      <Flex wrap gap={8}>
+        <Button
+          onClick={() => {
+            senderRef.current?.clear?.();
+          }}
+        >
+          Clear
+        </Button>
+        <Button
+          onClick={() => {
+            const val = senderRef.current?.getValue?.();
+            if (val?.skill) {
+              setSkillValue(val?.skill?.value);
+            }
+            setValue(val?.value ? val.value : 'No value');
+            setSlotValue(val?.slotConfig ? JSON.stringify(val.slotConfig) : 'No value');
+          }}
+        >
+          Get Value
+        </Button>
+        <Button
+          onClick={() => {
+            senderRef.current?.insert?.([{ type: 'text', value: ' some text A' }]);
+          }}
+        >
+          Insert Text
+        </Button>
+        <Button
+          onClick={() => {
+            senderRef.current?.insert?.([
+              { type: 'text', value: ' some text B' },
+              { type: 'content', key: `partner_3_${Date.now()}`, props: { defaultValue: '11' } },
+            ]);
+          }}
+        >
+          Insert Slots
+        </Button>
+        <Button
+          onClick={() => {
+            senderRef.current?.insert?.([
+              {
+                type: 'content',
+                key: `partner_1_${Date.now()}`,
+                props: { defaultValue: 'NingNing', placeholder: 'Enter a name' },
+              },
+            ]);
+          }}
+        >
+          Insert Slot
+        </Button>
+        <Button
+          onClick={() => {
+            senderRef.current?.insert?.(
+              [
+                {
+                  type: 'input',
+                  key: `partner_2_${Date.now()}`,
+                  props: { placeholder: 'Enter a name' },
+                },
+              ],
+              'start',
+            );
+          }}
+        >
+          Insert Slot Start
+        </Button>
+        <Button
+          onClick={() => {
+            senderRef.current?.insert?.(
+              [
+                {
+                  type: 'input',
+                  key: `partner_3_${Date.now()}`,
+                  props: { placeholder: 'Enter a name' },
+                },
+              ],
+              'end',
+            );
+          }}
+        >
+          Insert Slot End
+        </Button>
+        <Button
+          onClick={() => {
+            setSlotConfigKey((prev) => {
+              if (prev === 'otherSlotConfig') {
+                return 'altSlotConfig';
+              }
+              return 'otherSlotConfig';
+            });
+          }}
+        >
+          Change SlotConfig
+        </Button>
+        <Button
+          onClick={() => {
+            senderRef.current!.focus();
+          }}
+        >
+          Focus
+        </Button>
+        <Button
+          onClick={() => {
+            senderRef.current!.focus({
+              cursor: 'start',
+            });
+          }}
+        >
+          Focus at first
+        </Button>
+        <Button
+          onClick={() => {
+            senderRef.current!.focus({
+              cursor: 'end',
+            });
+          }}
+        >
+          Focus at last
+        </Button>
+        <Button
+          onClick={() => {
+            senderRef.current!.focus({
+              cursor: 'slot',
+            });
+          }}
+        >
+          Focus at slot
+        </Button>
+        <Button
+          onClick={() => {
+            senderRef.current!.focus({
+              cursor: 'slot',
+              key: 'account',
+            });
+          }}
+        >
+          Focus at slot with key
+        </Button>
+        <Button
+          onClick={() => {
+            senderRef.current!.focus({
+              cursor: 'all',
+            });
+          }}
+        >
+          Focus to select all
+        </Button>
+        <Button
+          onClick={() => {
+            senderRef.current!.focus({
+              preventScroll: true,
+            });
+          }}
+        >
+          Focus prevent scroll
+        </Button>
+        <Button
+          onClick={() => {
+            senderRef.current!.blur();
+          }}
+        >
+          Blur
+        </Button>
+        <Button
+          onClick={() => {
+            setSkill({
+              value: 'travelId_1',
+              title: 'Travel Planner2',
+              toolTip: {
+                title: 'Travel Skill2',
+              },
+              closable: {
+                onClose: () => {
+                  console.log('close');
+                },
+              },
+            });
+          }}
+        >
+          Change Skill
+        </Button>
+      </Flex>
+      {/* Sender 词槽填空示例 */}
+      <XProvider
+        theme={{
+          components: {
+            Sender: {
+              fontSize: 16,
+            },
+          },
+        }}
+      >
+        <Sender
+          skill={skill}
+          allowSpeech
+          autoSize={{ minRows: 3, maxRows: 4 }}
+          placeholder="Enter to send message"
+          onSubmit={(value) => {
+            setValue(value);
+            setSlotConfigKey(false);
+            messageApi.open({
+              type: 'success',
+              content: `Send message success: ${value}`,
+            });
+            senderRef.current?.clear?.();
+          }}
+          onChange={(value, event, slotConfig, skill) => {
+            console.log(value, event, slotConfig, skill);
+            if (!skill) {
+              setSkill(undefined);
+            }
+          }}
+          slotConfig={slotConfigKey ? slotConfig?.[slotConfigKey] : []}
+          ref={senderRef}
+        />
+      </XProvider>
+      <Flex vertical gap="middle">
+        <div> {skillValue ? `skill:${skillValue}` : null}</div>
+        <div> {value ? `value:${value}` : null}</div>
+        <div> {slotValue ? `slotValue:${slotValue}` : null}</div>
+      </Flex>
+    </Flex>
+  );
+};
+
+export default () => <App />;
+
+
+
+mermaid图表：
+import { Bubble, Mermaid } from '@ant-design/x';
+import XMarkdown from '@ant-design/x-markdown';
+import { Button, Flex } from 'antd';
+import React from 'react';
+const text = `
+Here are several Mermaid diagram examples 
+
+#### 1. Flowchart (Vertical)
+
+\`\`\` mermaid
+graph TD
+    A[Start] --> B{Data Valid?}
+    B -->|Yes| C[Process Data]
+    B -->|No| D[Error Handling]
+    C --> E[Generate Report]
+    D --> E
+    E --> F[End]
+    style A fill:#2ecc71,stroke:#27ae60
+    style F fill:#e74c3c,stroke:#c0392b
+\`\`\`
+
+#### 2. Sequence Diagram
+
+\`\`\` mermaid
+sequenceDiagram
+    participant Client
+    participant Server
+    participant Database
+    
+    Client->>Server: POST /api/data
+    Server->>Database: INSERT record
+    Database-->>Server: Success
+    Server-->>Client: 201 Created
+\`\`\`
+
+#### 3. Quadrant Chart
+
+\`\`\`mermaid
+quadrantChart
+    title Reach and engagement of campaigns
+    x-axis Low Reach --> High Reach
+    y-axis Low Engagement --> High Engagement
+    quadrant-1 We should expand
+    quadrant-2 Need to promote
+    quadrant-3 Re-evaluate
+    quadrant-4 May be improved
+    Campaign A: [0.3, 0.6]
+    Campaign B: [0.45, 0.23]
+    Campaign C: [0.57, 0.69]
+    Campaign D: [0.78, 0.34]
+    Campaign E: [0.40, 0.34]
+    Campaign F: [0.35, 0.78]
+\`\`\`
+`;
+const Code = props => {
+  var _a;
+  const { className, children } = props;
+  const lang =
+    ((_a =
+      className === null || className === void 0 ? void 0 : className.match(/language-(\w+)/)) ===
+      null || _a === void 0
+      ? void 0
+      : _a[1]) || '';
+  if (typeof children !== 'string') return null;
+  if (lang === 'mermaid') {
+    return <Mermaid>{children}</Mermaid>;
+  }
+  return <code>{children}</code>;
+};
+const App = () => {
+  const [index, setIndex] = React.useState(0);
+  const timer = React.useRef(null);
+  const contentRef = React.useRef(null);
+  React.useEffect(() => {
+    if (index >= text.length) return;
+    timer.current = setTimeout(() => {
+      setIndex(Math.min(index + 5, text.length));
+    }, 20);
+    return () => {
+      if (timer.current) {
+        clearTimeout(timer.current);
+        timer.current = null;
+      }
+    };
+  }, [index]);
+  React.useEffect(() => {
+    if (contentRef.current && index > 0 && index < text.length) {
+      const { scrollHeight, clientHeight } = contentRef.current;
+      if (scrollHeight > clientHeight) {
+        contentRef.current.scrollTo({
+          top: scrollHeight,
+          behavior: 'smooth',
+        });
+      }
+    }
+  }, [index]);
+  return (
+    <Flex vertical gap="small" style={{ height: 600, overflow: 'auto' }} ref={contentRef}>
+      <Flex justify="flex-end">
+        <Button onClick={() => setIndex(0)}>Re-Render</Button>
+      </Flex>
+
+      <Bubble
+        content={text.slice(0, index)}
+        styles={{
+          content: {
+            width: 700,
+          },
+        }}
+        contentRender={content => (
+          <XMarkdown components={{ code: Code }} paragraphTag="div">
+            {content}
+          </XMarkdown>
+        )}
+        variant="outlined"
+      />
+    </Flex>
+  );
+};
+export default App;
+
+
+
+思考过程：
+
+import { Bubble, Think } from '@ant-design/x';
+import XMarkdown from '@ant-design/x-markdown';
+import { Button, Flex } from 'antd';
+import React from 'react';
+const text = `
+<think>Deep thinking is a systematic and structured cognitive approach that requires individuals to move beyond intuition and superficial information, delving into the essence of a problem and its underlying principles through logical analysis, multi-perspective examination, and persistent inquiry. Unlike quick reactions or heuristic judgments, deep thinking emphasizes ​slow thinking, actively engaging knowledge reserves, critical thinking, and creativity to uncover deeper connections and meanings.
+Key characteristics of deep thinking include:
+​Probing the Essence: Not settling for "what it is," but continuously asking "why" and "how it works" until reaching the fundamental logic.
+​Multidimensional Connections: Placing the issue in a broader context and analyzing it through interdisciplinary knowledge or diverse perspectives.
+​Skepticism & Reflection: Challenging existing conclusions, authoritative opinions, and even personal biases, validating them through logic or evidence.
+​Long-term Value Focus: Prioritizing systemic consequences and sustainable impact over short-term or localized benefits.
+This mode of thinking helps individuals avoid cognitive biases in complex scenarios, improve decision-making, and generate groundbreaking insights in fields such as academic research, business innovation, and social problem-solving.</think>
+# Hello Deep Thinking\n Deep thinking is over.\n\n You can use the think tag to package your thoughts.
+`;
+const ThinkComponent = React.memo(props => {
+  const [title, setTitle] = React.useState('Deep thinking...');
+  const [loading, setLoading] = React.useState(true);
+  const [expand, setExpand] = React.useState(true);
+  React.useEffect(() => {
+    if (props.streamStatus === 'done') {
+      setTitle('Complete thinking');
+      setLoading(false);
+      setExpand(false);
+    }
+  }, [props.streamStatus]);
+  return (
+    <Think title={title} loading={loading} expanded={expand} onClick={() => setExpand(!expand)}>
+      {props.children}
+    </Think>
+  );
+});
+const App = () => {
+  const [index, setIndex] = React.useState(0);
+  const timer = React.useRef(null);
+  const contentRef = React.useRef(null);
+  React.useEffect(() => {
+    if (index >= text.length) return;
+    timer.current = setTimeout(() => {
+      setIndex(Math.min(index + 5, text.length));
+    }, 20);
+    return () => {
+      if (timer.current) {
+        clearTimeout(timer.current);
+        timer.current = null;
+      }
+    };
+  }, [index]);
+  React.useEffect(() => {
+    if (contentRef.current && index > 0 && index < text.length) {
+      const { scrollHeight, clientHeight } = contentRef.current;
+      if (scrollHeight > clientHeight) {
+        contentRef.current.scrollTo({
+          top: scrollHeight,
+          behavior: 'smooth',
+        });
+      }
+    }
+  }, [index]);
+  return (
+    <Flex vertical gap="small" style={{ height: 600, overflow: 'auto' }} ref={contentRef}>
+      <Flex justify="flex-end">
+        <Button onClick={() => setIndex(0)}>Re-Render</Button>
+      </Flex>
+
+      <Bubble
+        content={text.slice(0, index)}
+        contentRender={content => (
+          <XMarkdown components={{ think: ThinkComponent }} paragraphTag="div">
+            {content}
+          </XMarkdown>
+        )}
+        variant="outlined"
+      />
+    </Flex>
+  );
+};
+export default App;
+
+
+图表：
+import { Bubble } from '@ant-design/x';
+import XMarkdown from '@ant-design/x-markdown';
+import { Line } from '@antv/gpt-vis';
+import { Button, Flex, Skeleton } from 'antd';
+/* eslint-disable react/no-danger */
+import React, { useEffect } from 'react';
+const text = `
+**GPT-Vis**, Components for GPTs, generative AI, and LLM projects. Not only UI Components. [more...](https://github.com/antvis/GPT-Vis) \n\n
+Here’s a visualization of Haidilao's food delivery revenue from 2013 to 2022. You can see a steady increase over the years, with notable *growth* particularly in recent years.
+
+<custom-line data-axis-x-title="year" data-axis-y-title="sale">[{"time":2013,"value":59.3},{"time":2014,"value":64.4},{"time":2015,"value":68.9},{"time":2016,"value":74.4},{"time":2017,"value":82.7},{"time":2018,"value":91.9},{"time":2019,"value":99.1},{"time":2020,"value":101.6},{"time":2021,"value":114.4},{"time":2022,"value":121}]</custom-line>
+`;
+const LineCompt = props => {
+  const { children, streamstatus } = props;
+  const resolvedAxisXTitle = props['data-axis-x-title'] || '';
+  const resolvedAxisYTitle = props['data-axis-y-title'] || '';
+  const resolvedStreamStatus = streamstatus || 'done';
+  // Extract JSON from children - children can be array or string
+  let jsonData = [];
+  if (Array.isArray(children) && children.length > 0) {
+    jsonData = children[0];
+  } else if (typeof children === 'string') {
+    jsonData = children;
+  }
+  if (resolvedStreamStatus === 'loading') {
+    return <Skeleton.Image active={true} style={{ width: 901, height: 408 }} />;
+  }
+  try {
+    const parsedData = typeof jsonData === 'string' ? JSON.parse(jsonData) : jsonData;
+    return (
+      <Line data={parsedData} axisXTitle={resolvedAxisXTitle} axisYTitle={resolvedAxisYTitle} />
+    );
+  } catch (error) {
+    console.error('Failed to parse Line data:', jsonData, error);
+    return <div>Error rendering chart</div>;
+  }
+};
+const App = () => {
+  const [index, setIndex] = React.useState(0);
+  const [hasNextChunk, setHasNextChunk] = React.useState(true);
+  const timer = React.useRef(null);
+  const contentRef = React.useRef(null);
+  useEffect(() => {
+    if (index >= text.length) return;
+    timer.current = setTimeout(() => {
+      setIndex(Math.min(index + 5, text.length));
+    }, 20);
+    return () => {
+      if (timer.current) {
+        clearTimeout(timer.current);
+        timer.current = null;
+      }
+    };
+  }, [index]);
+  useEffect(() => {
+    if (index >= text.length) {
+      setHasNextChunk(false);
+    } else if (!hasNextChunk) {
+      setHasNextChunk(true);
+    }
+  }, [index, hasNextChunk]);
+  useEffect(() => {
+    if (contentRef.current && index > 0 && index < text.length) {
+      const { scrollHeight, clientHeight } = contentRef.current;
+      if (scrollHeight > clientHeight) {
+        contentRef.current.scrollTo({
+          top: scrollHeight,
+          behavior: 'smooth',
+        });
+      }
+    }
+  }, [index]);
+  return (
+    <Flex vertical gap="small" style={{ height: 600, overflow: 'auto' }} ref={contentRef}>
+      <Flex justify="flex-end">
+        <Button
+          onClick={() => {
+            setIndex(0);
+            setHasNextChunk(true);
+          }}
+        >
+          Re-Render
+        </Button>
+      </Flex>
+
+      <Bubble
+        content={text.slice(0, index)}
+        contentRender={content => (
+          <XMarkdown
+            style={{ whiteSpace: 'normal' }}
+            components={{ 'custom-line': LineCompt }}
+            paragraphTag="div"
+            streaming={{ hasNextChunk }}
+          >
+            {content}
+          </XMarkdown>
+        )}
+        variant="outlined"
+      />
+    </Flex>
+  );
+};
+export default App;
+
+import { Bubble } from '@ant-design/x';
+import XMarkdown from '@ant-design/x-markdown';
+import { Button, Flex } from 'antd';
+import React from 'react';
+const text = `
+**[Infographic](https://github.com/antvis/Infographic)**, An Infographic Generation and Rendering Framework, bring words to life with AI!
+
+The advantages of an enterprise are generally analyzed from dimensions such as brand influence, technological R&D capabilities, rapid market growth, service satisfaction, comprehensive data assets, and strong innovation capabilities, which are reflected in the final performance.
+
+\`\`\` infographic
+infographic sequence-pyramid-simple
+data
+  title 企业数字化转型层级
+  desc 从基础设施到战略创新的五层进阶路径
+  items
+    - label 战略创新
+      desc 数据驱动决策，引领行业变革
+      icon ref:search:lightbulb-on
+    - label 智能运营
+      desc AI赋能业务，实现自动化管理
+      icon ref:search:robot
+    - label 数据整合
+      desc 打通数据孤岛，建立统一平台
+      icon ref:search:database-sync
+    - label 流程优化
+      desc 数字化核心业务流程和协作
+      icon ref:search:workflow
+    - label 基础设施
+      desc 构建云计算和网络基础架构
+      icon ref:search:server-network
+themeConfig
+  palette antv
+\`\`\`
+`;
+function ReactInfographic(props) {
+  const { children } = props;
+  const [isClient, setIsClient] = React.useState(false);
+  const $container = React.useRef(null);
+  const infographicInstance = React.useRef(null);
+  React.useEffect(() => {
+    setIsClient(true);
+  }, []);
+  React.useEffect(() => {
+    if (!isClient || !$container.current) return;
+    // 动态导入 Infographic 以避免 SSR 问题
+    import('@antv/infographic').then(({ Infographic }) => {
+      var _a;
+      // 确保 container 不为 null
+      if ($container.current) {
+        infographicInstance.current = new Infographic({
+          container: $container.current,
+        });
+        (_a = infographicInstance.current) === null || _a === void 0 ? void 0 : _a.render(children);
+      }
+    });
+    return () => {
+      var _a, _b;
+      (_b = (_a = infographicInstance.current) === null || _a === void 0 ? void 0 : _a.destroy) ===
+        null || _b === void 0
+        ? void 0
+        : _b.call(_a);
+    };
+  }, [isClient, children]);
+  if (!isClient) {
+    return <div style={{ minHeight: 400 }}>Loading infographic...</div>;
+  }
+  return <div ref={$container} />;
+}
+const Code = props => {
+  var _a;
+  const { className, children } = props;
+  const lang =
+    ((_a =
+      className === null || className === void 0 ? void 0 : className.match(/language-(\w+)/)) ===
+      null || _a === void 0
+      ? void 0
+      : _a[1]) || '';
+  if (typeof children !== 'string') return null;
+  if (lang === 'infographic') {
+    return <ReactInfographic>{children}</ReactInfographic>;
+  }
+  return <code>{children}</code>;
+};
+const App = () => {
+  const [index, setIndex] = React.useState(0);
+  const timer = React.useRef(null);
+  const contentRef = React.useRef(null);
+  React.useEffect(() => {
+    if (index >= text.length) return;
+    timer.current = setTimeout(() => {
+      setIndex(Math.min(index + 5, text.length));
+    }, 20);
+    return () => {
+      if (timer.current) {
+        clearTimeout(timer.current);
+        timer.current = null;
+      }
+    };
+  }, [index]);
+  React.useEffect(() => {
+    if (contentRef.current && index > 0 && index < text.length) {
+      const { scrollHeight, clientHeight } = contentRef.current;
+      if (scrollHeight > clientHeight) {
+        contentRef.current.scrollTo({
+          top: scrollHeight,
+          behavior: 'smooth',
+        });
+      }
+    }
+  }, [index]);
+  return (
+    <Flex vertical gap="small" style={{ height: 800, overflow: 'auto' }} ref={contentRef}>
+      <Flex justify="flex-end">
+        <Button onClick={() => setIndex(0)}>Re-Render</Button>
+      </Flex>
+
+      <Bubble
+        content={text.slice(0, index)}
+        styles={{
+          content: {
+            width: 700,
+          },
+        }}
+        contentRender={content => (
+          <XMarkdown components={{ code: Code }} paragraphTag="div">
+            {content}
+          </XMarkdown>
+        )}
+        variant="outlined"
+      />
+    </Flex>
+  );
+};
+export default App;
+
+
+引用来源：
+import { Bubble, Sources } from '@ant-design/x';
+import XMarkdown from '@ant-design/x-markdown';
+import { Button, Flex } from 'antd';
+import React from 'react';
+const text = `Ant Financial has a large number of enterprise-level products.<sup>1</sup> With complex scenarios, designers and developers often need to respond fast due to frequent changes in product demands and concurrent R & D workflow.<sup>2</sup> Many similar contents exist in the process. Through abstraction, we could obtain some stable and highly reusable components and pages.<sup>3</sup>`;
+const SupComponent = React.memo(props => {
+  const items = [
+    {
+      title: '1. Data source',
+      key: 1,
+      url: 'https://x.ant.design/components/overview',
+      description:
+        'Artificial Intelligence, often abbreviated as AI, is a broad branch of computer science concerned with building smart machines capable of performing tasks that typically require human intelligence.',
+    },
+    {
+      title: '2. Data source',
+      key: 2,
+      url: 'https://x.ant.design/components/overview',
+    },
+    {
+      title: '3. Data source',
+      key: 3,
+      url: 'https://x.ant.design/components/overview',
+    },
+  ];
+  return (
+    <Sources
+      activeKey={parseInt(
+        `${props === null || props === void 0 ? void 0 : props.children}` || '0',
+        10,
+      )}
+      title={props.children}
+      items={items}
+      inline={true}
+    />
+  );
+});
+const App = () => {
+  const [index, setIndex] = React.useState(0);
+  const timer = React.useRef(null);
+  const contentRef = React.useRef(null);
+  React.useEffect(() => {
+    if (index >= text.length) return;
+    timer.current = setTimeout(() => {
+      setIndex(Math.min(index + 5, text.length));
+    }, 20);
+    return () => {
+      if (timer.current) {
+        clearTimeout(timer.current);
+        timer.current = null;
+      }
+    };
+  }, [index]);
+  React.useEffect(() => {
+    if (contentRef.current && index > 0 && index < text.length) {
+      const { scrollHeight, clientHeight } = contentRef.current;
+      if (scrollHeight > clientHeight) {
+        contentRef.current.scrollTo({
+          top: scrollHeight,
+          behavior: 'smooth',
+        });
+      }
+    }
+  }, [index]);
+  return (
+    <Flex vertical gap="small" style={{ height: 300, overflow: 'auto' }} ref={contentRef}>
+      <Flex justify="flex-end">
+        <Button onClick={() => setIndex(0)}>Re-Render</Button>
+      </Flex>
+
+      <Bubble
+        content={text.slice(0, index)}
+        contentRender={content => (
+          <XMarkdown components={{ sup: SupComponent }} paragraphTag="div">
+            {content}
+          </XMarkdown>
+        )}
+        variant="outlined"
+      />
+    </Flex>
+  );
+};
+export default App;
+
+
+自定义组件：
+var __awaiter =
+  (this && this.__awaiter) ||
+  function (thisArg, _arguments, P, generator) {
+    function adopt(value) {
+      return value instanceof P
+        ? value
+        : new P(function (resolve) {
+            resolve(value);
+          });
+    }
+    return new (P || (P = Promise))(function (resolve, reject) {
+      function fulfilled(value) {
+        try {
+          step(generator.next(value));
+        } catch (e) {
+          reject(e);
+        }
+      }
+      function rejected(value) {
+        try {
+          step(generator['throw'](value));
+        } catch (e) {
+          reject(e);
+        }
+      }
+      function step(result) {
+        result.done ? resolve(result.value) : adopt(result.value).then(fulfilled, rejected);
+      }
+      step((generator = generator.apply(thisArg, _arguments || [])).next());
+    });
+  };
+import { Bubble, Think } from '@ant-design/x';
+import XMarkdown from '@ant-design/x-markdown';
+import React, { useCallback, useEffect, useState } from 'react';
+import '@ant-design/x-markdown/themes/light.css';
+import {
+  DeleteOutlined,
+  DollarOutlined,
+  EyeOutlined,
+  PlusOutlined,
+  ShoppingCartOutlined,
+  UserOutlined,
+} from '@ant-design/icons';
+import {
+  Button,
+  Card,
+  Flex,
+  Form,
+  Input,
+  Modal,
+  message,
+  Select,
+  Space,
+  Statistic,
+  Table,
+  Tag,
+} from 'antd';
+const { Option } = Select;
+// 自定义业务组件 - 从模型数据获取的销售仪表板
+const Salesdashboard = React.memo(({ children, streamStatus }) => {
+  const [salesData, setSalesData] = useState([]);
+  const [totalSales, setTotalSales] = useState(0);
+  const [totalOrders, setTotalOrders] = useState(0);
+  const [newCustomers, setNewCustomers] = useState(0);
+  useEffect(() => {
+    if (children) {
+      // 从模型返回的数据中解析销售信息
+      try {
+        const parsedData = typeof children === 'string' ? JSON.parse(children) : children;
+        if (parsedData.sales) {
+          setSalesData(parsedData.sales);
+        }
+        if (parsedData.totalSales) {
+          setTotalSales(parsedData.totalSales);
+        }
+        if (parsedData.totalOrders) {
+          setTotalOrders(parsedData.totalOrders);
+        }
+        if (parsedData.newCustomers) {
+          setNewCustomers(parsedData.newCustomers);
+        }
+      } catch (_error) {
+        // 如果解析失败，使用默认数据
+        const defaultData = [
+          { name: '电子产品', value: 45000, color: '#3b82f6' },
+          { name: '服装', value: 32000, color: '#8b5cf6' },
+          { name: '家居用品', value: 28000, color: '#10b981' },
+        ];
+        setSalesData(defaultData);
+        setTotalSales(115000);
+        setTotalOrders(342);
+        setNewCustomers(67);
+      }
+    } else {
+      // 默认数据
+      const defaultData = [
+        { name: '电子产品', value: 45000, color: '#3b82f6' },
+        { name: '服装', value: 32000, color: '#8b5cf6' },
+        { name: '家居用品', value: 28000, color: '#10b981' },
+      ];
+      setSalesData(defaultData);
+      setTotalSales(115000);
+      setTotalOrders(342);
+      setNewCustomers(67);
+    }
+  }, [children]);
+  if (streamStatus === 'loading') return;
+  return (
+    <div style={{ padding: '20px' }}>
+      <Flex vertical gap="large">
+        <Flex justify="space-between" align="center">
+          销售仪表板 (从模型数据获取)
+          <Tag color="blue">实时数据</Tag>
+        </Flex>
+
+        <Flex gap="middle" wrap>
+          <Card style={{ flex: 1, minWidth: 200 }}>
+            <Statistic
+              title="总销售额"
+              value={totalSales}
+              prefix={<DollarOutlined />}
+              precision={2}
+              valueStyle={{ color: '#3f8600' }}
+            />
+          </Card>
+          <Card style={{ flex: 1, minWidth: 200 }}>
+            <Statistic
+              title="订单总数"
+              value={totalOrders}
+              prefix={<ShoppingCartOutlined />}
+              valueStyle={{ color: '#1890ff' }}
+            />
+          </Card>
+          <Card style={{ flex: 1, minWidth: 200 }}>
+            <Statistic
+              title="新增客户"
+              value={newCustomers}
+              prefix={<UserOutlined />}
+              valueStyle={{ color: '#722ed1' }}
+            />
+          </Card>
+        </Flex>
+
+        <Flex gap="large" wrap>
+          <Card title="销售分布" style={{ flex: 1, minWidth: 300 }}>
+            <div style={{ padding: '20px' }}>
+              {salesData.map((item, index) => (
+                <div key={index} style={{ marginBottom: 12 }}>
+                  <Flex justify="space-between" align="center">
+                    <span>{item.name}</span>
+                    <Tag color={item.color}>¥{item.value.toLocaleString()}</Tag>
+                  </Flex>
+                </div>
+              ))}
+            </div>
+          </Card>
+
+          <Card title="数据说明" style={{ flex: 1, minWidth: 300 }}>
+            <div style={{ padding: '20px' }}>
+              <p>🤖 以上数据由AI模型实时生成</p>
+              <p>📊 数据格式: JSON格式，包含sales、totalSales、totalOrders、newCustomers字段</p>
+              <p>💡 示例格式: sales数组包含name和value字段</p>
+            </div>
+          </Card>
+        </Flex>
+      </Flex>
+    </div>
+  );
+});
+// 自定义业务组件 - 订单管理表格
+const OrderManager = React.memo(() => {
+  const [orders, setOrders] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [modalVisible, setModalVisible] = useState(false);
+  const [editingOrder, setEditingOrder] = useState(null);
+  const [form] = Form.useForm();
+  const fetchOrders = useCallback(
+    () =>
+      __awaiter(void 0, void 0, void 0, function* () {
+        setLoading(true);
+        try {
+          yield new Promise(resolve => setTimeout(resolve, 1000));
+          const mockOrders = [
+            {
+              id: 'ORD001',
+              customer: '张三',
+              product: 'iPhone 15',
+              amount: 8999,
+              status: 'completed',
+              date: '2024-01-15',
+              region: '北京',
+            },
+            {
+              id: 'ORD002',
+              customer: '李四',
+              product: 'MacBook Pro',
+              amount: 15999,
+              status: 'processing',
+              date: '2024-01-16',
+              region: '上海',
+            },
+            {
+              id: 'ORD003',
+              customer: '王五',
+              product: 'AirPods Pro',
+              amount: 1999,
+              status: 'pending',
+              date: '2024-01-17',
+              region: '广州',
+            },
+            {
+              id: 'ORD004',
+              customer: '赵六',
+              product: 'iPad Air',
+              amount: 4799,
+              status: 'completed',
+              date: '2024-01-18',
+              region: '深圳',
+            },
+          ];
+          setOrders(mockOrders);
+        } catch (_error) {
+          message.error('获取订单失败');
+        } finally {
+          setLoading(false);
+        }
+      }),
+    [],
+  );
+  useEffect(() => {
+    fetchOrders();
+  }, [fetchOrders]);
+  const handleDelete = id =>
+    __awaiter(void 0, void 0, void 0, function* () {
+      try {
+        yield new Promise(resolve => setTimeout(resolve, 500));
+        setOrders(prev => prev.filter(order => order.id !== id));
+        message.success('订单已删除');
+      } catch (_error) {
+        message.error('删除失败');
+      }
+    });
+  const handleEdit = order => {
+    setEditingOrder(order);
+    form.setFieldsValue(order);
+    setModalVisible(true);
+  };
+  const handleSubmit = values =>
+    __awaiter(void 0, void 0, void 0, function* () {
+      try {
+        yield new Promise(resolve => setTimeout(resolve, 800));
+        if (editingOrder) {
+          setOrders(prev =>
+            prev.map(order =>
+              order.id === editingOrder.id
+                ? Object.assign(Object.assign({}, order), values)
+                : order,
+            ),
+          );
+          message.success('订单已更新');
+        } else {
+          const newOrder = {
+            id: `ORD${String(Date.now()).slice(-3)}`,
+            customer: values.customer || '',
+            product: values.product || '',
+            amount: values.amount || 0,
+            status: values.status || 'pending',
+            date: new Date().toISOString().split('T')[0],
+            region: values.region || '',
+          };
+          setOrders(prev => [...prev, newOrder]);
+          message.success('订单已创建');
+        }
+        setModalVisible(false);
+        form.resetFields();
+        setEditingOrder(null);
+      } catch (_error) {
+        message.error('操作失败');
+      }
+    });
+  const columns = [
+    { title: '订单号', dataIndex: 'id', key: 'id' },
+    { title: '客户', dataIndex: 'customer', key: 'customer' },
+    { title: '产品', dataIndex: 'product', key: 'product' },
+    { title: '金额', dataIndex: 'amount', key: 'amount', render: amount => `¥${amount}` },
+    {
+      title: '状态',
+      dataIndex: 'status',
+      key: 'status',
+      render: status => {
+        const colors = {
+          pending: 'orange',
+          processing: 'blue',
+          completed: 'green',
+          cancelled: 'red',
+        };
+        const labels = {
+          pending: '待处理',
+          processing: '处理中',
+          completed: '已完成',
+          cancelled: '已取消',
+        };
+        return <Tag color={colors[status]}>{labels[status]}</Tag>;
+      },
+    },
+    { title: '日期', dataIndex: 'date', key: 'date' },
+    { title: '地区', dataIndex: 'region', key: 'region' },
+    {
+      title: '操作',
+      key: 'action',
+      render: (_, record) => (
+        <Space>
+          <Button type="link" icon={<EyeOutlined />} onClick={() => handleEdit(record)} />
+          <Button
+            type="link"
+            danger
+            icon={<DeleteOutlined />}
+            onClick={() => handleDelete(record.id)}
+          />
+        </Space>
+      ),
+    },
+  ];
+  return (
+    <div style={{ padding: '20px' }}>
+      <Flex vertical gap="middle">
+        <Flex justify="space-between" align="center">
+          <h2>订单管理</h2>
+          <Button type="primary" icon={<PlusOutlined />} onClick={() => setModalVisible(true)}>
+            新建订单
+          </Button>
+        </Flex>
+
+        <Table
+          columns={columns}
+          dataSource={orders}
+          loading={loading}
+          rowKey="id"
+          pagination={{ pageSize: 5 }}
+        />
+
+        <Modal
+          title={editingOrder ? '编辑订单' : '新建订单'}
+          open={modalVisible}
+          onCancel={() => {
+            setModalVisible(false);
+            form.resetFields();
+            setEditingOrder(null);
+          }}
+          onOk={() => form.submit()}
+        >
+          <Form form={form} onFinish={handleSubmit} layout="vertical">
+            <Form.Item name="customer" label="客户名称" rules={[{ required: true }]}>
+              <Input />
+            </Form.Item>
+            <Form.Item name="product" label="产品名称" rules={[{ required: true }]}>
+              <Input />
+            </Form.Item>
+            <Form.Item name="amount" label="金额" rules={[{ required: true }]}>
+              <Input type="number" />
+            </Form.Item>
+            <Form.Item name="status" label="状态" rules={[{ required: true }]}>
+              <Select>
+                <Option value="pending">待处理</Option>
+                <Option value="processing">处理中</Option>
+                <Option value="completed">已完成</Option>
+                <Option value="cancelled">已取消</Option>
+              </Select>
+            </Form.Item>
+            <Form.Item name="region" label="地区" rules={[{ required: true }]}>
+              <Input />
+            </Form.Item>
+          </Form>
+        </Modal>
+      </Flex>
+    </div>
+  );
+});
+// 思考组件
+const ThinkComponent = React.memo(props => {
+  var _a;
+  const [title, setTitle] = React.useState('正在分析业务数据...');
+  const [loading, setLoading] = React.useState(true);
+  const [expand, setExpand] = React.useState(true);
+  React.useEffect(() => {
+    if (props.streamStatus === 'done') {
+      setTitle('业务分析完成');
+      setLoading(false);
+      setExpand(false);
+    }
+  }, [props.streamStatus]);
+  if (typeof props.children !== 'string') {
+    return null;
+  }
+  return (
+    <div style={{ padding: '12px 0' }}>
+      <Think title={title} loading={loading} expanded={expand} onClick={() => setExpand(!expand)}>
+        {(_a = props === null || props === void 0 ? void 0 : props.children) === null ||
+        _a === void 0
+          ? void 0
+          : _a.trim()}
+      </Think>
+    </div>
+  );
+});
+const text = `
+<think>
+基于用户提供的业务需求，我们需要创建一个完整的销售管理系统示例，该系统需要展示如何从AI模型返回的数据中动态获取和展示信息。这个示例将展示XMarkdown如何：
+1. 从模型返回的JSON数据中解析业务信息
+2. 使用小写组件标签（如salesdashboard）
+3. 处理动态数据渲染
+4. 实现复杂的业务场景和交互需求
+通过这种方式，用户可以清楚地看到XMarkdown不仅支持简单的文本渲染，还能处理动态数据驱动的复杂业务场景。
+</think>
+
+### 📊 动态销售仪表板
+
+<salesdashboard>{"sales":[{"name":"电子产品","value":52000,"color":"#3b82f6"},{"name":"服装","value":38000,"color":"#8b5cf6"}],"totalSales":141000,"totalOrders":487,"newCustomers":94}</salesdashboard>
+
+### 📋 订单管理系统
+
+<ordermanager />
+`;
+const App = () => {
+  const [index, setIndex] = React.useState(0);
+  const timer = React.useRef(null);
+  const contentRef = React.useRef(null);
+  React.useEffect(() => {
+    if (index >= text.length) return;
+    timer.current = setTimeout(() => {
+      setIndex(Math.min(index + 5, text.length));
+    }, 20);
+    return () => {
+      if (timer.current) {
+        clearTimeout(timer.current);
+        timer.current = null;
+      }
+    };
+  }, [index]);
+  React.useEffect(() => {
+    if (contentRef.current && index > 0 && index < text.length) {
+      const { scrollHeight, clientHeight } = contentRef.current;
+      if (scrollHeight > clientHeight) {
+        contentRef.current.scrollTo({
+          top: scrollHeight,
+          behavior: 'smooth',
+        });
+      }
+    }
+  }, [index]);
+  return (
+    <Flex vertical gap="small" style={{ height: 600, overflow: 'auto' }} ref={contentRef}>
+      <Flex justify="flex-end">
+        <Button onClick={() => setIndex(0)}>Re-Render</Button>
+      </Flex>
+
+      <Bubble
+        content={text.slice(0, index)}
+        contentRender={content => (
+          <XMarkdown
+            components={{
+              think: ThinkComponent,
+              salesdashboard: Salesdashboard,
+              ordermanager: OrderManager,
+            }}
+            paragraphTag="div"
+          >
+            {content}
+          </XMarkdown>
+        )}
+        variant="outlined"
+      />
+    </Flex>
+  );
+};
+export default App;
+
+
+latex公式：
+import { Bubble } from '@ant-design/x';
+import XMarkdown from '@ant-design/x-markdown';
+import Latex from '@ant-design/x-markdown/plugins/Latex';
+import { Button, Flex } from 'antd';
+import React from 'react';
+const text = `
+## 行内公式
+
+在文本中嵌入数学公式，如：勾股定理 $ a^2 + b^2 = c^2 $，欧拉公式 $ e^{i\\pi} + 1 = 0 $。
+
+圆的面积公式是\n $$ \n S = \\pi r^2 \n $$，其中 $ r $ 是半径。
+
+二次方程 \\( ax^2 + bx + c = 0 \\) 的解为 \n \\[ \n x = \\frac{-b \\pm \\sqrt{b^2-4ac}}{2a} \n \\]。
+
+## 块级公式
+
+### 基础数学运算
+
+$$
+\\begin{aligned}
+a + b &= c \\\\
+d - e &= f \\\\
+g \\times h &= i \\\\
+\\frac{j}{k} &= l
+\\end{aligned}
+$$
+
+### 平方根和指数
+
+$$
+\\sqrt{x} = x^{\\frac{1}{2}}
+$$
+
+$$
+\\sqrt[n]{x} = x^{\\frac{1}{n}}
+$$
+
+$$
+e^{i\\theta} = cos + sin
+$$
+
+### 分数和比例
+
+$$
+\\frac{\\partial f}{\\partial x} = \\lim_{h \\to 0} \\frac{f(x+h) - f(x)}{h}
+$$
+
+$$
+\\frac{a}{b} = \\frac{c}{d} \\Rightarrow ad = bc
+$$
+
+### 求和与积分
+
+#### 求和公式
+
+$$
+\\sum_{i=1}^{n} i = \\frac{n(n+1)}{2}
+$$
+
+$$
+\\sum_{i=1}^{n} i^2 = \\frac{n(n+1)(2n+1)}{6}
+$$
+
+#### 积分公式
+
+$$
+\\int_a^b f(x) dx = F(b) - F(a)
+$$
+
+$$
+\\int_{-\\infty}^{+\\infty} e^{-x^2} dx = \\sqrt{\\pi}
+$$
+
+$$
+\\int_0^{\\pi} \\sin x dx = 2
+$$
+
+### 微分方程
+
+$$
+\\frac{dy}{dx} = ky \\Rightarrow y = Ce^{kx}
+$$
+
+$$
+\\frac{d^2y}{dx^2} + \\omega^2 y = 0 \\Rightarrow y = A\\cos(\\omega x) + B\\sin(\\omega x)
+$$
+
+### 矩阵运算
+
+$$
+\\begin{pmatrix}
+a & b \\\\
+c & d
+\\end{pmatrix}
+\\begin{pmatrix}
+x \\\\
+y
+\\end{pmatrix}
+=
+\\begin{pmatrix}
+ax + by \\\\
+cx + dy
+\\end{pmatrix}
+$$
+
+行列式：
+
+$$
+\\det\\begin{pmatrix}
+a & b \\\\
+c & d
+\\end{pmatrix} = ad - bc
+$$
+
+### 统计学公式
+
+#### 正态分布
+
+$$
+f(x) = \\frac{1}{\\sigma\\sqrt{2\\pi}} e^{-\\frac{(x-\\mu)^2}{2\\sigma^2}}
+$$
+
+#### 贝叶斯定理
+
+$$
+P(A|B) = \\frac{P(B|A) \\cdot P(A)}{P(B)}
+$$
+
+#### 标准差
+
+$$
+\\sigma = \\sqrt{\\frac{1}{N}\\sum_{i=1}^{N}(x_i - \\mu)^2}
+$$
+
+### 三角函数
+
+$$
+\\sin^2\\theta + \\cos^2\\theta = 1
+$$
+
+$$
+\\tan\\theta = \\frac{\\sin\\theta}{\\cos\\theta}
+$$
+
+$$
+e^{i\\theta} = \\cos\\theta + i\\sin\\theta
+$$
+
+### 级数展开
+
+#### 泰勒级数
+
+$$
+f(x) = \\sum_{n=0}^{\\infty} \\frac{f^{(n)}(a)}{n!}(x-a)^n
+$$
+
+#### 指数函数展开
+
+$$
+e^x = \\sum_{n=0}^{\\infty} \\frac{x^n}{n!} = 1 + x + \\frac{x^2}{2!} + \\frac{x^3}{3!} + \\cdots
+$$
+
+#### 正弦函数展开
+
+$$
+\\sin x = \\sum_{n=0}^{\\infty} \\frac{(-1)^n x^{2n+1}}{(2n+1)!} = x - \\frac{x^3}{3!} + \\frac{x^5}{5!} - \\cdots
+$$
+
+### 复数运算
+
+复数的一般形式： $ z = a + bi $
+
+复数的模： $ |z| = \\sqrt{a^2 + b^2} $
+
+复数的乘法：
+
+$$
+(a + bi)(c + di) = (ac - bd) + (ad + bc)i
+$$
+
+德摩弗定理：
+
+$$
+(\\cos\\theta + i\\sin\\theta)^n = \\cos(n\\theta) + i\\sin(n\\theta)
+$$
+
+### 极限
+
+$$
+\\lim_{x \\to 0} \\frac{\\sin x}{x} = 1
+$$
+
+$$
+\\lim_{x \\to \\infty} \\left(1 + \\frac{1}{x}\\right)^x = e
+$$
+
+$$
+\\lim_{n \\to \\infty} \\sqrt[n]{n} = 1
+$$
+
+### 组合数学
+
+排列数： $ P(n,r) = \\frac{n!}{(n-r)!} $
+
+组合数： $ C(n,r) = \\binom{n}{r} = \\frac{n!}{r!(n-r)!} $
+
+二项式定理：
+
+$$
+(x + y)^n = \\sum_{k=0}^{n} \\binom{n}{k} x^{n-k} y^k
+$$
+
+### 向量运算
+
+向量的点积： $ \\vec{a} \\cdot \\vec{b} = |\\vec{a}||\\vec{b}|\\cos\\theta $
+
+向量的叉积： $ \\vec{a} \\times \\vec{b} = |\\vec{a}||\\vec{b}|\\sin\\theta \\vec{n} $
+
+三维向量的叉积：
+
+$$
+\\vec{a} \\times \\vec{b} = \\begin{vmatrix}
+\\vec{i} & \\vec{j} & \\vec{k} \\\\
+a_1 & a_2 & a_3 \\\\
+b_1 & b_2 & b_3
+\\end{vmatrix}
+$$
+
+
+### 支持的语法格式
+
+本示例支持以下 LaTeX 语法格式：
+
+#### 行内公式
+- 使用单个 $ 包围：$E=mc^2$
+- 使用 ( ) 包围：(a^2+b^2=c^2)
+- 使用两个 $ 包围并带有 \`\n\`：$\n E=mc^2 \n$
+- 使用 [ ] 包围：[ \n a^2+b^2=c^2 \n ]
+- 使用 $$\n\n$$ 语法：$$
+E=mc^2
+$$
+- 使用 [ \n ] 语法：[
+E=mc^2
+]
+
+#### 块级公式
+- 使用双 $$ 包围：
+$$
+int_a^b f(x)dx = F(b) - F(a)
+$$
+- 使用 [ ] 包围：
+[
+sum_{i=1}^n i = \frac{n(n+1)}{2}
+]
+
+> **注意**：LaTeX 公式的渲染依赖于 KaTeX 库，确保已正确配置相关依赖。
+`;
+const App = () => {
+  const [index, setIndex] = React.useState(0);
+  const timer = React.useRef(null);
+  const contentRef = React.useRef(null);
+  React.useEffect(() => {
+    if (index >= text.length) return;
+    timer.current = setTimeout(() => {
+      setIndex(Math.min(index + 5, text.length));
+    }, 20);
+    return () => {
+      if (timer.current) {
+        clearTimeout(timer.current);
+        timer.current = null;
+      }
+    };
+  }, [index]);
+  React.useEffect(() => {
+    if (contentRef.current && index > 0 && index < text.length) {
+      const { scrollHeight, clientHeight } = contentRef.current;
+      if (scrollHeight > clientHeight) {
+        contentRef.current.scrollTo({
+          top: scrollHeight,
+          behavior: 'smooth',
+        });
+      }
+    }
+  }, [index]);
+  return (
+    <Flex vertical gap="small" style={{ height: 600, overflow: 'auto' }} ref={contentRef}>
+      <Flex justify="flex-end">
+        <Button onClick={() => setIndex(0)}>Re-Render</Button>
+      </Flex>
+
+      <Bubble
+        content={text.slice(0, index)}
+        contentRender={content => (
+          <XMarkdown config={{ extensions: Latex() }} paragraphTag="div">
+            {content}
+          </XMarkdown>
+        )}
+        variant="outlined"
+      />
+    </Flex>
+  );
+};
+export default App;
+
+
+会话管理：
+var __awaiter =
+  (this && this.__awaiter) ||
+  function (thisArg, _arguments, P, generator) {
+    function adopt(value) {
+      return value instanceof P
+        ? value
+        : new P(function (resolve) {
+            resolve(value);
+          });
+    }
+    return new (P || (P = Promise))(function (resolve, reject) {
+      function fulfilled(value) {
+        try {
+          step(generator.next(value));
+        } catch (e) {
+          reject(e);
+        }
+      }
+      function rejected(value) {
+        try {
+          step(generator['throw'](value));
+        } catch (e) {
+          reject(e);
+        }
+      }
+      function step(result) {
+        result.done ? resolve(result.value) : adopt(result.value).then(fulfilled, rejected);
+      }
+      step((generator = generator.apply(thisArg, _arguments || [])).next());
+    });
+  };
+import { Bubble, Conversations, Sender } from '@ant-design/x';
+import { DeepSeekChatProvider, useXChat, useXConversations, XRequest } from '@ant-design/x-sdk';
+import { Flex, theme } from 'antd';
+import React, { useEffect, useRef } from 'react';
+const useLocale = () => {
+  const isCN = typeof location !== 'undefined' ? location.pathname.endsWith('-cn') : false;
+  return {
+    conversationItem1: isCN ? '会话项目 1' : 'Conversation Item 1',
+    conversationItem2: isCN ? '会话项目 2' : 'Conversation Item 2',
+    conversationItem3: isCN
+      ? '会话项目 3，你可以点击我！'
+      : "This's Conversation Item 3, you can click me!",
+    conversationItem4: isCN ? '会话项目 4' : 'Conversation Item 4',
+    thinking: isCN ? '思考中' : 'Thinking',
+    requestAborted: isCN ? '请求已中止' : 'Request aborted',
+    somethingWrong: isCN ? '出了点问题' : 'Something went wrong',
+  };
+};
+const App = () => {
+  const locale = useLocale();
+  const { token } = theme.useToken();
+  const items = [
+    {
+      key: 'item2_1',
+      label: locale.conversationItem1,
+    },
+    {
+      key: 'item2_2',
+      label: locale.conversationItem2,
+    },
+    {
+      key: 'item2_3',
+      label: locale.conversationItem3,
+    },
+    {
+      key: 'item2_4',
+      label: locale.conversationItem4,
+      disabled: true, // 禁用此项目，用户无法点击
+    },
+  ];
+  // 提供者缓存：为每个会话缓存独立的聊天提供者实例
+  // Provider cache: cache independent chat provider instances for each conversation
+  const providerCaches = new Map();
+  // 提供者工厂：根据会话key创建或获取对应的聊天提供者
+  // Provider factory: create or get corresponding chat provider based on conversation key
+  const providerFactory = conversationKey => {
+    if (!providerCaches.get(conversationKey)) {
+      providerCaches.set(
+        conversationKey,
+        new DeepSeekChatProvider({
+          request: XRequest('https://api.x.ant.design/api/big_model_glm-4.5-flash', {
+            manual: true,
+            params: {
+              thinking: {
+                type: 'disabled',
+              },
+              stream: true,
+              model: 'glm-4.5-flash',
+            },
+          }),
+        }),
+      );
+    }
+    return providerCaches.get(conversationKey);
+  };
+  // 会话管理：使用会话钩子管理会话列表和激活状态
+  // Conversation management: use conversation hook to manage conversation list and active state
+  const { conversations, activeConversationKey, setActiveConversationKey } = useXConversations({
+    defaultConversations: items,
+    defaultActiveConversationKey: items[0].key,
+  });
+  const senderRef = useRef(null);
+  const style = {
+    width: 256,
+    background: token.colorBgContainer,
+    borderRadius: token.borderRadius,
+  };
+  // 获取历史消息列表：从服务器加载历史聊天记录
+  // Get history message list: load historical chat records from server
+  const getHistoryMessageList = _a =>
+    __awaiter(void 0, [_a], void 0, function* ({ conversationKey }) {
+      try {
+        const response = yield fetch(
+          `https://api.x.ant.design/api/history_messages?isZH_CN=${typeof location !== 'undefined' && location.pathname.endsWith('-cn')}&sessionId=${conversationKey}`,
+          {
+            method: 'GET',
+          },
+        );
+        const responseJson = yield response.json();
+        if (responseJson === null || responseJson === void 0 ? void 0 : responseJson.success) {
+          return (
+            (responseJson === null || responseJson === void 0 ? void 0 : responseJson.data) || []
+          );
+        }
+      } catch (error) {
+        // 网络请求失败时返回空数组
+        // Return empty array when network request fails
+        console.warn('Failed to load history messages:', error);
+      }
+      return [];
+    });
+  // 聊天管理：使用聊天钩子管理消息和请求
+  // Chat management: use chat hook to manage messages and requests
+  const { onRequest, messages, isDefaultMessagesRequesting, isRequesting, abort } = useXChat({
+    provider: providerFactory(activeConversationKey), // 每个会话都有独立的提供者
+    conversationKey: activeConversationKey,
+    defaultMessages: getHistoryMessageList,
+    requestPlaceholder: () => {
+      return {
+        content: locale.thinking,
+        role: 'assistant',
+      };
+    },
+    requestFallback: (_, { error, errorInfo, messageInfo }) => {
+      var _a, _b;
+      // 请求失败处理：区分中止错误和其他错误
+      // Request failure handling: distinguish between abort error and other errors
+      if (error.name === 'AbortError') {
+        return {
+          content:
+            ((_a =
+              messageInfo === null || messageInfo === void 0 ? void 0 : messageInfo.message) ===
+              null || _a === void 0
+              ? void 0
+              : _a.content) || locale.requestAborted,
+          role: 'assistant',
+        };
+      }
+      return {
+        content:
+          ((_b = errorInfo === null || errorInfo === void 0 ? void 0 : errorInfo.error) === null ||
+          _b === void 0
+            ? void 0
+            : _b.message) || locale.somethingWrong,
+        role: 'assistant',
+      };
+    },
+  });
+  useEffect(() => {
+    var _a;
+    (_a = senderRef.current) === null || _a === void 0 ? void 0 : _a.clear();
+  }, [activeConversationKey]);
+  return (
+    <Flex gap="small" align="flex-start">
+      {/* 会话列表：左侧显示可点击的会话项目 */}
+      {/* Conversation list: display clickable conversation items on the left */}
+      <Conversations
+        items={conversations}
+        activeKey={activeConversationKey}
+        style={style}
+        onActiveChange={setActiveConversationKey}
+      />
+
+      {/* 聊天区域：右侧显示当前会话的聊天内容 */}
+      {/* Chat area: display chat content for current conversation on the right */}
+      <Flex style={{ width: 500 }} vertical gap="small" align="flex-start">
+        <div style={{ width: '100%', height: 350, display: 'flex', flexDirection: 'column' }}>
+          <Bubble.List
+            items={
+              messages === null || messages === void 0
+                ? void 0
+                : messages.map(i =>
+                    Object.assign(Object.assign({}, i.message), {
+                      key: i.id,
+                      status: i.status,
+                      loading: i.status === 'loading',
+                      extraInfo: i.extraInfo,
+                    }),
+                  )
+            }
+            styles={{
+              bubble: {
+                maxWidth: 840,
+              },
+            }}
+            role={{
+              assistant: {
+                placement: 'start',
+              },
+              user: { placement: 'end' },
+            }}
+          />
+        </div>
+
+        {/* 发送器：用户输入区域，支持发送消息和中止请求 */}
+        {/* Sender: user input area, supports sending messages and aborting requests */}
+        <Sender
+          disabled={isDefaultMessagesRequesting}
+          ref={senderRef}
+          onSubmit={val => {
+            var _a;
+            if (!val) return;
+            onRequest({
+              messages: [{ role: 'user', content: val }],
+            });
+            (_a = senderRef.current) === null || _a === void 0 ? void 0 : _a.clear();
+          }}
+          onCancel={() => {
+            abort();
+          }}
+          loading={isRequesting}
+        />
+      </Flex>
+    </Flex>
+  );
+};
+export default App;
+
+
+思维链和工具调用链：
+import { CodeOutlined, EditOutlined, HeartTwoTone, SmileTwoTone } from '@ant-design/icons';
+import { Think, ThoughtChain } from '@ant-design/x';
+import { Button, Card, Flex, Typography } from 'antd';
+import React from 'react';
+const { Text } = Typography;
+const items = [
+  {
+    title: 'Create Task',
+    description: 'description',
+    icon: <HeartTwoTone twoToneColor="#eb2f96" />,
+    footer: <Button block>Thought Chain Item Footer</Button>,
+    content: (
+      <Flex gap="small" vertical>
+        <Think title="Thinking Process">
+          {`1. Analyze task, understand task workflow\n2. Task creation, files needed for task\n3. Task execution, using new component`}
+        </Think>
+        <Text type="secondary">Creating folder for new component</Text>
+        <ThoughtChain.Item
+          variant="solid"
+          icon={<CodeOutlined />}
+          title="Executing command"
+          description="mkdir -p component"
+        />
+        <Text type="secondary">Creating files needed for new component</Text>
+        <ThoughtChain.Item
+          variant="solid"
+          icon={<EditOutlined />}
+          title="Creating file"
+          description="component/index.tsx"
+        />
+        <Text type="secondary">Creating Chinese documentation file for new component</Text>
+        <ThoughtChain.Item
+          variant="solid"
+          icon={<EditOutlined />}
+          title="Continue creating file"
+          description="component/index.zh-CN.md"
+        />
+        <Text type="secondary">Creating English description file for new component</Text>
+        <ThoughtChain.Item
+          variant="solid"
+          icon={<EditOutlined />}
+          title="Continue creating file"
+          description="component/index.en-US.md"
+        />
+      </Flex>
+    ),
+  },
+  {
+    key: 'check_task',
+    title: 'Check Task Execution Steps Completion',
+    icon: <SmileTwoTone />,
+    collapsible: true,
+    description: 'Verify the overall task execution logic and feasibility',
+    content: (
+      <Flex gap="small" vertical>
+        <ThoughtChain.Item
+          variant="solid"
+          status="success"
+          title="Folder creation completed"
+          description="component"
+        />
+        <ThoughtChain.Item
+          variant="solid"
+          status="success"
+          title="File creation completed"
+          description="component/index.tsx"
+        />
+        <ThoughtChain.Item
+          variant="solid"
+          status="success"
+          title="File creation completed"
+          description="component/index.zh-CN.md"
+        />
+        <ThoughtChain.Item
+          variant="solid"
+          status="success"
+          title="File creation completed"
+          description="component/index.en-US.md"
+        />
+      </Flex>
+    ),
+  },
+  {
+    key: 'used_task',
+    title: 'Checking Task Execution Steps',
+    description: 'Verify the overall task execution logic and feasibility',
+    content: (
+      <Flex gap="small" vertical>
+        <ThoughtChain.Item
+          variant="solid"
+          status="success"
+          title="Folder creation completed"
+          description="component"
+        />
+        <ThoughtChain.Item
+          variant="solid"
+          status="success"
+          title="File creation completed"
+          description="component/index.tsx"
+        />
+        <ThoughtChain.Item
+          variant="solid"
+          status="success"
+          title="File creation completed"
+          description="component/index.zh-CN.md"
+        />
+        <ThoughtChain.Item
+          variant="solid"
+          status="success"
+          title="File creation completed"
+          description="component/index.en-US.md"
+        />
+      </Flex>
+    ),
+    status: 'error',
+  },
+];
+const App = () => {
+  return (
+    <Card style={{ width: 500 }}>
+      <ThoughtChain items={items} line="dashed" />
+    </Card>
+  );
+};
+export default App;
+
+
+
+提示词集：
+import {
+  BulbOutlined,
+  InfoCircleOutlined,
+  RocketOutlined,
+  SmileOutlined,
+  WarningOutlined,
+} from '@ant-design/icons';
+import { Prompts } from '@ant-design/x';
+import { App } from 'antd';
+import React from 'react';
+const items = [
+  {
+    key: '1',
+    icon: <BulbOutlined style={{ color: '#FFD700' }} />,
+    label: 'Ignite Your Creativity',
+    description: 'Got any sparks for a new project?',
+  },
+  {
+    key: '2',
+    icon: <InfoCircleOutlined style={{ color: '#1890FF' }} />,
+    label: 'Uncover Background Info',
+    description: 'Help me understand the background of this topic.',
+  },
+  {
+    key: '3',
+    icon: <RocketOutlined style={{ color: '#722ED1' }} />,
+    label: 'Efficiency Boost Battle',
+    description: 'How can I work faster and better?',
+  },
+  {
+    key: '4',
+    icon: <SmileOutlined style={{ color: '#52C41A' }} />,
+    label: 'Tell me a Joke',
+    description: 'Why do not ants get sick? Because they have tiny ant-bodies!',
+  },
+  {
+    key: '5',
+    icon: <WarningOutlined style={{ color: '#FF4D4F' }} />,
+    label: 'Common Issue Solutions',
+    description: 'How to solve common issues? Share some tips!',
+  },
+];
+const Demo = () => {
+  const { message } = App.useApp();
+  return (
+    <Prompts
+      title="✨ Inspirational Sparks and Marvelous Tips"
+      items={items}
+      onItemClick={info => {
+        message.success(`You clicked a prompt: ${info.data.label}`);
+      }}
+    />
+  );
+};
+export default () => (
+  <App>
+    <Demo />
+  </App>
+);
+
+
+进度条：
+import React from 'react';
+import { Flex, Progress } from 'antd';
+const App = () => (
+  <Flex vertical gap="small" style={{ width: 180 }}>
+    <Progress percent={30} size="small" />
+    <Progress percent={50} size="small" status="active" />
+    <Progress percent={70} size="small" status="exception" />
+    <Progress percent={100} size="small" />
+  </Flex>
+);
+export default App;

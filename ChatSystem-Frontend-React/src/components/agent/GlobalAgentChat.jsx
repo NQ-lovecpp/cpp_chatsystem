@@ -1,21 +1,113 @@
 /**
  * GlobalAgent 对话界面
- * 用户的私人 AI 助手，从左侧边栏访问
  * 
- * 与 SessionAgent 的区别：
- * - GlobalAgent: 用户的私人助手，独立于聊天会话，可创建 TaskAgent
- * - SessionAgent: 群聊/单聊中的 AI 成员
+ * 使用 Ant Design X 组件：
+ * - Bubble: 消息气泡
+ * - Sender: 输入组件
+ * - Prompts: 快捷提示
+ * 
+ * 注意：不包含左侧会话列表（由右侧 GlobalAgentSidePanel 管理）
  */
 
-import { useState, useRef, useEffect, useCallback } from 'react';
+import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
+import { Bubble, Sender, Prompts, XProvider } from '@ant-design/x';
+import { 
+    Flex, 
+    Typography, 
+    Button, 
+    Spin,
+    message,
+} from 'antd';
+import {
+    BulbOutlined,
+    InfoCircleOutlined,
+    RocketOutlined,
+    SmileOutlined,
+    PlusOutlined,
+    MessageOutlined,
+    UserOutlined,
+} from '@ant-design/icons';
 import { useAgent } from '../../contexts/AgentContext';
 import { useAuth } from '../../contexts/AuthContext';
 import { MessageType } from '../../contexts/AgentContext';
-import TaskMessageItem from './TaskMessageItem';
-import { cn } from '../../lib/utils';
+import AgentMessageRenderer from './AgentMessageRenderer';
+import ThoughtChainDisplay from './ThoughtChainDisplay';
+
+const { Text, Title } = Typography;
+
+// 快捷提示配置
+const promptItems = [
+    {
+        key: 'summarize',
+        icon: <BulbOutlined style={{ color: '#FFD700' }} />,
+        label: '总结聊天记录',
+        description: '帮我总结一下最近的对话内容',
+    },
+    {
+        key: 'search',
+        icon: <InfoCircleOutlined style={{ color: '#1890FF' }} />,
+        label: '搜索信息',
+        description: '帮我搜索一下相关资料',
+    },
+    {
+        key: 'task',
+        icon: <RocketOutlined style={{ color: '#722ED1' }} />,
+        label: '创建任务',
+        description: '帮我创建一个后台任务',
+    },
+    {
+        key: 'joke',
+        icon: <SmileOutlined style={{ color: '#52C41A' }} />,
+        label: '讲个笑话',
+        description: '给我讲个笑话放松一下',
+    },
+];
+
+// 欢迎界面
+function WelcomeScreen({ userName, onPromptClick }) {
+    return (
+        <Flex 
+            vertical 
+            align="center" 
+            justify="center" 
+            style={{ height: '100%', padding: 24 }}
+        >
+            <div 
+                style={{ 
+                    width: 64, 
+                    height: 64, 
+                    borderRadius: '50%',
+                    background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    marginBottom: 24
+                }}
+            >
+                <MessageOutlined style={{ fontSize: 28, color: 'white' }} />
+            </div>
+            
+            <Title level={4} style={{ margin: 0, marginBottom: 8 }}>
+                您好，{userName || '用户'}！
+            </Title>
+            <Text type="secondary" style={{ marginBottom: 24, textAlign: 'center' }}>
+                我是您的私人 AI 助手，可以帮您查询聊天记录、搜索信息、执行任务
+            </Text>
+            
+            <Prompts
+                title="✨ 试试这些功能"
+                items={promptItems}
+                onItemClick={(info) => onPromptClick(info.data)}
+                style={{ width: '100%', maxWidth: 400 }}
+            />
+        </Flex>
+    );
+}
 
 export default function GlobalAgentChat() {
     const { user } = useAuth();
+    const [messageApi, contextHolder] = message.useMessage();
+    
     const { 
         startTask, 
         tasks,
@@ -23,6 +115,7 @@ export default function GlobalAgentChat() {
         setGlobalAgentTaskId,
         globalConversations,
         activeGlobalConversationId,
+        setActiveGlobalConversationId,
         createGlobalConversation,
         addMessageToGlobalConversation,
         removeLastMessageFromGlobalConversation,
@@ -30,37 +123,54 @@ export default function GlobalAgentChat() {
         selectTask,
     } = useAgent();
     
-    const [inputText, setInputText] = useState('');
     const [isLoading, setIsLoading] = useState(false);
+    const senderRef = useRef(null);
     const messagesEndRef = useRef(null);
-    const inputRef = useRef(null);
     
     // 当前会话
-    const currentConversation = activeGlobalConversationId 
-        ? globalConversations.find(c => c.id === activeGlobalConversationId) 
-        : null;
-    const conversationMessages = currentConversation?.messages ?? [];
+    const currentConversation = useMemo(() => {
+        if (!activeGlobalConversationId) return null;
+        return globalConversations.find(c => c.id === activeGlobalConversationId) || null;
+    }, [activeGlobalConversationId, globalConversations]);
     
-    // 当前 GlobalAgent 任务（来自 context）
+    const conversationMessages = useMemo(() => {
+        return currentConversation?.messages ?? [];
+    }, [currentConversation]);
+    
+    // 当前任务
     const currentTask = globalAgentTaskId ? tasks[globalAgentTaskId] : null;
-    
-    // 合并展示：历史对话 + 当前轮次（工具调用、助手回复）
-    // 注意：任务完成时 assistant 已追加到 conversationMessages，需排除 currentTask 中的 assistant 避免重复
     const taskStatus = globalAgentTaskId ? getTaskStatus(globalAgentTaskId) : null;
-    const displayMessages = (() => {
+    
+    // 合并消息：历史消息 + 当前正在流式输出的 assistant 消息
+    const displayMessages = useMemo(() => {
+        // 历史消息（已完成的，存在 conversation 中）
         const hist = conversationMessages.map((m, i) => ({
-            id: `hist_${i}`,
-            type: m.role === 'user' ? MessageType.USER : MessageType.ASSISTANT,
+            key: `hist_${i}_${m.role}`,
+            role: m.role,          // 'user' | 'assistant'
             content: m.content,
         }));
+        
         if (!currentTask?.messages?.length) return hist;
-        const current = currentTask.messages.filter(m => {
-            if (m.type === MessageType.USER) return false;
-            if (m.type === MessageType.ASSISTANT && (taskStatus === 'done' || taskStatus === 'failed' || taskStatus === 'cancelled')) return false;
-            return true;
-        });
-        return [...hist, ...current];
-    })();
+        
+        // 从当前任务中只提取 assistant 消息（正在流式输出的）
+        // user 消息已在 hist 中（通过 addMessageToGlobalConversation），不重复
+        // reasoning / tool_call 等通过 ThoughtChain 展示，不在气泡中
+        const streamingMessages = currentTask.messages
+            .filter(m => {
+                if (m.type !== MessageType.ASSISTANT) return false;
+                // 任务完成后 assistant 消息已经写入 conversation，跳过避免重复
+                if (taskStatus === 'done' || taskStatus === 'failed') return false;
+                return true;
+            })
+            .map((m, i) => ({
+                key: `stream_${currentTask.id}_${i}`,
+                role: 'assistant',
+                content: m.content,
+                loading: m.streaming && !m.content,
+            }));
+        
+        return [...hist, ...streamingMessages];
+    }, [conversationMessages, currentTask, taskStatus]);
     
     // 滚动到底部
     const scrollToBottom = useCallback(() => {
@@ -71,35 +181,35 @@ export default function GlobalAgentChat() {
         scrollToBottom();
     }, [displayMessages, scrollToBottom]);
     
-    // 监听任务状态变化
+    // 监听任务完成
+    const prevTaskStatusRef = useRef(null);
     useEffect(() => {
-        if (globalAgentTaskId) {
-            const status = getTaskStatus(globalAgentTaskId);
+        if (!globalAgentTaskId) return;
+        const status = getTaskStatus(globalAgentTaskId);
+        if (prevTaskStatusRef.current !== status) {
+            prevTaskStatusRef.current = status;
             if (status === 'done' || status === 'failed' || status === 'cancelled') {
                 setIsLoading(false);
             }
         }
     }, [globalAgentTaskId, getTaskStatus]);
     
-    // 发送消息 - 调用 GlobalAgent（task_type: 'global'），支持多轮对话
-    const handleSend = async () => {
-        if (!inputText.trim() || isLoading) return;
+    // 发送消息
+    const handleSend = async (text) => {
+        if (!text?.trim() || isLoading) return;
         
-        const text = inputText.trim();
-        setInputText('');
         setIsLoading(true);
         
-        // 若无当前会话则创建
+        // 确保有当前会话
         let convId = activeGlobalConversationId;
         if (!convId) {
             convId = createGlobalConversation();
         }
         
-        // 多轮：先将用户消息加入当前会话
+        // 添加用户消息到会话历史
         addMessageToGlobalConversation(convId, { role: 'user', content: text });
         
         try {
-            // chat_history 为当前会话历史（不含本条，后端会与 input 拼接）
             const chatHistory = conversationMessages;
             const result = await startTask(text, 'global', null, chatHistory, convId);
             if (result?.id) {
@@ -110,142 +220,169 @@ export default function GlobalAgentChat() {
             console.error('Failed to start global agent task:', error);
             setIsLoading(false);
             removeLastMessageFromGlobalConversation(convId);
+            messageApi.error('发送失败: ' + error.message);
         }
+        
+        // 清空输入
+        senderRef.current?.clear?.();
     };
     
-    // 按键处理
-    const handleKeyDown = (e) => {
-        if (e.key === 'Enter' && !e.shiftKey) {
-            e.preventDefault();
-            handleSend();
-        }
+    // 快捷提示点击
+    const handlePromptClick = (prompt) => {
+        handleSend(prompt.description);
     };
     
+    // 新建对话
+    const handleNewConversation = () => {
+        const newId = createGlobalConversation();
+        setActiveGlobalConversationId(newId);
+        setGlobalAgentTaskId(null);
+    };
+    
+    // 自定义消息渲染
+    const renderMessage = (content, msg) => {
+        if (msg.role === 'assistant') {
+            return (
+                <AgentMessageRenderer
+                    content={content}
+                    isStreaming={msg.loading}
+                    streamStatus={msg.loading ? 'streaming' : 'done'}
+                    metadata={msg.metadata}
+                />
+            );
+        }
+        // 用户消息直接文本渲染
+        return <span>{content}</span>;
+    };
+
     return (
-        <div className="flex flex-col h-full bg-[var(--color-surface)]">
+        <div style={{ display: 'flex', flexDirection: 'column', height: '100%', background: 'var(--color-surface)' }}>
+            {contextHolder}
+            
             {/* 头部 */}
-            <div className="shrink-0 px-4 py-3 border-b border-[var(--color-border)] bg-[var(--color-surface-elevated)]">
-                <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-full bg-gradient-to-br from-purple-500 to-blue-500 flex items-center justify-center text-white">
-                            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
-                            </svg>
+            <div 
+                style={{ 
+                    padding: '12px 16px', 
+                    borderBottom: '1px solid var(--color-border)',
+                    background: 'var(--color-surface-elevated)',
+                    flexShrink: 0,
+                }}
+            >
+                <Flex align="center" justify="space-between" style={{ width: '100%' }}>
+                    <Flex align="center" gap={12}>
+                        <div 
+                            style={{ 
+                                width: 36, 
+                                height: 36, 
+                                borderRadius: '50%',
+                                background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center'
+                            }}
+                        >
+                            <MessageOutlined style={{ fontSize: 16, color: 'white' }} />
                         </div>
                         <div>
-                            <h2 className="font-semibold text-[var(--color-text)]">AI 私人助手</h2>
-                            <p className="text-xs text-[var(--color-text-muted)]">
-                                可以帮您查询聊天记录、执行任务
-                            </p>
+                            <Title level={5} style={{ margin: 0, fontSize: 15 }}>AI 私人助手</Title>
+                            <Text type="secondary" style={{ fontSize: 11 }}>
+                                查询聊天记录、搜索信息、执行任务
+                            </Text>
                         </div>
-                    </div>
-                    <button
-                        onClick={createGlobalConversation}
-                        className="text-xs px-3 py-1.5 rounded-lg text-[var(--color-text-muted)] hover:bg-[var(--color-surface)] hover:text-[var(--color-text)] transition-colors"
+                    </Flex>
+                    <Button 
+                        type="primary"
+                        size="small"
+                        icon={<PlusOutlined />}
+                        onClick={handleNewConversation}
                     >
                         新对话
-                    </button>
-                </div>
+                    </Button>
+                </Flex>
             </div>
             
-            {/* 消息列表 - 多轮对话：历史 + 当前任务 */}
-            <div className="flex-1 overflow-y-auto p-4 space-y-4">
-                {displayMessages.length === 0 ? (
-                    <div className="flex flex-col items-center justify-center h-full text-center text-[var(--color-text-muted)]">
-                        <div className="w-16 h-16 rounded-full bg-gradient-to-br from-purple-500/20 to-blue-500/20 flex items-center justify-center mb-4">
-                            <svg className="w-8 h-8 text-[var(--color-primary)]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
-                            </svg>
-                        </div>
-                        <h3 className="text-lg font-medium text-[var(--color-text)] mb-2">
-                            您好，{user?.nickname || '用户'}！
-                        </h3>
-                        <p className="max-w-sm text-sm">
-                            我是您的私人 AI 助手，可以帮您：
-                        </p>
-                        <ul className="mt-3 text-sm space-y-1.5">
-                            <li className="flex items-center gap-2">
-                                <span className="w-1.5 h-1.5 rounded-full bg-[var(--color-primary)]" />
-                                查询和总结聊天记录
-                            </li>
-                            <li className="flex items-center gap-2">
-                                <span className="w-1.5 h-1.5 rounded-full bg-[var(--color-primary)]" />
-                                搜索网页获取信息
-                            </li>
-                            <li className="flex items-center gap-2">
-                                <span className="w-1.5 h-1.5 rounded-full bg-[var(--color-primary)]" />
-                                执行代码和数据分析
-                            </li>
-                            <li className="flex items-center gap-2">
-                                <span className="w-1.5 h-1.5 rounded-full bg-[var(--color-primary)]" />
-                                创建后台任务（TaskAgent）处理复杂工作
-                            </li>
-                        </ul>
-                    </div>
+            {/* 消息区域 */}
+            <div style={{ flex: 1, overflow: 'auto', padding: 16 }}>
+                {displayMessages.length === 0 && !isLoading ? (
+                    <WelcomeScreen 
+                        userName={user?.nickname}
+                        onPromptClick={handlePromptClick}
+                    />
                 ) : (
-                    displayMessages.map((message, index) => {
-                        const isLastAssistant = message.type === MessageType.ASSISTANT &&
-                            index === displayMessages.length - 1;
-                        const isStreaming = message.streaming && getTaskStatus(globalAgentTaskId) === 'running';
-                        return (
-                            <TaskMessageItem
-                                key={message.id}
-                                message={message}
-                                isLastAssistantAndStreaming={isLastAssistant && isStreaming}
+                    <div style={{ maxWidth: 800, margin: '0 auto' }}>
+                        <XProvider>
+                            {/* 思维链显示（当前任务进行中时） */}
+                            {currentTask?.thoughtChain?.length > 0 && 
+                             taskStatus !== 'done' && taskStatus !== 'failed' && (
+                                <ThoughtChainDisplay 
+                                    nodes={currentTask.thoughtChain}
+                                    compact={false}
+                                    style={{ marginBottom: 16 }}
+                                />
+                            )}
+                            
+                            <Bubble.List
+                                items={displayMessages.map(msg => ({
+                                    key: msg.key,
+                                    role: msg.role,
+                                    content: msg.content,
+                                    loading: msg.loading,
+                                    contentRender: (content) => renderMessage(content, msg),
+                                }))}
+                                roles={{
+                                    assistant: {
+                                        placement: 'start',
+                                        avatar: {
+                                            icon: <MessageOutlined />,
+                                            style: { 
+                                                background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)' 
+                                            }
+                                        }
+                                    },
+                                    user: { 
+                                        placement: 'end',
+                                        avatar: {
+                                            icon: <UserOutlined />,
+                                            style: {
+                                                background: '#fa8c16'
+                                            }
+                                        }
+                                    },
+                                }}
                             />
-                        );
-                    })
-                )}
-                {isLoading && displayMessages.length === 0 && (
-                    <div className="flex justify-center py-4">
-                        <div className="w-6 h-6 border-2 border-[var(--color-primary)] border-t-transparent rounded-full animate-spin" />
+                        </XProvider>
+                        
+                        {isLoading && displayMessages.filter(m => m.role === 'assistant').length === 0 && (
+                            <Flex justify="center" style={{ padding: 24 }}>
+                                <Spin tip="AI 正在思考..." />
+                            </Flex>
+                        )}
+                        
+                        <div ref={messagesEndRef} />
                     </div>
                 )}
-                <div ref={messagesEndRef} />
             </div>
             
             {/* 输入区域 */}
-            <div className="shrink-0 p-4 border-t border-[var(--color-border)] bg-[var(--color-surface-elevated)]">
-                <div className="flex items-end gap-2">
-                    <div className="flex-1 relative">
-                        <textarea
-                            ref={inputRef}
-                            value={inputText}
-                            onChange={(e) => setInputText(e.target.value)}
-                            onKeyDown={handleKeyDown}
+            <div 
+                style={{ 
+                    padding: 16, 
+                    borderTop: '1px solid var(--color-border)',
+                    background: 'var(--color-surface-elevated)',
+                    flexShrink: 0,
+                }}
+            >
+                <div style={{ maxWidth: 800, margin: '0 auto' }}>
+                    <XProvider>
+                        <Sender
+                            ref={senderRef}
                             placeholder="输入消息..."
-                            rows={1}
-                            className={cn(
-                                "w-full px-4 py-3 rounded-xl resize-none",
-                                "bg-[var(--color-surface)] border border-[var(--color-border)]",
-                                "focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]/20 focus:border-[var(--color-primary)]",
-                                "text-[var(--color-text)] placeholder-[var(--color-text-muted)]",
-                                "transition-all duration-200"
-                            )}
-                            style={{ minHeight: '48px', maxHeight: '120px' }}
+                            onSubmit={handleSend}
+                            loading={isLoading}
+                            disabled={isLoading}
+                            style={{ borderRadius: 12 }}
                         />
-                    </div>
-                    <button
-                        onClick={handleSend}
-                        disabled={!inputText.trim() || isLoading}
-                        className={cn(
-                            "p-3 rounded-xl transition-all duration-200",
-                            inputText.trim() && !isLoading
-                                ? "bg-[var(--color-primary)] text-white hover:opacity-90 shadow-md"
-                                : "bg-[var(--color-surface)] text-[var(--color-text-muted)] cursor-not-allowed"
-                        )}
-                    >
-                        {isLoading ? (
-                            <svg className="w-5 h-5 animate-spin" fill="none" viewBox="0 0 24 24">
-                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                            </svg>
-                        ) : (
-                            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
-                            </svg>
-                        )}
-                    </button>
+                    </XProvider>
                 </div>
             </div>
         </div>

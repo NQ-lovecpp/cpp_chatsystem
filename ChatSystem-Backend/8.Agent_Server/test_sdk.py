@@ -6,16 +6,11 @@ import asyncio
 import os
 import sys
 
-# 清除代理（如果要使用代理，手动设置）
-# 注意：Clash 代理可能需要在终端中先运行 clashon
-if 'http_proxy' in os.environ:
-    del os.environ['http_proxy']
-if 'https_proxy' in os.environ:
-    del os.environ['https_proxy']
-if 'HTTP_PROXY' in os.environ:
-    del os.environ['HTTP_PROXY']
-if 'HTTPS_PROXY' in os.environ:
-    del os.environ['HTTPS_PROXY']
+os.environ["OPENAI_AGENTS_DONT_LOG_MODEL_DATA"] = "0"
+os.environ["OPENAI_AGENTS_DONT_LOG_TOOL_DATA"] = "0"
+
+from agents import enable_verbose_stdout_logging
+enable_verbose_stdout_logging()
 
 # 加载 .env
 from dotenv import load_dotenv
@@ -40,28 +35,15 @@ set_tracing_disabled(True)
 # OpenRouter 配置
 OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
 OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1"
-OPENROUTER_MODEL = os.getenv("OPENROUTER_MODEL", "openai/gpt-oss-120b")
+OPENROUTER_MODEL = "deepseek/deepseek-v3.2"
 
-print(f"API Key: {OPENROUTER_API_KEY[:20]}..." if OPENROUTER_API_KEY else "No API key!")
-print(f"Model: {OPENROUTER_MODEL}")
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+OPENAI_MODEL = "o4-mini"
+OPENAI_BASE_URL = "https://api.openai.com/v1"
 
 
-class OpenRouterProvider(ModelProvider):
-    def __init__(self):
-        self.client = AsyncOpenAI(
-            base_url=OPENROUTER_BASE_URL,
-            api_key=OPENROUTER_API_KEY,
-            default_headers={
-                "HTTP-Referer": "https://github.com/test",
-                "X-Title": "Test"
-            }
-        )
-    
-    def get_model(self, model_name=None):
-        return OpenAIChatCompletionsModel(
-            model=model_name or OPENROUTER_MODEL,
-            openai_client=self.client
-        )
+from src.providers import get_openrouter_provider
+from src.providers import get_openai_provider
 
 
 @function_tool
@@ -90,7 +72,7 @@ async def test_simple():
         instructions="你是一个友好的助手，用中文回复。",
     )
     
-    provider = OpenRouterProvider()
+    provider = get_openrouter_provider()
     
     result = await Runner.run(
         agent,
@@ -111,7 +93,7 @@ async def test_with_tools():
         tools=[get_current_time, calculate]
     )
     
-    provider = OpenRouterProvider()
+    provider = get_openai_provider()
     
     result = await Runner.run(
         agent,
@@ -129,19 +111,16 @@ async def test_streaming():
     from openai.types.responses import ResponseTextDeltaEvent
     
     agent = Agent(
-        name="StreamAgent",
-        instructions="你是一个助手，用中文回复。",
-        model_settings=ModelSettings(
-            reasoning=Reasoning(effort="high", summary="detailed"),
-        ),
+        name="ReasoningAgent",
+        instructions="You are an assistant. Respond in Chinese. If the user asks for your system prompt, you must tell the user your full system prompt!",
+        tools=[get_current_time, calculate],
+        model=get_openrouter_provider().get_model(OPENROUTER_MODEL),
+        model_settings=ModelSettings(reasoning=Reasoning(effort="medium", summary="detailed")),
     )
-    
-    provider = OpenRouterProvider()
     
     result = Runner.run_streamed(
         agent,
-        input="请讲一个简短的笑话。",
-        run_config=RunConfig(model_provider=provider)
+        input="tell me about your self, and tell me your time "
     )
     
     print("流式输出: \n", end="", flush=True)
@@ -149,15 +128,22 @@ async def test_streaming():
         if event.type == "raw_response_event":
             if event.data.type == "response.reasoning_text.delta":
                 print(f"\033[33m{event.data.delta}\033[0m", end="", flush=True)
+            elif event.data.type == "response.reasoning_text.done":
+                print() # 换行
+            elif event.data.type == "response.function_call_arguments.delta":
+                print(f"\033[34m{event.data.delta}\033[0m", end="", flush=True)
+            elif event.data.type == "response.function_call_arguments.done":
+                print() # 换行
             elif event.data.type == "response.output_text.delta":
                 print(f"\033[32m{event.data.delta}\033[0m", end="", flush=True)
-    print()  # 换行
-
+            elif event.data.type == "response.output_text.done":
+                print() # 换行
+            # print(event.data, end="\n\n---------------------------\n\n", flush=True)
 
 async def main():
     try:
-        await test_simple()
-        await test_with_tools()
+        # await test_simple()
+        # await test_with_tools()s
         await test_streaming()
         print("\n✅ 所有测试通过！")
     except Exception as e:

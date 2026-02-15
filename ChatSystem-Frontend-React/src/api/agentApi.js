@@ -130,6 +130,8 @@ export function subscribeTaskEvents(sessionId, taskId, handlers) {
         onTodoAdded,
         onTodoStatus,
         onTodoProgress,
+        onThoughtChain,
+        onThoughtChainUpdate,
         onDone,
         onError,
         onTaskStatus,
@@ -229,6 +231,12 @@ export function subscribeTaskEvents(sessionId, taskId, handlers) {
                 break;
             case 'todo_progress':
                 onTodoProgress?.(data);
+                break;
+            case 'thought_chain':
+                onThoughtChain?.(data);
+                break;
+            case 'thought_chain_update':
+                onThoughtChainUpdate?.(data);
                 break;
             case 'done':
                 onDone?.(data);
