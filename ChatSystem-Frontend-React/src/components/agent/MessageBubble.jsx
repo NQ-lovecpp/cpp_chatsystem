@@ -1,15 +1,14 @@
 /**
  * Agent 消息气泡组件
- * 支持流式渲染（streaming 时使用 StreamingMarkdown）
+ * 支持流式渲染（使用 StreamingMarkdown / XMarkdown）
  */
 
 import { cn } from '../../lib/utils';
-import ReactMarkdown from 'react-markdown';
 import StreamingMarkdown from './StreamingMarkdown';
 
 export default function MessageBubble({ message, isUser, isLoading, streaming = false }) {
     const { content, isError } = message;
-    
+
     return (
         <div className={cn(
             "flex gap-3",
@@ -18,7 +17,7 @@ export default function MessageBubble({ message, isUser, isLoading, streaming = 
             {/* 头像 */}
             <div className={cn(
                 "w-8 h-8 rounded-full flex items-center justify-center shrink-0",
-                isUser 
+                isUser
                     ? "bg-[var(--color-primary)] text-white"
                     : "bg-gradient-to-br from-purple-500 to-blue-500 text-white"
             )}>
@@ -32,11 +31,11 @@ export default function MessageBubble({ message, isUser, isLoading, streaming = 
                     </svg>
                 )}
             </div>
-            
+
             {/* 消息内容 */}
             <div className={cn(
                 "max-w-[75%] rounded-2xl px-4 py-2.5",
-                isUser 
+                isUser
                     ? "bg-[var(--color-primary)] text-white"
                     : isError
                         ? "bg-red-500/10 text-red-500 border border-red-500/20"
@@ -48,36 +47,13 @@ export default function MessageBubble({ message, isUser, isLoading, streaming = 
                         <div className="w-2 h-2 bg-current rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
                         <div className="w-2 h-2 bg-current rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
                     </div>
+                ) : isUser ? (
+                    <p className="m-0 whitespace-pre-wrap text-sm">{content}</p>
                 ) : (
-                    <div className={cn(
-                        "prose prose-sm max-w-none",
-                        isUser ? "prose-invert" : ""
-                    )}>
-                        {isUser ? (
-                            <p className="m-0 whitespace-pre-wrap">{content}</p>
-                        ) : streaming ? (
-                            <>
-                                <StreamingMarkdown content={content || ''} />
-                                <span className="inline-block w-2 h-4 ml-0.5 bg-[var(--color-primary)] animate-blink" />
-                            </>
-                        ) : (
-                            <ReactMarkdown
-                                components={{
-                                    p: ({ children }) => <p className="m-0 mb-2 last:mb-0">{children}</p>,
-                                    code: ({ inline, children }) => (
-                                        inline 
-                                            ? <code className="px-1 py-0.5 rounded bg-black/10 text-sm">{children}</code>
-                                            : <pre className="p-3 rounded-lg bg-[var(--color-surface)] overflow-x-auto text-sm"><code>{children}</code></pre>
-                                    ),
-                                    ul: ({ children }) => <ul className="list-disc list-inside my-2">{children}</ul>,
-                                    ol: ({ children }) => <ol className="list-decimal list-inside my-2">{children}</ol>,
-                                    li: ({ children }) => <li className="my-0.5">{children}</li>,
-                                }}
-                            >
-                                {content || '思考中...'}
-                            </ReactMarkdown>
-                        )}
-                    </div>
+                    <StreamingMarkdown
+                        content={content || ''}
+                        isStreaming={streaming}
+                    />
                 )}
             </div>
         </div>

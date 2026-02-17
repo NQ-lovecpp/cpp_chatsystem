@@ -163,6 +163,7 @@ function ChatPageContent() {
                                             <MessageArea
                                                 showAgentPanel={showAgentPanel}
                                                 onToggleAgentPanel={() => setShowAgentPanel(v => !v)}
+                                                onAgentPanelOpen={() => setShowAgentPanel(true)}
                                                 hasRunningTasks={hasRunningTasks}
                                             />
                                         </div>

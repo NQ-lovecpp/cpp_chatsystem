@@ -1,126 +1,109 @@
 /**
  * StreamingMarkdown - 流式 Markdown 渲染组件
- * 支持实时渲染流式输入的 Markdown 内容
- * 使用 CSS 变量适配深浅色模式
+ * 基于 @ant-design/x-markdown (XMarkdown) 实现：
+ * - streaming: { hasNextChunk } 控制流式光标
+ * - Think 组件展示 <think> 推理过程
+ * - Mermaid 图表支持
  */
 
-import ReactMarkdown from 'react-markdown';
+import { memo, useEffect, useState } from 'react';
+import XMarkdown from '@ant-design/x-markdown';
+import { Mermaid, Think } from '@ant-design/x';
 
-// 自定义渲染组件 - 使用 CSS class 适配主题
-const components = {
-    p: ({ children }) => (
-        <p className="mb-2 leading-relaxed text-inherit">{children}</p>
-    ),
-    
-    h1: ({ children }) => (
-        <h1 className="text-xl font-semibold my-4 text-[var(--color-text)]">{children}</h1>
-    ),
-    h2: ({ children }) => (
-        <h2 className="text-lg font-semibold my-3 text-[var(--color-text)]">{children}</h2>
-    ),
-    h3: ({ children }) => (
-        <h3 className="text-base font-semibold my-2 text-[var(--color-text)]">{children}</h3>
-    ),
-    
-    ul: ({ children }) => (
-        <ul className="my-2 pl-5 list-disc">{children}</ul>
-    ),
-    ol: ({ children }) => (
-        <ol className="my-2 pl-5 list-decimal">{children}</ol>
-    ),
-    li: ({ children }) => (
-        <li className="my-1 leading-relaxed">{children}</li>
-    ),
-    
-    code: ({ inline, className, children, ...props }) => {
-        if (inline) {
-            return (
-                <code 
-                    className="bg-[var(--color-surface)] px-1.5 py-0.5 rounded text-sm font-mono text-[var(--color-text)]"
-                    {...props}
-                >
-                    {children}
-                </code>
-            );
-        }
-        
-        const language = className?.replace('language-', '') || '';
+/**
+ * 代码块组件 - 支持 Mermaid 图表
+ */
+const CodeComponent = memo(function CodeComponent({ className, children }) {
+    const lang = className?.match(/language-(\w+)/)?.[1] || '';
+
+    if (typeof children !== 'string') return null;
+
+    if (lang === 'mermaid') {
         return (
-            <div className="relative my-2">
-                {language && (
-                    <div className="absolute top-0 right-0 px-2 py-0.5 bg-[var(--color-border)] rounded-bl text-[11px] text-[var(--color-text-muted)]">
-                        {language}
-                    </div>
-                )}
-                <pre className="bg-[var(--color-surface)] p-3 rounded-lg overflow-auto text-sm font-mono text-[var(--color-text-secondary)]">
-                    <code className={className} {...props}>{children}</code>
-                </pre>
+            <div style={{ margin: '8px 0', overflow: 'auto' }}>
+                <Mermaid>{children}</Mermaid>
             </div>
-        );
-    },
-    
-    blockquote: ({ children }) => (
-        <blockquote className="my-2 px-4 py-2 border-l-4 border-[var(--color-primary)] bg-[var(--color-surface)] rounded-r">
-            {children}
-        </blockquote>
-    ),
-    
-    a: ({ href, children }) => (
-        <a 
-            href={href} 
-            target="_blank" 
-            rel="noopener noreferrer"
-            className="text-[var(--color-primary)] hover:underline"
-        >
-            {children}
-        </a>
-    ),
-    
-    strong: ({ children }) => (
-        <strong className="font-semibold">{children}</strong>
-    ),
-    
-    em: ({ children }) => (
-        <em className="italic">{children}</em>
-    ),
-    
-    hr: () => (
-        <hr className="border-none border-t border-[var(--color-border)] my-4" />
-    ),
-    
-    table: ({ children }) => (
-        <div className="overflow-x-auto my-2">
-            <table className="w-full border-collapse text-sm">
-                {children}
-            </table>
-        </div>
-    ),
-    th: ({ children }) => (
-        <th className="px-3 py-2 border-b-2 border-[var(--color-border)] text-left font-semibold bg-[var(--color-surface)] text-[var(--color-text)]">
-            {children}
-        </th>
-    ),
-    td: ({ children }) => (
-        <td className="px-3 py-2 border-b border-[var(--color-border)] text-[var(--color-text-secondary)]">
-            {children}
-        </td>
-    ),
-};
-
-export default function StreamingMarkdown({ content, className = '' }) {
-    if (!content) {
-        return (
-            <span className="text-[var(--color-text-muted)] italic text-sm">
-                思考中...
-            </span>
         );
     }
 
     return (
+        <pre style={{
+            background: 'var(--color-surface)',
+            padding: '10px 12px',
+            borderRadius: 8,
+            overflow: 'auto',
+            fontSize: 12,
+            lineHeight: 1.6,
+            margin: '6px 0',
+        }}>
+            <code className={className}>{children}</code>
+        </pre>
+    );
+});
+
+/**
+ * Think 组件 - 展示推理过程
+ * streamStatus='loading' 表示还在流式输出中
+ */
+const ThinkComponent = memo(function ThinkComponent({ children, streamStatus }) {
+    const [title, setTitle] = useState('思考中...');
+    const [loading, setLoading] = useState(true);
+    const [expand, setExpand] = useState(true);
+
+    useEffect(() => {
+        if (streamStatus === 'done') {
+            setTitle('思考完成');
+            setLoading(false);
+            setExpand(false);
+        }
+    }, [streamStatus]);
+
+    return (
+        <Think
+            title={title}
+            loading={loading}
+            expanded={expand}
+            onClick={() => setExpand(v => !v)}
+            style={{ marginBottom: 8 }}
+        >
+            {children}
+        </Think>
+    );
+});
+
+/**
+ * StreamingMarkdown
+ *
+ * @param {string} content - Markdown 内容
+ * @param {boolean} isStreaming - 是否正在流式输出（控制 hasNextChunk）
+ * @param {string} className - 额外 CSS class
+ */
+export default function StreamingMarkdown({ content, isStreaming = false, className = '' }) {
+    // XMarkdown components
+    const components = {
+        code: CodeComponent,
+        think: (props) => <ThinkComponent {...props} streamStatus={isStreaming ? 'loading' : 'done'} />,
+    };
+
+    if (!content && isStreaming) {
+        return (
+            <span className="text-[var(--color-text-muted)] italic text-sm">思考中...</span>
+        );
+    }
+
+    if (!content) {
+        return null;
+    }
+
+    return (
         <div className={`text-sm leading-relaxed ${className}`}>
-            <ReactMarkdown components={components}>
+            <XMarkdown
+                components={components}
+                paragraphTag="div"
+                streaming={{ hasNextChunk: isStreaming }}
+            >
                 {content}
-            </ReactMarkdown>
+            </XMarkdown>
         </div>
     );
 }

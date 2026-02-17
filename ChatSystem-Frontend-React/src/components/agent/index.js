@@ -16,8 +16,8 @@ export { default as MarkdownRenderer } from './MarkdownRenderer';
 export { default as StreamingMarkdown } from './StreamingMarkdown';
 
 // ThoughtChain 和 TodoList
-export { default as TaskThoughtChain, LiveThoughtChain } from './TaskThoughtChain';
-export { default as TaskTodoList, CompactTodoList } from './TaskTodoList';
+export { default as TaskThoughtChain } from './TaskThoughtChain';
+export { default as TaskChecklist, CompactChecklist } from './TaskTodoList';
 
 // 工具和审批
 export { default as ToolCallCard } from './ToolCallCard';

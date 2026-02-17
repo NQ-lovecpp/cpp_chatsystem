@@ -63,7 +63,9 @@ function createTaskObject(taskId, inputText, taskType = 'session', parentTaskId 
         todos: [],
         thoughtChain: [],  // 思维链节点
         pendingApprovals: [],
-        progress: 0,
+        progress: null,
+        currentAgent: 'session',  // 'session' | 'task' — 当前活跃的 agent
+        taskOutput: '',            // TaskAgent 的输出（侧边栏显示）
         createdAt: Date.now(),
         updatedAt: Date.now(),
     };
@@ -100,6 +102,9 @@ export function AgentProvider({ children }) {
     
     // 流式文本缓冲区 Map
     const streamBufferMapRef = useRef({});
+
+    // TaskAgent 输出缓冲区 Map（侧边栏显示）
+    const taskOutputBufferMapRef = useRef({});
     
     // 任务类型 Map（用于 onDone 时判断是否 global 以更新对话历史）
     const taskTypeMapRef = useRef({});
@@ -111,6 +116,7 @@ export function AgentProvider({ children }) {
             delete unsubscribeMapRef.current[taskId];
         }
         delete streamBufferMapRef.current[taskId];
+        delete taskOutputBufferMapRef.current[taskId];
         delete taskTypeMapRef.current[taskId];
     }, []);
 
@@ -121,6 +127,7 @@ export function AgentProvider({ children }) {
         });
         unsubscribeMapRef.current = {};
         streamBufferMapRef.current = {};
+        taskOutputBufferMapRef.current = {};
         taskTypeMapRef.current = {};
     }, []);
 
@@ -381,26 +388,55 @@ export function AgentProvider({ children }) {
             
             // 初始化流缓冲区
             streamBufferMapRef.current[taskId] = '';
+            taskOutputBufferMapRef.current[taskId] = '';
 
             // 订阅 SSE 事件
             const unsubscribe = subscribeTaskEvents(sessionId, taskId, {
                 onInit: (data) => {
                     console.log('[Agent] Init:', data);
                 },
-                
+
                 onReasoningDelta: (data) => {
-                    // 不创建新消息，reasoning 通过 ThoughtChain 展示
-                    // 仅在 debug 时记录
+                    // Reasoning 内容通过 ThoughtChain 展示
+                    // 累积 reasoning 并更新对应 thought chain 节点
+                    if (data.content) {
+                        setTasks(prev => {
+                            if (!prev[taskId]) return prev;
+                            const task = prev[taskId];
+                            const chain = [...task.thoughtChain];
+                            // 找到最后一个 reasoning 类型的节点
+                            let reasoningNode = null;
+                            for (let i = chain.length - 1; i >= 0; i--) {
+                                if (chain[i].node_type === 'reasoning' && chain[i].status === 'running') {
+                                    reasoningNode = chain[i];
+                                    break;
+                                }
+                            }
+                            if (reasoningNode) {
+                                const updatedContent = (reasoningNode.content || '') + data.content;
+                                const newChain = chain.map(n =>
+                                    n.chain_id === reasoningNode.chain_id
+                                        ? { ...n, content: updatedContent }
+                                        : n
+                                );
+                                return {
+                                    ...prev,
+                                    [taskId]: { ...task, thoughtChain: newChain, updatedAt: Date.now() }
+                                };
+                            }
+                            return prev;
+                        });
+                    }
                 },
-                
+
                 onToolCall: (data) => {
                     // 工具调用通过 ThoughtChain 展示，不创建消息气泡
                 },
-                
+
                 onToolOutput: (data) => {
                     // 工具输出通过 ThoughtChain 展示，不创建消息气泡
                 },
-                
+
                 onInterruption: (data) => {
                     if (data.approval) {
                         setTasks(prev => {
@@ -416,14 +452,37 @@ export function AgentProvider({ children }) {
                         });
                     }
                 },
-                
+
+                onAgentSwitch: (data) => {
+                    // agent_switch 事件: { agent: 'TaskAgent'|'SessionAgent', previous: ... }
+                    const agentName = data.agent;
+                    updateTask(taskId, {
+                        currentAgent: agentName === 'TaskAgent' ? 'task' : 'session',
+                    });
+                },
+
                 onMessage: (data) => {
-                    if (data.delta) {
-                        streamBufferMapRef.current[taskId] = 
-                            (streamBufferMapRef.current[taskId] || '') + data.content;
-                        updateLastAssistantMessage(taskId, streamBufferMapRef.current[taskId], true);
-                    } else if (data.content) {
-                        updateLastAssistantMessage(taskId, data.content, false);
+                    const agent = data.agent;
+                    if (agent === 'TaskAgent') {
+                        // TaskAgent 输出 → taskOutput (侧边栏显示)
+                        if (data.delta) {
+                            const cur = taskOutputBufferMapRef.current[taskId] || '';
+                            const next = cur + data.content;
+                            taskOutputBufferMapRef.current[taskId] = next;
+                            updateTask(taskId, { taskOutput: next });
+                        } else if (data.content) {
+                            taskOutputBufferMapRef.current[taskId] = data.content;
+                            updateTask(taskId, { taskOutput: data.content });
+                        }
+                    } else {
+                        // SessionAgent 输出 → 聊天消息气泡
+                        if (data.delta) {
+                            streamBufferMapRef.current[taskId] =
+                                (streamBufferMapRef.current[taskId] || '') + data.content;
+                            updateLastAssistantMessage(taskId, streamBufferMapRef.current[taskId], true);
+                        } else if (data.content) {
+                            updateLastAssistantMessage(taskId, data.content, false);
+                        }
                     }
                 },
                 
@@ -519,6 +578,14 @@ export function AgentProvider({ children }) {
                     antMessage.info(`已创建任务: ${data.description.slice(0, 20)}...`);
                 },
                 
+                onTaskCallback: (data) => {
+                    // 后台任务完成，更新子任务状态
+                    if (data.task_id) {
+                        updateTask(data.task_id, { status: TaskStatus.DONE });
+                    }
+                    antMessage.success('后台任务已完成', 3);
+                },
+
                 onApprovalResolved: (data) => {
                     setTasks(prev => {
                         if (!prev[taskId]) return prev;
@@ -693,6 +760,41 @@ export function AgentProvider({ children }) {
                 cleanupTask(taskId);
             },
             
+            onTaskStatus: (data) => {
+                updateTask(taskId, { status: data.status });
+            },
+
+            onReasoningDelta: (data) => {
+                // 子任务 reasoning 通过 ThoughtChain 展示
+                if (data.content) {
+                    setTasks(prev => {
+                        if (!prev[taskId]) return prev;
+                        const task = prev[taskId];
+                        const chain = [...task.thoughtChain];
+                        let reasoningNode = null;
+                        for (let i = chain.length - 1; i >= 0; i--) {
+                            if (chain[i].node_type === 'reasoning' && chain[i].status === 'running') {
+                                reasoningNode = chain[i];
+                                break;
+                            }
+                        }
+                        if (reasoningNode) {
+                            const updatedContent = (reasoningNode.content || '') + data.content;
+                            const newChain = chain.map(n =>
+                                n.chain_id === reasoningNode.chain_id
+                                    ? { ...n, content: updatedContent }
+                                    : n
+                            );
+                            return {
+                                ...prev,
+                                [taskId]: { ...task, thoughtChain: newChain, updatedAt: Date.now() }
+                            };
+                        }
+                        return prev;
+                    });
+                }
+            },
+
             onApprovalResolved: (data) => {
                 setTasks(prev => {
                     if (!prev[taskId]) return prev;
@@ -708,9 +810,9 @@ export function AgentProvider({ children }) {
                 });
             },
         });
-        
+
         unsubscribeMapRef.current[taskId] = unsubscribe;
-    }, [sessionId, addMessageToTask, updateToolCall, addTodoToTask, 
+    }, [sessionId, addMessageToTask, updateToolCall, addTodoToTask,
         updateTodoStatus, addOrUpdateThoughtChainNode, updateThoughtChainStatus,
         updateTask, cleanupTask]);
 

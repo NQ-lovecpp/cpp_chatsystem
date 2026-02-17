@@ -4,7 +4,7 @@
 
 import { useState, useRef } from 'react';
 
-export default function MessageInput({ onSend, onSendImage, onSendFile }) {
+export default function MessageInput({ onSend, onSendImage, onSendFile, onStartAgentTask }) {
     const [message, setMessage] = useState('');
     const imageInputRef = useRef(null);
     const fileInputRef = useRef(null);
@@ -51,6 +51,19 @@ export default function MessageInput({ onSend, onSendImage, onSendFile }) {
             onSendFile(file);
         }
         e.target.value = '';
+    };
+
+    const handleAgentClick = () => {
+        if (!onStartAgentTask) return;
+        const instruction = message.trim();
+        if (instruction) {
+            onStartAgentTask(instruction);
+            setMessage('');
+        } else {
+            // 无内容时提示用户先输入
+            const textarea = document.querySelector('textarea[data-agent-input]');
+            if (textarea) textarea.focus();
+        }
     };
 
     return (
@@ -101,12 +114,27 @@ export default function MessageInput({ onSend, onSendImage, onSendFile }) {
                         value={message}
                         onChange={(e) => setMessage(e.target.value)}
                         onKeyDown={handleKeyDown}
-                        placeholder="输入消息，@ 可唤出 AI 助手"
+                        placeholder="输入消息..."
                         rows={1}
+                        data-agent-input
                         className="w-full px-3 md:px-4 py-2 md:py-2.5 bg-[var(--color-surface)] border border-[var(--color-border)] text-[var(--color-text)] placeholder:text-[var(--color-text-muted)] rounded-xl resize-none focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]/20 focus:border-[var(--color-primary)] transition-all text-base"
                         style={{ maxHeight: '120px' }}
                     />
                 </div>
+
+                {/* @AI助手 按钮 */}
+                {onStartAgentTask && (
+                    <button
+                        type="button"
+                        onClick={handleAgentClick}
+                        className="p-2 md:p-2.5 text-[var(--color-primary)] hover:bg-[var(--color-primary-light)] rounded-xl transition-colors shrink-0"
+                        title="让 AI 助手处理此请求（后台任务）"
+                    >
+                        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+                        </svg>
+                    </button>
+                )}
 
                 {/* 发送按钮 */}
                 <button

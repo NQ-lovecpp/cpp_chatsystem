@@ -2,10 +2,46 @@ from __future__ import annotations
 
 import json
 import random
+from typing import Any
+import os
+
+
+from agents.models.openai_responses import OpenAIResponsesModel
+from openai import AsyncOpenAI
+from openai.types.shared import Reasoning
+from agents.model_settings import ModelSettings
 
 from agents import Agent, HandoffInputData, Runner, function_tool, handoff, trace
 from agents.extensions import handoff_filters
 from agents.models import is_gpt_5_default
+
+
+def _handoff_data_to_dict(data: HandoffInputData) -> dict[str, Any]:
+    """Convert HandoffInputData to JSON-serializable dict for debugging."""
+
+    def serialize_item(item: Any) -> Any:
+        if hasattr(item, "to_input_item"):
+            return item.to_input_item()
+        if hasattr(item, "model_dump"):
+            return item.model_dump(exclude_unset=True)
+        if isinstance(item, dict):
+            return {k: serialize_item(v) for k, v in item.items()}
+        if isinstance(item, (list, tuple)):
+            return [serialize_item(x) for x in item]
+        return item
+
+    result: dict[str, Any] = {
+        "input_history": (
+            data.input_history
+            if isinstance(data.input_history, str)
+            else [serialize_item(x) for x in data.input_history]
+        ),
+        "pre_handoff_items": [serialize_item(x) for x in data.pre_handoff_items],
+        "new_items": [serialize_item(x) for x in data.new_items],
+    }
+    if data.input_items is not None:
+        result["input_items"] = [serialize_item(x) for x in data.input_items]
+    return result
 
 
 @function_tool
@@ -24,8 +60,13 @@ def spanish_handoff_message_filter(handoff_message_data: HandoffInputData) -> Ha
             new_items=tuple(handoff_message_data.new_items),
         )
 
+
+    print(json.dumps(_handoff_data_to_dict(handoff_message_data), indent=2, ensure_ascii=False))
+
     # First, we'll remove any tool-related messages from the message history
     handoff_message_data = handoff_filters.remove_all_tools(handoff_message_data)
+
+    print(json.dumps(_handoff_data_to_dict(handoff_message_data), indent=2, ensure_ascii=False))
 
     # Second, we'll also remove the first two items from the history, just for demonstration
     history = (
@@ -46,12 +87,26 @@ first_agent = Agent(
     name="Assistant",
     instructions="Be extremely concise.",
     tools=[random_number_tool],
+    model=OpenAIResponsesModel(
+        model="openai/gpt-oss-120b",
+        openai_client=AsyncOpenAI(base_url="https://openrouter.ai/api/v1", api_key=os.getenv("OPENROUTER_API_KEY")),
+    ),
+    model_settings=ModelSettings(
+        reasoning=Reasoning(effort="low")
+    ),
 )
 
 spanish_agent = Agent(
-    name="Spanish Assistant",
-    instructions="You only speak Spanish and are extremely concise.",
-    handoff_description="A Spanish-speaking assistant.",
+        name="Spanish Assistant",
+        instructions="You only speak Spanish and are extremely concise.",
+        handoff_description="A Spanish-speaking assistant.",
+        model=OpenAIResponsesModel(
+            model="openai/gpt-oss-120b",
+            openai_client=AsyncOpenAI(base_url="https://openrouter.ai/api/v1", api_key=os.getenv("OPENROUTER_API_KEY")),
+        ),
+        model_settings=ModelSettings(
+            reasoning=Reasoning(effort="low")
+        ),
 )
 
 second_agent = Agent(
@@ -60,6 +115,13 @@ second_agent = Agent(
         "Be a helpful assistant. If the user speaks Spanish, handoff to the Spanish assistant."
     ),
     handoffs=[handoff(spanish_agent, input_filter=spanish_handoff_message_filter)],
+    model=OpenAIResponsesModel(
+        model="openai/gpt-oss-120b",
+        openai_client=AsyncOpenAI(base_url="https://openrouter.ai/api/v1", api_key=os.getenv("OPENROUTER_API_KEY")),
+    ),
+    model_settings=ModelSettings(
+        reasoning=Reasoning(effort="low")
+    ),
 )
 
 

@@ -11,8 +11,9 @@ from .session_agent import (
     get_session_agent_config,
     run_session_agent,
     run_session_agent_simple,
-    create_session_agent,
+    create_session_agents,
 )
+create_session_agent = create_session_agents  # 兼容别名
 from .global_agent import (
     get_global_agent_config,
     run_global_agent,

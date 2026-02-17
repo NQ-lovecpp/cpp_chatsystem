@@ -1,283 +1,189 @@
 /**
- * 任务 Todo 列表组件
- * 
- * 显示任务的执行步骤和进度：
- * - 支持实时更新
- * - 状态可视化
- * - 进度条展示
+ * 任务 Checklist 组件
+ *
+ * 复选框样式展示 Todo 步骤：
+ * - completed / skipped → 打勾 + 删除线
+ * - running → 旋转加载图标
+ * - idle / pending → 空白复选框
  */
 
-import { useState, useEffect, useMemo } from 'react';
+import { useMemo } from 'react';
 import {
-  CheckCircleOutlined,
-  ClockCircleOutlined,
   LoadingOutlined,
-  CloseCircleOutlined,
-  OrderedListOutlined
+  CloseCircleFilled,
 } from '@ant-design/icons';
-import { Card, List, Progress, Tag, Typography, Flex, Badge, Empty } from 'antd';
+import { Flex, Progress, Typography } from 'antd';
 
 const { Text } = Typography;
 
-// 状态配置
+// CompactChecklist 用的状态配置
 const STATUS_CONFIG = {
-  pending: {
-    icon: <ClockCircleOutlined />,
-    color: 'default',
-    text: '待处理',
-    badgeStatus: 'default'
-  },
-  in_progress: {
-    icon: <LoadingOutlined spin />,
-    color: 'processing',
-    text: '进行中',
-    badgeStatus: 'processing'
-  },
-  completed: {
-    icon: <CheckCircleOutlined />,
-    color: 'success',
-    text: '已完成',
-    badgeStatus: 'success'
-  },
-  cancelled: {
-    icon: <CloseCircleOutlined />,
-    color: 'error',
-    text: '已取消',
-    badgeStatus: 'error'
-  }
+  idle:      { icon: null,                                                                         textStyle: {} },
+  pending:   { icon: null,                                                                         textStyle: {} },
+  running:   { icon: <LoadingOutlined spin style={{ color: '#1890ff', fontSize: 12 }} />,         textStyle: { color: '#1890ff' } },
+  completed: { icon: <CloseCircleFilled style={{ color: '#1677ff', fontSize: 12, display: 'none' }} />, textStyle: { textDecoration: 'line-through', color: 'var(--color-text-muted)' } },
+  failed:    { icon: <CloseCircleFilled style={{ color: '#ff4d4f', fontSize: 12 }} />,            textStyle: { color: '#ff4d4f' } },
+  skipped:   { icon: null,                                                                         textStyle: { textDecoration: 'line-through', color: 'var(--color-text-muted)' } },
 };
 
 /**
- * 单个 Todo 项
+ * 单个 Checklist 项
  */
-function TodoItem({ todo, index }) {
-  const statusConfig = STATUS_CONFIG[todo.status] || STATUS_CONFIG.pending;
-  
-  return (
-    <List.Item style={{ padding: '12px 0' }}>
-      <Flex align="center" gap={12} style={{ width: '100%' }}>
-        {/* 序号 */}
-        <Badge 
-          count={index + 1} 
-          style={{ 
-            backgroundColor: todo.status === 'completed' ? '#52c41a' : 
-                            todo.status === 'in_progress' ? '#1890ff' : '#d9d9d9'
-          }} 
-        />
-        
-        {/* 内容 */}
-        <Flex vertical flex={1}>
-          <Text 
-            style={{ 
-              textDecoration: todo.status === 'completed' ? 'line-through' : 'none',
-              color: todo.status === 'completed' ? '#999' : 
-                     todo.status === 'cancelled' ? '#ff4d4f' : undefined
-            }}
-          >
-            {todo.content}
-          </Text>
-          {todo.updated_at && (
-            <Text type="secondary" style={{ fontSize: 11 }}>
-              更新于 {new Date(todo.updated_at).toLocaleTimeString()}
-            </Text>
-          )}
-        </Flex>
-        
-        {/* 状态标签 */}
-        <Tag 
-          icon={statusConfig.icon}
-          color={statusConfig.color}
-        >
-          {statusConfig.text}
-        </Tag>
-      </Flex>
-    </List.Item>
-  );
-}
-
-/**
- * 任务 Todo 列表组件
- * 
- * @param {object} props
- * @param {string} props.taskId - 任务 ID
- * @param {array} props.todos - Todo 列表
- * @param {boolean} props.loading - 是否加载中
- * @param {string} props.title - 标题
- */
-export default function TaskTodoList({
-  taskId,
-  todos = [],
-  loading = false,
-  title = '任务步骤'
-}) {
-  // 计算进度
-  const progress = useMemo(() => {
-    if (todos.length === 0) return 0;
-    const completed = todos.filter(t => t.status === 'completed').length;
-    return Math.round((completed / todos.length) * 100);
-  }, [todos]);
-
-  // 状态统计
-  const stats = useMemo(() => {
-    return {
-      total: todos.length,
-      pending: todos.filter(t => t.status === 'pending').length,
-      in_progress: todos.filter(t => t.status === 'in_progress').length,
-      completed: todos.filter(t => t.status === 'completed').length,
-      cancelled: todos.filter(t => t.status === 'cancelled').length,
-    };
-  }, [todos]);
-
-  // 排序：in_progress > pending > completed > cancelled
-  const sortedTodos = useMemo(() => {
-    const priority = { in_progress: 0, pending: 1, completed: 2, cancelled: 3 };
-    return [...todos].sort((a, b) => {
-      const pA = priority[a.status] ?? 99;
-      const pB = priority[b.status] ?? 99;
-      if (pA !== pB) return pA - pB;
-      return (a.sequence || 0) - (b.sequence || 0);
-    });
-  }, [todos]);
-
-  if (todos.length === 0 && !loading) {
-    return null;
-  }
+function ChecklistItem({ todo, index }) {
+  const isCompleted = todo.status === 'completed' || todo.status === 'skipped';
+  const isRunning = todo.status === 'running';
+  const isFailed = todo.status === 'failed';
 
   return (
-    <Card 
-      size="small"
-      title={
-        <Flex align="center" gap={8}>
-          <OrderedListOutlined />
-          <span>{title}</span>
-          <Tag>{stats.completed}/{stats.total}</Tag>
-        </Flex>
-      }
-      extra={
-        <Progress 
-          type="circle" 
-          percent={progress} 
-          size={32}
-          strokeColor={{
-            '0%': '#108ee9',
-            '100%': '#87d068',
-          }}
-        />
-      }
-      style={{ marginBottom: 16 }}
-      loading={loading}
+    <Flex
+      align="center"
+      gap={10}
+      style={{ padding: '6px 0', borderBottom: '1px solid var(--color-border)' }}
     >
-      {/* 进度条 */}
-      <Progress 
-        percent={progress}
-        status={progress === 100 ? 'success' : 'active'}
-        strokeColor={{
-          '0%': '#108ee9',
-          '100%': '#87d068',
+      {/* 复选框 - 参考设计：方形 checkbox，完成为蓝色填充+白勾 */}
+      <div style={{ width: 18, height: 18, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        {isRunning ? (
+          <LoadingOutlined spin style={{ color: '#1890ff', fontSize: 14 }} />
+        ) : isCompleted ? (
+          // 蓝色方形填充 + 白色勾
+          <div style={{
+            width: 16,
+            height: 16,
+            borderRadius: 3,
+            background: '#1677ff',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}>
+            <svg width="10" height="8" viewBox="0 0 10 8" fill="none">
+              <path d="M1 4L3.5 6.5L9 1" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
+          </div>
+        ) : isFailed ? (
+          <CloseCircleFilled style={{ color: '#ff4d4f', fontSize: 14 }} />
+        ) : (
+          // 空心方框
+          <div style={{ width: 16, height: 16, borderRadius: 3, border: '1.5px solid #d9d9d9' }} />
+        )}
+      </div>
+
+      {/* Todo 文本 */}
+      <Text
+        style={{
+          flex: 1,
+          fontSize: 13,
+          color: isCompleted
+            ? 'var(--color-text-muted)'
+            : isFailed
+              ? '#ff4d4f'
+              : isRunning
+                ? '#1890ff'
+                : 'var(--color-text)',
+          textDecoration: isCompleted ? 'line-through' : 'none',
         }}
-        style={{ marginBottom: 12 }}
-      />
-
-      {/* 状态统计 */}
-      <Flex gap={8} style={{ marginBottom: 12 }}>
-        {stats.in_progress > 0 && (
-          <Tag color="processing" icon={<LoadingOutlined spin />}>
-            进行中: {stats.in_progress}
-          </Tag>
-        )}
-        {stats.pending > 0 && (
-          <Tag color="default" icon={<ClockCircleOutlined />}>
-            待处理: {stats.pending}
-          </Tag>
-        )}
-        {stats.completed > 0 && (
-          <Tag color="success" icon={<CheckCircleOutlined />}>
-            已完成: {stats.completed}
-          </Tag>
-        )}
-      </Flex>
-
-      {/* Todo 列表 */}
-      {sortedTodos.length > 0 ? (
-        <List
-          size="small"
-          dataSource={sortedTodos}
-          renderItem={(todo, index) => (
-            <TodoItem todo={todo} index={index} />
-          )}
-        />
-      ) : (
-        <Empty 
-          image={Empty.PRESENTED_IMAGE_SIMPLE}
-          description="暂无任务步骤"
-        />
-      )}
-    </Card>
+        ellipsis={{ tooltip: todo.text }}
+      >
+        {todo.text}
+      </Text>
+    </Flex>
   );
 }
 
 /**
- * 简化版 Todo 列表（用于侧边栏）
+ * Checklist 任务步骤组件
+ *
+ * @param {object} props
+ * @param {array} props.todos - Todo 列表
+ * @param {number} props.progress - 进度百分比 (0-100)
+ * @param {boolean} props.showProgress - 是否显示进度条
  */
-export function CompactTodoList({ todos = [], maxItems = 5 }) {
+export default function TaskChecklist({ todos = [], progress = 0, showProgress = true }) {
+  const stats = useMemo(() => {
+    const total = todos.length;
+    const completed = todos.filter(t => t.status === 'completed' || t.status === 'skipped').length;
+    const running = todos.filter(t => t.status === 'running').length;
+    return { total, completed, running };
+  }, [todos]);
+
+  if (todos.length === 0) return null;
+
+  return (
+    <div>
+      {/* 进度条 */}
+      {showProgress && stats.total > 0 && (
+        <Flex align="center" gap={8} style={{ marginBottom: 8 }}>
+          <Progress
+            percent={progress || Math.round(stats.completed / stats.total * 100)}
+            size="small"
+            status={stats.completed === stats.total ? 'success' : 'active'}
+            style={{ flex: 1, marginBottom: 0 }}
+            strokeColor={{
+              '0%': '#108ee9',
+              '100%': '#87d068',
+            }}
+          />
+          <Text type="secondary" style={{ fontSize: 11, flexShrink: 0 }}>
+            {stats.completed}/{stats.total}
+          </Text>
+        </Flex>
+      )}
+
+      {/* Checklist 列表 */}
+      <div>
+        {todos.map((todo, index) => (
+          <ChecklistItem
+            key={todo.id || index}
+            todo={todo}
+            index={index}
+          />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/**
+ * 紧凑版 Checklist（用于任务卡片收起状态预览）
+ */
+export function CompactChecklist({ todos = [], maxItems = 3 }) {
   const displayTodos = todos.slice(0, maxItems);
   const hasMore = todos.length > maxItems;
-  
-  // 计算进度
-  const progress = useMemo(() => {
-    if (todos.length === 0) return 0;
-    const completed = todos.filter(t => t.status === 'completed').length;
-    return Math.round((completed / todos.length) * 100);
-  }, [todos]);
+  const completed = todos.filter(t => t.status === 'completed' || t.status === 'skipped').length;
 
-  if (todos.length === 0) {
-    return null;
-  }
+  if (todos.length === 0) return null;
 
   return (
-    <div style={{ padding: '8px 0' }}>
-      <Flex align="center" gap={8} style={{ marginBottom: 8 }}>
-        <Progress 
-          percent={progress} 
-          size="small" 
-          style={{ flex: 1, marginBottom: 0 }}
+    <div>
+      <Flex align="center" gap={6} style={{ marginBottom: 4 }}>
+        <Progress
+          percent={todos.length > 0 ? Math.round(completed / todos.length * 100) : 0}
+          size="small"
           showInfo={false}
+          style={{ flex: 1, marginBottom: 0 }}
+          strokeColor={{ '0%': '#108ee9', '100%': '#87d068' }}
         />
-        <Text type="secondary" style={{ fontSize: 12, whiteSpace: 'nowrap' }}>
-          {todos.filter(t => t.status === 'completed').length}/{todos.length}
+        <Text type="secondary" style={{ fontSize: 11 }}>
+          {completed}/{todos.length}
         </Text>
       </Flex>
-      
       {displayTodos.map((todo, index) => {
-        const statusConfig = STATUS_CONFIG[todo.status] || STATUS_CONFIG.pending;
+        const config = STATUS_CONFIG[todo.status] || STATUS_CONFIG.idle;
         return (
-          <Flex 
-            key={todo.todo_id || index}
-            align="center" 
-            gap={8}
-            style={{ 
-              padding: '4px 0',
-              fontSize: 12,
-              color: todo.status === 'completed' ? '#999' : undefined
-            }}
-          >
-            <span style={{ color: statusConfig.color === 'success' ? '#52c41a' : 
-                                   statusConfig.color === 'processing' ? '#1890ff' : '#d9d9d9' }}>
-              {statusConfig.icon}
-            </span>
-            <Text 
-              ellipsis 
-              style={{ 
-                flex: 1,
-                textDecoration: todo.status === 'completed' ? 'line-through' : 'none'
-              }}
+          <Flex key={todo.id || index} align="center" gap={6} style={{ padding: '2px 0' }}>
+            <div style={{ width: 14, height: 14, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              {config.icon || (
+                <div style={{ width: 12, height: 12, border: '1.5px solid var(--color-border)', borderRadius: 2 }} />
+              )}
+            </div>
+            <Text
+              ellipsis
+              style={{ flex: 1, fontSize: 12, ...config.textStyle }}
             >
-              {todo.content}
+              {todo.text}
             </Text>
           </Flex>
         );
       })}
-      
       {hasMore && (
         <Text type="secondary" style={{ fontSize: 11 }}>
           还有 {todos.length - maxItems} 项...

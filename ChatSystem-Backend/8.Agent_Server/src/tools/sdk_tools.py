@@ -32,6 +32,7 @@ from tools.python_tools import execute_python, ExecutionResult
 # 上下文变量，用于在工具执行时获取当前任务和用户信息
 current_task_id: ContextVar[str] = ContextVar("current_task_id", default="unknown")
 current_user_id: ContextVar[str] = ContextVar("current_user_id", default="unknown")
+current_chat_session_id: ContextVar[str] = ContextVar("current_chat_session_id", default="")
 
 
 # ============== 搜索工具 ==============
@@ -274,7 +275,8 @@ ALL_TOOLS_WITH_TODO = [
 ]
 
 # 设置上下文的辅助函数
-def set_tool_context(task_id: str, user_id: str):
+def set_tool_context(task_id: str, user_id: str, chat_session_id: str = ""):
     """设置工具执行上下文"""
     current_task_id.set(task_id)
     current_user_id.set(user_id)
+    current_chat_session_id.set(chat_session_id)

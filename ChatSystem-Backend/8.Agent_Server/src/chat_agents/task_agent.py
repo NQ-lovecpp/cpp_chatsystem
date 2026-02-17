@@ -81,6 +81,11 @@ TASK_AGENT_SYSTEM_PROMPT = """你是一个专注的任务执行助手。你的�
 4. **执行任务**：按步骤执行，完成后使用 `update_todo` 更新状态
 5. **汇报结果**：总结任务结果
 
+⚠️ 重要规则：收到任务后，**必须在第一步调用 add_todos** 列出 3-6 个执行步骤，
+然后每步开始前调用 update_todo(todo_id, "running")，
+完成后调用 update_todo(todo_id, "completed")。
+这是强制要求，不可跳过！
+
 ## 可用工具
 
 ### 数据库工具（获取项目数据）
@@ -92,7 +97,7 @@ TASK_AGENT_SYSTEM_PROMPT = """你是一个专注的任务执行助手。你的�
 
 ### 任务管理工具
 - `add_todos(texts)` - 添加任务步骤清单
-- `update_todo(todo_id, status)` - 更新步骤状态 (in_progress/completed/cancelled)
+- `update_todo(todo_id, status)` - 更新步骤状态，有效值: idle/running/completed/failed/skipped
 - `list_todos()` - 查看当前所有步骤
 
 ### 信息检索工具
@@ -245,7 +250,7 @@ def create_task_agent(state: TaskStreamState) -> Agent:
         state: 任务流式状态
     """
     # 设置工具上下文
-    set_tool_context(state.task_id, state.user_id)
+    set_tool_context(state.task_id, state.user_id, state.chat_session_id or "")
     
     # TaskAgent 工具集
     tools = [
@@ -288,11 +293,12 @@ def create_task_agent(state: TaskStreamState) -> Agent:
     )
 
 
-async def run_task_agent(task: Task) -> AsyncIterator[dict]:
+async def run_task_agent(task: Task, parent_task_id: Optional[str] = None) -> AsyncIterator[dict]:
     """
     运行 TaskAgent（流式）
-    
+
     TaskAgent 只能由其他 Agent 创建，不接受用户直接交互。
+    parent_task_id: 父任务 ID，完成后发送 task_callback 通知父任务
     """
     task_id = task.id
     user_id = task.user_id
@@ -452,13 +458,22 @@ async def run_task_agent(task: Task) -> AsyncIterator[dict]:
         # 更新任务状态
         await task_manager.update_task_status(task_id, TaskStatus.DONE, result=final_text)
         await dual_writer.update_task_status(task_id, "completed", result=final_text)
-        
+
         # 发送完成事件
         await sse_bus.publish(task_id, "done", {
             "final_text": final_text,
             "tool_calls": state.tool_calls,
             "thought_chain_count": state.thought_chain_sequence
         })
+
+        # 通知父任务（SessionAgent）后台任务已完成
+        if parent_task_id:
+            await sse_bus.publish(parent_task_id, "task_callback", {
+                "task_id": task_id,
+                "status": "completed",
+                "result": final_text[:500],
+                "todos_count": state.thought_chain_sequence,
+            })
         
         # 清理 Todo 缓存
         _clear_task_todos(task_id)

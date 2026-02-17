@@ -12,6 +12,8 @@ import SessionInfoModal from './SessionInfoModal';
 import SessionMembersModal from './SessionMembersModal';
 import Avatar from './Avatar';
 import UserInfoCard from './UserInfoCard';
+import XMarkdown from '@ant-design/x-markdown';
+import { Mermaid } from '@ant-design/x';
 
 // 文件图标配置
 const FILE_ICONS = {
@@ -150,6 +152,20 @@ function LazyImageMessage({ fileId, imageContent, fetchImage, getCachedImage }) 
 }
 
 // 将聊天消息转为 Agent chat_history 格式
+// 代码块组件 - 用于 Agent 消息的 XMarkdown 渲染
+function AgentCodeBlock({ className, children }) {
+    const lang = className?.match(/language-(\w+)/)?.[1] || '';
+    if (typeof children !== 'string') return null;
+    if (lang === 'mermaid') {
+        return <div style={{ margin: '8px 0' }}><Mermaid>{children}</Mermaid></div>;
+    }
+    return (
+        <pre style={{ background: 'rgba(0,0,0,0.05)', padding: '10px 12px', borderRadius: 8, overflow: 'auto', fontSize: 12, margin: '6px 0' }}>
+            <code className={className}>{children}</code>
+        </pre>
+    );
+}
+
 function messagesToChatHistory(messages, currentUserId) {
     if (!messages?.length || !currentUserId) return [];
     return messages
@@ -160,7 +176,7 @@ function messagesToChatHistory(messages, currentUserId) {
         }));
 }
 
-export default function MessageArea({ showAgentPanel, onToggleAgentPanel, hasRunningTasks }) {
+export default function MessageArea({ showAgentPanel, onToggleAgentPanel, onAgentPanelOpen, hasRunningTasks }) {
     const { currentSession, currentMessages, addMessage, updateMessageStatus, fetchImage, getCachedImage, loadMessages, loadSessions } = useChat();
     const { user, sessionId } = useAuth();
     const { startTask } = useAgent();
@@ -215,25 +231,18 @@ export default function MessageArea({ showAgentPanel, onToggleAgentPanel, hasRun
         return () => window.removeEventListener('session-agent-done', handler);
     }, [addMessage, loadMessages, loadSessions]);
 
-    // 发送文本消息（含 @ 触发 SessionAgent）
+    // 通过 @AI助手 按钮触发 SessionAgent
+    const handleStartAgentTask = (instruction) => {
+        if (!currentSession || !user?.user_id || !instruction?.trim()) return;
+        const chatHistory = messagesToChatHistory(currentMessages, user.user_id);
+        startTask(instruction.trim(), 'session', currentSession.chat_session_id, chatHistory);
+        // 自动打开 Agent 面板，让用户看到思维链和任务进度
+        onAgentPanelOpen?.();
+    };
+
+    // 发送文本消息
     const handleSendMessage = async (content) => {
         if (!content.trim() || !currentSession || !user?.user_id) return;
-
-        // @ 触发 SessionAgent：以 @ 开头的消息调用 Agent 而非普通发送
-        if (content.trim().startsWith('@')) {
-            const chatHistory = messagesToChatHistory(currentMessages, user.user_id);
-            const instruction = content.trim().slice(1).trim() || '请回复';
-            addMessage(currentSession.chat_session_id, {
-                message_id: `local_${Date.now()}`,
-                chat_session_id: currentSession.chat_session_id,
-                timestamp: Date.now(),
-                sender: { user_id: user.user_id, nickname: user.nickname, avatar: user.avatar },
-                message: { message_type: 0, string_message: { content } },
-                _pending: false,
-            });
-            startTask(instruction, 'session', currentSession.chat_session_id, chatHistory);
-            return;
-        }
 
         const localMessage = {
             message_id: `local_${Date.now()}`,
@@ -418,8 +427,25 @@ export default function MessageArea({ showAgentPanel, onToggleAgentPanel, hasRun
         const content = msg.message;
         if (!content) return null;
 
+        // agent user_id 格式：'agent'（本地临时）或 'agent-*'（服务器持久化）
+        const isAgentMsg = msg.sender?.user_id?.startsWith('agent');
+
         switch (content.message_type) {
             case 0: // STRING
+                if (isAgentMsg) {
+                    return (
+                        <div className="text-sm leading-relaxed">
+                            <XMarkdown
+                                components={{
+                                    code: AgentCodeBlock,
+                                }}
+                                paragraphTag="div"
+                            >
+                                {content.string_message?.content || ''}
+                            </XMarkdown>
+                        </div>
+                    );
+                }
                 return (
                     <p className="break-words whitespace-pre-wrap">{content.string_message?.content}</p>
                 );
@@ -628,6 +654,7 @@ export default function MessageArea({ showAgentPanel, onToggleAgentPanel, hasRun
                     onSend={handleSendMessage}
                     onSendImage={handleSendImage}
                     onSendFile={handleSendFile}
+                    onStartAgentTask={handleStartAgentTask}
                 />
 
                 {/* 搜索栏 */}

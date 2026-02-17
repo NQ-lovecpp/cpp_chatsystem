@@ -136,7 +136,9 @@ export function subscribeTaskEvents(sessionId, taskId, handlers) {
         onError,
         onTaskStatus,
         onTaskCreated,
+        onTaskCallback,
         onApprovalResolved,
+        onAgentSwitch,
     } = handlers;
 
     const url = `${getAgentBaseUrl()}/events?task_id=${taskId}`;
@@ -250,8 +252,22 @@ export function subscribeTaskEvents(sessionId, taskId, handlers) {
             case 'task_created':
                 onTaskCreated?.(data);
                 break;
+            case 'task_callback':
+                onTaskCallback?.(data);
+                break;
             case 'approval_resolved':
                 onApprovalResolved?.(data);
+                break;
+            case 'agent_switch':
+                onAgentSwitch?.(data);
+                break;
+            case 'tool_args_delta':
+                // Tool argument streaming delta — forwarded for live display
+                onToolCall?.(data);
+                break;
+            case 'reasoning_summary':
+                // Reasoning summary after completion — treat as reasoning delta
+                onReasoningDelta?.(data);
                 break;
             default:
                 console.log('Unknown SSE event:', type, data);
