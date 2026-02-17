@@ -13,7 +13,7 @@ if str(src_dir) not in sys.path:
     sys.path.insert(0, str(src_dir))
 
 from auth import UserContext, require_auth
-from runtime import task_manager
+from runtime import stream_registry
 from runtime.approval_store import approval_store, ApprovalStatus
 
 
@@ -135,13 +135,13 @@ async def get_pending_approvals(
     task_id: str,
     user: UserContext = Depends(require_auth)
 ):
-    """获取任务的待审批请求"""
-    task = await task_manager.get_task(task_id)
-    
-    if not task:
-        raise HTTPException(status_code=404, detail="Task not found")
-    
-    if task.user_id != user.user_id:
+    """获取 stream 的待审批请求"""
+    stream = stream_registry.get(task_id)
+
+    if not stream:
+        raise HTTPException(status_code=404, detail="Stream not found")
+
+    if stream.user_id != user.user_id:
         raise HTTPException(status_code=403, detail="Access denied")
     
     approvals = await approval_store.get_pending_approvals(task_id)

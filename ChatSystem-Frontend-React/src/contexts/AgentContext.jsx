@@ -1,15 +1,13 @@
 /**
- * Agent 上下文 - 重构版
- * 管理多任务状态、消息流、Todo 进度、审批请求
- * 支持 SessionAgent 和 TaskAgent 的交互
+ * Agent 上下文 - 简化版
+ * 管理 Session/GlobalAgent 流状态、Todo 进度、思维链、审批请求
+ * 每条 Agent 消息关联一个 stream_id，用于打开 ReasoningPanel
  */
 
 import { createContext, useContext, useState, useCallback, useRef, useEffect } from 'react';
-import { message as antMessage } from 'antd';
 import { useAuth } from './AuthContext';
 import {
     createAgentTask,
-    getAgentTask,
     cancelAgentTask,
     subscribeTaskEvents,
     submitApproval,
@@ -48,24 +46,21 @@ export const TodoStatus = {
 };
 
 /**
- * 创建一个任务对象
- * @param {string} chatSessionId - 会话 ID（session 类型需要，用于任务过滤）
+ * 创建一个 stream 对象（对应一次 Agent 调用）
+ * @param {string} chatSessionId - 会话 ID（session 类型需要，用于过滤）
  */
-function createTaskObject(taskId, inputText, taskType = 'session', parentTaskId = null, chatSessionId = null) {
+function createTaskObject(taskId, inputText, taskType = 'session', chatSessionId = null) {
     return {
         id: taskId,
         inputText,
         taskType,
-        parentTaskId,
         chatSessionId,
         status: TaskStatus.PENDING,
         messages: [],
         todos: [],
-        thoughtChain: [],  // 思维链节点
+        thoughtChain: [],
         pendingApprovals: [],
         progress: null,
-        currentAgent: 'session',  // 'session' | 'task' — 当前活跃的 agent
-        taskOutput: '',            // TaskAgent 的输出（侧边栏显示）
         createdAt: Date.now(),
         updatedAt: Date.now(),
     };
@@ -82,7 +77,7 @@ export function AgentProvider({ children }) {
     
     // GlobalAgent 当前任务 ID（左侧边栏的私人助手）
     const [globalAgentTaskId, setGlobalAgentTaskId] = useState(null);
-    
+
     // GlobalAgent 多会话：{ id, title, messages, createdAt }[]
     const [globalConversations, setGlobalConversations] = useState([]);
     const [activeGlobalConversationId, setActiveGlobalConversationId] = useState(null);
@@ -90,22 +85,22 @@ export function AgentProvider({ children }) {
     const taskIdToGlobalConversationIdRef = useRef({});
     // Session 任务完成时：taskId -> chatSessionId（用于 @ 触发后写入聊天）
     const taskIdToChatSessionIdRef = useRef({});
-    
+
+    // ReasoningPanel 状态（per-message 思维链弹窗）
+    const [reasoningPanelStreamId, setReasoningPanelStreamId] = useState(null);
+
     // 全局加载状态
     const [loading, setLoading] = useState(false);
-    
+
     // 全局错误
     const [error, setError] = useState(null);
-    
+
     // SSE 取消订阅函数 Map
     const unsubscribeMapRef = useRef({});
-    
+
     // 流式文本缓冲区 Map
     const streamBufferMapRef = useRef({});
 
-    // TaskAgent 输出缓冲区 Map（侧边栏显示）
-    const taskOutputBufferMapRef = useRef({});
-    
     // 任务类型 Map（用于 onDone 时判断是否 global 以更新对话历史）
     const taskTypeMapRef = useRef({});
 
@@ -116,7 +111,6 @@ export function AgentProvider({ children }) {
             delete unsubscribeMapRef.current[taskId];
         }
         delete streamBufferMapRef.current[taskId];
-        delete taskOutputBufferMapRef.current[taskId];
         delete taskTypeMapRef.current[taskId];
     }, []);
 
@@ -127,7 +121,6 @@ export function AgentProvider({ children }) {
         });
         unsubscribeMapRef.current = {};
         streamBufferMapRef.current = {};
-        taskOutputBufferMapRef.current = {};
         taskTypeMapRef.current = {};
     }, []);
 
@@ -274,27 +267,6 @@ export function AgentProvider({ children }) {
         });
     }, []);
 
-    // 更新工具调用状态
-    const updateToolCall = useCallback((taskId, toolName, updates) => {
-        setTasks(prev => {
-            if (!prev[taskId]) return prev;
-            const task = prev[taskId];
-            const messages = [...task.messages];
-            
-            for (let i = messages.length - 1; i >= 0; i--) {
-                if (messages[i].type === MessageType.TOOL_CALL && messages[i].toolName === toolName) {
-                    messages[i] = { ...messages[i], ...updates };
-                    break;
-                }
-            }
-            
-            return {
-                ...prev,
-                [taskId]: { ...task, messages, updatedAt: Date.now() }
-            };
-        });
-    }, []);
-
     // 创建 GlobalAgent 新会话
     const createGlobalConversation = useCallback(() => {
         const id = `gc_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
@@ -356,7 +328,7 @@ export function AgentProvider({ children }) {
             const taskId = response.task_id;
             
             // 初始化任务对象（session 类型需存储 chat_session_id 用于过滤）
-            const task = createTaskObject(taskId, input, taskType, null, chatSessionId);
+            const task = createTaskObject(taskId, input, taskType, chatSessionId);
             
             // 添加用户消息
             task.messages.push({
@@ -388,7 +360,6 @@ export function AgentProvider({ children }) {
             
             // 初始化流缓冲区
             streamBufferMapRef.current[taskId] = '';
-            taskOutputBufferMapRef.current[taskId] = '';
 
             // 订阅 SSE 事件
             const unsubscribe = subscribeTaskEvents(sessionId, taskId, {
@@ -429,11 +400,11 @@ export function AgentProvider({ children }) {
                     }
                 },
 
-                onToolCall: (data) => {
+                onToolCall: () => {
                     // 工具调用通过 ThoughtChain 展示，不创建消息气泡
                 },
 
-                onToolOutput: (data) => {
+                onToolOutput: () => {
                     // 工具输出通过 ThoughtChain 展示，不创建消息气泡
                 },
 
@@ -453,36 +424,14 @@ export function AgentProvider({ children }) {
                     }
                 },
 
-                onAgentSwitch: (data) => {
-                    // agent_switch 事件: { agent: 'TaskAgent'|'SessionAgent', previous: ... }
-                    const agentName = data.agent;
-                    updateTask(taskId, {
-                        currentAgent: agentName === 'TaskAgent' ? 'task' : 'session',
-                    });
-                },
-
                 onMessage: (data) => {
-                    const agent = data.agent;
-                    if (agent === 'TaskAgent') {
-                        // TaskAgent 输出 → taskOutput (侧边栏显示)
-                        if (data.delta) {
-                            const cur = taskOutputBufferMapRef.current[taskId] || '';
-                            const next = cur + data.content;
-                            taskOutputBufferMapRef.current[taskId] = next;
-                            updateTask(taskId, { taskOutput: next });
-                        } else if (data.content) {
-                            taskOutputBufferMapRef.current[taskId] = data.content;
-                            updateTask(taskId, { taskOutput: data.content });
-                        }
-                    } else {
-                        // SessionAgent 输出 → 聊天消息气泡
-                        if (data.delta) {
-                            streamBufferMapRef.current[taskId] =
-                                (streamBufferMapRef.current[taskId] || '') + data.content;
-                            updateLastAssistantMessage(taskId, streamBufferMapRef.current[taskId], true);
-                        } else if (data.content) {
-                            updateLastAssistantMessage(taskId, data.content, false);
-                        }
+                    // SessionAgent 输出 → 聊天消息气泡
+                    if (data.delta) {
+                        streamBufferMapRef.current[taskId] =
+                            (streamBufferMapRef.current[taskId] || '') + data.content;
+                        updateLastAssistantMessage(taskId, streamBufferMapRef.current[taskId], true);
+                    } else if (data.content) {
+                        updateLastAssistantMessage(taskId, data.content, false);
                     }
                 },
                 
@@ -527,12 +476,12 @@ export function AgentProvider({ children }) {
                             delete taskIdToGlobalConversationIdRef.current[taskId];
                         }
                     }
-                    // SessionAgent @ 触发：通知前端将回复写入聊天
+                    // SessionAgent @ 触发：通知前端将回复写入聊天（附带 stream_id 用于关联推理面板）
                     if (doneTaskType === 'session') {
                         const chatSessionIdForDone = taskIdToChatSessionIdRef.current[taskId];
                         if (chatSessionIdForDone) {
                             window.dispatchEvent(new CustomEvent('session-agent-done', {
-                                detail: { chatSessionId: chatSessionIdForDone, finalText },
+                                detail: { chatSessionId: chatSessionIdForDone, finalText, streamId: taskId },
                             }));
                             delete taskIdToChatSessionIdRef.current[taskId];
                         }
@@ -554,36 +503,6 @@ export function AgentProvider({ children }) {
                 
                 onTaskStatus: (data) => {
                     updateTask(taskId, { status: data.status });
-                },
-                
-                // 子任务创建事件
-                onTaskCreated: (data) => {
-                    console.log('[Agent] Child task created:', data);
-                    // 创建子任务对象，继承父任务的 chatSessionId
-                    setTasks(prev => {
-                        const parentTask = prev[taskId];
-                        const childTask = createTaskObject(
-                            data.task_id, 
-                            data.description, 
-                            'task',
-                            taskId,
-                            parentTask?.chatSessionId ?? null
-                        );
-                        return { ...prev, [data.task_id]: childTask };
-                    });
-                    
-                    // 订阅子任务事件
-                    subscribeChildTask(data.task_id);
-                    
-                    antMessage.info(`已创建任务: ${data.description.slice(0, 20)}...`);
-                },
-                
-                onTaskCallback: (data) => {
-                    // 后台任务完成，更新子任务状态
-                    if (data.task_id) {
-                        updateTask(data.task_id, { status: TaskStatus.DONE });
-                    }
-                    antMessage.success('后台任务已完成', 3);
                 },
 
                 onApprovalResolved: (data) => {
@@ -610,210 +529,8 @@ export function AgentProvider({ children }) {
             setLoading(false);
             return null;
         }
-    }, [sessionId, addMessageToTask, updateLastAssistantMessage, updateToolCall, 
+    }, [sessionId, addMessageToTask, updateLastAssistantMessage,
         addTodoToTask, updateTodoStatus, addOrUpdateThoughtChainNode, updateThoughtChainStatus,
-        updateTask, cleanupTask]);
-
-    // 订阅子任务事件
-    const subscribeChildTask = useCallback((taskId) => {
-        if (!sessionId) return;
-        
-        streamBufferMapRef.current[taskId] = '';
-        
-        const unsubscribe = subscribeTaskEvents(sessionId, taskId, {
-            onInit: () => {},
-            
-            onMessage: (data) => {
-                if (data.delta) {
-                    streamBufferMapRef.current[taskId] = 
-                        (streamBufferMapRef.current[taskId] || '') + data.content;
-                    
-                    // 更新子任务消息
-                    setTasks(prev => {
-                        if (!prev[taskId]) return prev;
-                        const task = prev[taskId];
-                        const messages = [...task.messages];
-                        
-                        // 找到或创建 assistant 消息
-                        let found = false;
-                        for (let i = messages.length - 1; i >= 0; i--) {
-                            if (messages[i].type === MessageType.ASSISTANT) {
-                                messages[i] = {
-                                    ...messages[i],
-                                    content: streamBufferMapRef.current[taskId],
-                                    streaming: true,
-                                };
-                                found = true;
-                                break;
-                            }
-                        }
-                        
-                        if (!found) {
-                            messages.push({
-                                id: `msg_${Date.now()}`,
-                                type: MessageType.ASSISTANT,
-                                content: streamBufferMapRef.current[taskId],
-                                streaming: true,
-                                timestamp: Date.now(),
-                            });
-                        }
-                        
-                        return {
-                            ...prev,
-                            [taskId]: { ...task, messages, status: TaskStatus.RUNNING }
-                        };
-                    });
-                }
-            },
-            
-            onToolCall: (data) => {
-                addMessageToTask(taskId, {
-                    type: MessageType.TOOL_CALL,
-                    toolName: data.tool_name,
-                    arguments: data.arguments,
-                    status: data.status,
-                });
-            },
-            
-            onToolOutput: (data) => {
-                updateToolCall(taskId, data.tool_name, {
-                    output: data.result ?? data.result_preview,
-                    status: data.status,
-                });
-            },
-            
-            onTodoAdded: (data) => {
-                if (data.todo) {
-                    addTodoToTask(taskId, data.todo);
-                }
-            },
-            
-            onTodoStatus: (data) => {
-                updateTodoStatus(taskId, data.todoId, data.status);
-            },
-            
-            onTodoProgress: (data) => {
-                updateTask(taskId, { progress: data.progress });
-            },
-            
-            onThoughtChain: (data) => {
-                if (data.node) {
-                    addOrUpdateThoughtChainNode(taskId, data.node);
-                }
-            },
-            
-            onThoughtChainUpdate: (data) => {
-                if (data.chain_id) {
-                    updateThoughtChainStatus(taskId, data.chain_id, data.status, data.content);
-                }
-            },
-            
-            onInterruption: (data) => {
-                if (data.approval) {
-                    setTasks(prev => {
-                        if (!prev[taskId]) return prev;
-                        return {
-                            ...prev,
-                            [taskId]: {
-                                ...prev[taskId],
-                                pendingApprovals: [...prev[taskId].pendingApprovals, data.approval],
-                                status: TaskStatus.WAITING_APPROVAL,
-                            }
-                        };
-                    });
-                }
-            },
-            
-            onDone: (data) => {
-                updateTask(taskId, { status: TaskStatus.DONE });
-                
-                // 更新最终消息
-                setTasks(prev => {
-                    if (!prev[taskId]) return prev;
-                    const task = prev[taskId];
-                    const messages = [...task.messages];
-                    
-                    for (let i = messages.length - 1; i >= 0; i--) {
-                        if (messages[i].type === MessageType.ASSISTANT) {
-                            messages[i] = {
-                                ...messages[i],
-                                content: streamBufferMapRef.current[taskId] || data.final_text || '完成',
-                                streaming: false,
-                            };
-                            break;
-                        }
-                    }
-                    
-                    return { ...prev, [taskId]: { ...task, messages } };
-                });
-                
-                cleanupTask(taskId);
-                antMessage.success('任务完成');
-            },
-            
-            onError: (errorMsg) => {
-                updateTask(taskId, { status: TaskStatus.FAILED });
-                addMessageToTask(taskId, {
-                    type: MessageType.ERROR,
-                    content: errorMsg,
-                });
-                cleanupTask(taskId);
-            },
-            
-            onTaskStatus: (data) => {
-                updateTask(taskId, { status: data.status });
-            },
-
-            onReasoningDelta: (data) => {
-                // 子任务 reasoning 通过 ThoughtChain 展示
-                if (data.content) {
-                    setTasks(prev => {
-                        if (!prev[taskId]) return prev;
-                        const task = prev[taskId];
-                        const chain = [...task.thoughtChain];
-                        let reasoningNode = null;
-                        for (let i = chain.length - 1; i >= 0; i--) {
-                            if (chain[i].node_type === 'reasoning' && chain[i].status === 'running') {
-                                reasoningNode = chain[i];
-                                break;
-                            }
-                        }
-                        if (reasoningNode) {
-                            const updatedContent = (reasoningNode.content || '') + data.content;
-                            const newChain = chain.map(n =>
-                                n.chain_id === reasoningNode.chain_id
-                                    ? { ...n, content: updatedContent }
-                                    : n
-                            );
-                            return {
-                                ...prev,
-                                [taskId]: { ...task, thoughtChain: newChain, updatedAt: Date.now() }
-                            };
-                        }
-                        return prev;
-                    });
-                }
-            },
-
-            onApprovalResolved: (data) => {
-                setTasks(prev => {
-                    if (!prev[taskId]) return prev;
-                    return {
-                        ...prev,
-                        [taskId]: {
-                            ...prev[taskId],
-                            pendingApprovals: prev[taskId].pendingApprovals.filter(
-                                a => a.id !== data.approval_id
-                            ),
-                        }
-                    };
-                });
-            },
-        });
-
-        unsubscribeMapRef.current[taskId] = unsubscribe;
-    }, [sessionId, addMessageToTask, updateToolCall, addTodoToTask,
-        updateTodoStatus, addOrUpdateThoughtChainNode, updateThoughtChainStatus,
         updateTask, cleanupTask]);
 
     // 取消任务
@@ -831,7 +548,7 @@ export function AgentProvider({ children }) {
     }, [sessionId, cleanupTask, updateTask]);
 
     // 处理审批
-    const handleApproval = useCallback(async (taskId, approvalId, approved) => {
+    const handleApproval = useCallback(async (_taskId, approvalId, approved) => {
         if (!sessionId) return;
 
         try {
@@ -859,6 +576,7 @@ export function AgentProvider({ children }) {
         setGlobalConversations([]);
         setActiveGlobalConversationId(null);
         taskIdToGlobalConversationIdRef.current = {};
+        setReasoningPanelStreamId(null);
         setError(null);
         setLoading(false);
     }, [cleanupAll]);
@@ -879,35 +597,29 @@ export function AgentProvider({ children }) {
         return tasks[taskId]?.status || null;
     }, [tasks]);
 
-    // 获取 GlobalAgent 相关任务（global 类型 + 其子 task 类型）
+    // 获取 GlobalAgent 相关任务（global 类型）
     const getGlobalTasks = useCallback(() => {
-        const list = Object.values(tasks);
-        return list.filter(t => {
-            if (t.taskType === 'global') return true;
-            if (t.taskType === 'task' && t.parentTaskId) {
-                const parent = tasks[t.parentTaskId];
-                return parent?.taskType === 'global';
-            }
-            return false;
-        }).sort((a, b) => b.createdAt - a.createdAt);
+        return Object.values(tasks)
+            .filter(t => t.taskType === 'global')
+            .sort((a, b) => b.createdAt - a.createdAt);
     }, [tasks]);
 
-    // 获取指定会话的 SessionAgent 相关任务（session 类型 + 其子 task 类型）
+    // 获取指定会话的 SessionAgent 相关任务（session 类型）
     const getSessionTasks = useCallback((chatSessionId) => {
         if (!chatSessionId) return [];
-        const list = Object.values(tasks);
-        return list.filter(t => {
-            if (t.taskType === 'session' && t.chatSessionId === chatSessionId) return true;
-            if (t.taskType === 'task') {
-                if (t.chatSessionId === chatSessionId) return true;
-                if (t.parentTaskId) {
-                    const parent = tasks[t.parentTaskId];
-                    return parent?.chatSessionId === chatSessionId;
-                }
-            }
-            return false;
-        }).sort((a, b) => b.createdAt - a.createdAt);
+        return Object.values(tasks)
+            .filter(t => t.taskType === 'session' && t.chatSessionId === chatSessionId)
+            .sort((a, b) => b.createdAt - a.createdAt);
     }, [tasks]);
+
+    // 打开 / 关闭 ReasoningPanel（per-message 思维链弹窗）
+    const openReasoningPanel = useCallback((streamId) => {
+        setReasoningPanelStreamId(streamId);
+    }, []);
+
+    const closeReasoningPanel = useCallback(() => {
+        setReasoningPanelStreamId(null);
+    }, []);
 
     const value = {
         // 状态
@@ -917,7 +629,7 @@ export function AgentProvider({ children }) {
         selectedTaskId,
         loading,
         error,
-        
+
         // GlobalAgent 状态
         globalAgentTaskId,
         setGlobalAgentTaskId,
@@ -934,11 +646,16 @@ export function AgentProvider({ children }) {
         getTaskStatus,
         getGlobalTasks,
         getSessionTasks,
-        
+
+        // ReasoningPanel 状态
+        reasoningPanelStreamId,
+        openReasoningPanel,
+        closeReasoningPanel,
+
         // 派生状态
         runningTasks,
         hasRunningTasks,
-        
+
         // 操作
         startTask,
         cancelTask,
@@ -946,11 +663,11 @@ export function AgentProvider({ children }) {
         handleApproval,
         clearError,
         reset,
-        
+
         // ThoughtChain 相关
         addOrUpdateThoughtChainNode,
         updateThoughtChainStatus,
-        
+
         // 便捷方法
         approveApproval: (taskId, approvalId) => handleApproval(taskId, approvalId, true),
         rejectApproval: (taskId, approvalId) => handleApproval(taskId, approvalId, false),

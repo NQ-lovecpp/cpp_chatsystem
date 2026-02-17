@@ -12,4 +12,3 @@ exports.METADATA = {
     }
 };
 exports.default = exports.METADATA;
-//# sourceMappingURL=metadata.js.map

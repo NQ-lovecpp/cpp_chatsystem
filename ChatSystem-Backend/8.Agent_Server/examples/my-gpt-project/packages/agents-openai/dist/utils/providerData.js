@@ -10,11 +10,11 @@ function camelOrSnakeToSnakeCase(providerData) {
         Array.isArray(providerData)) {
         return providerData;
     }
-    const result = {};
-    for (const [key, value] of Object.entries(providerData)) {
-        const snakeKey = key.replace(/([A-Z])/g, '_$1').toLowerCase();
+    var result = {};
+    for (var _i = 0, _a = Object.entries(providerData); _i < _a.length; _i++) {
+        var _b = _a[_i], key = _b[0], value = _b[1];
+        var snakeKey = key.replace(/([A-Z])/g, '_$1').toLowerCase();
         result[snakeKey] = camelOrSnakeToSnakeCase(value);
     }
     return result;
 }
-//# sourceMappingURL=providerData.js.map

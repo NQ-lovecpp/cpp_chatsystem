@@ -6,10 +6,10 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Union, Optional
 
-# 添加 backend 目录到 Python 路径，以便导入 tools
-backend_dir = Path(__file__).parent.parent
-if str(backend_dir) not in sys.path:
-    sys.path.insert(0, str(backend_dir))
+# 添加 src 目录到 Python 路径，以便导入 tools（实现位于 tools/tool_impl/）
+src_dir = Path(__file__).resolve().parent.parent.parent
+if str(src_dir) not in sys.path:
+    sys.path.insert(0, str(src_dir))
 
 from mcp.server.fastmcp import Context, FastMCP
 from tools.simple_browser import SimpleBrowserTool

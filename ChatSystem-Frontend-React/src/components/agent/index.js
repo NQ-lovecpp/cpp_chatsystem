@@ -5,13 +5,11 @@
 // 核心组件
 export { default as GlobalAgentChat } from './GlobalAgentChat';
 export { default as GlobalAgentSidePanel } from './GlobalAgentSidePanel';
-export { default as TaskSidebar } from './TaskSidebar';
-export { default as TaskDetailPanel } from './TaskDetailPanel';
+export { default as ReasoningPanel } from './ReasoningPanel';
 
 // 消息渲染
 export { default as AgentMessageRenderer, createAgentContentRenderer } from './AgentMessageRenderer';
 export { default as MessageBubble } from './MessageBubble';
-export { default as TaskMessageItem } from './TaskMessageItem';
 export { default as MarkdownRenderer } from './MarkdownRenderer';
 export { default as StreamingMarkdown } from './StreamingMarkdown';
 

@@ -14,6 +14,7 @@ import Avatar from './Avatar';
 import UserInfoCard from './UserInfoCard';
 import XMarkdown from '@ant-design/x-markdown';
 import { Mermaid } from '@ant-design/x';
+import ReasoningPanel from './agent/ReasoningPanel';
 
 // 文件图标配置
 const FILE_ICONS = {
@@ -179,7 +180,10 @@ function messagesToChatHistory(messages, currentUserId) {
 export default function MessageArea({ showAgentPanel, onToggleAgentPanel, onAgentPanelOpen, hasRunningTasks }) {
     const { currentSession, currentMessages, addMessage, updateMessageStatus, fetchImage, getCachedImage, loadMessages, loadSessions } = useChat();
     const { user, sessionId } = useAuth();
-    const { startTask } = useAgent();
+    const { startTask, openReasoningPanel, closeReasoningPanel, reasoningPanelStreamId } = useAgent();
+
+    // 本地 agent 消息的 stream_id 映射（messageId -> streamId）
+    const agentStreamIdMapRef = useRef({});
     const messagesEndRef = useRef(null);
     const messagesContainerRef = useRef(null);
     const prevSessionIdRef = useRef(null);
@@ -210,16 +214,21 @@ export default function MessageArea({ showAgentPanel, onToggleAgentPanel, onAgen
     // 监听 SessionAgent 完成事件，将回复写入聊天
     useEffect(() => {
         const handler = async (e) => {
-            const { chatSessionId: targetSessionId, finalText } = e.detail || {};
+            const { chatSessionId: targetSessionId, finalText, streamId } = e.detail || {};
             if (!targetSessionId || !finalText) return;
-            // 立即添加本地消息用于实时显示
+            // 立即添加本地消息用于实时显示，附加 _streamId 供「正在思考 >」按钮使用
+            const msgId = `agent_${Date.now()}`;
             const agentMessage = {
-                message_id: `agent_${Date.now()}`,
+                message_id: msgId,
                 chat_session_id: targetSessionId,
                 timestamp: Date.now(),
                 sender: { user_id: 'agent', nickname: 'AI 助手', avatar: null },
                 message: { message_type: 0, string_message: { content: finalText } },
+                _streamId: streamId || null,
             };
+            if (streamId) {
+                agentStreamIdMapRef.current[msgId] = streamId;
+            }
             addMessage(targetSessionId, agentMessage);
             // 延迟重新从服务器加载消息和会话列表，确保显示持久化版本
             setTimeout(() => {
@@ -603,6 +612,15 @@ export default function MessageArea({ showAgentPanel, onToggleAgentPanel, onAgen
                         currentMessages.map((msg, index) => {
                             const isMe = msg.sender?.user_id === user?.user_id;
                             const isImageMsg = msg.message?.message_type === 1;
+                            // agent 消息：user_id 为 'agent' 或 'agent-*'
+                            const isAgentSender = msg.sender?.user_id?.startsWith('agent');
+                            // 从本地映射或消息字段或服务器 metadata 中获取 stream_id
+                            const msgStreamId =
+                                agentStreamIdMapRef.current[msg.message_id] ||
+                                msg._streamId ||
+                                msg.message?.string_message?.metadata?.stream_id ||
+                                null;
+                            const hasReasoningPanel = isAgentSender && !!msgStreamId;
 
                             return (
                                 <div
@@ -637,10 +655,24 @@ export default function MessageArea({ showAgentPanel, onToggleAgentPanel, onAgen
                                             {renderMessageContent(msg)}
                                         </div>
 
-                                        <p className={`text-xs text-[var(--color-text-muted)] mt-1 ${isMe ? 'text-right mr-1' : 'ml-1'}`}>
-                                            {formatTime(msg.timestamp)}
-                                            {msg._pending && <span className="ml-1 opacity-50">发送中...</span>}
-                                        </p>
+                                        <div className={`flex items-center gap-2 mt-1 ${isMe ? 'justify-end mr-1' : 'ml-1'}`}>
+                                            <p className="text-xs text-[var(--color-text-muted)]">
+                                                {formatTime(msg.timestamp)}
+                                                {msg._pending && <span className="ml-1 opacity-50">发送中...</span>}
+                                            </p>
+                                            {hasReasoningPanel && (
+                                                <button
+                                                    onClick={() => openReasoningPanel(msgStreamId)}
+                                                    className="text-xs text-[var(--color-primary)] hover:underline opacity-70 hover:opacity-100 transition-opacity flex items-center gap-0.5"
+                                                    title="查看 AI 推理过程"
+                                                >
+                                                    <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+                                                    </svg>
+                                                    正在思考 &gt;
+                                                </button>
+                                            )}
+                                        </div>
                                     </div>
                                 </div>
                             );
@@ -724,6 +756,13 @@ export default function MessageArea({ showAgentPanel, onToggleAgentPanel, onAgen
                     onViewProfile={handleViewUserProfile}
                 />
             )}
+
+            {/* 推理过程弹窗（per-message ReasoningPanel） */}
+            <ReasoningPanel
+                streamId={reasoningPanelStreamId}
+                open={!!reasoningPanelStreamId}
+                onClose={closeReasoningPanel}
+            />
         </div>
     );
 }

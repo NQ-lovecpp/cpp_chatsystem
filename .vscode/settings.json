@@ -78,5 +78,17 @@
     },
     "markdown-image.local.path": "/Pics",
     "markdown-image.local.referencePath": "../Pics/",
-    "cmake.sourceDirectory": "/home/chen/cpp_chatsystem/ChatSystem-Backend/2.File_Server"
+    "cmake.sourceDirectory": "/home/chen/cpp_chatsystem/ChatSystem-Backend/2.File_Server",
+    "python.defaultInterpreterPath": "${workspaceFolder}/.venv/bin/python",
+    "python.terminal.activateEnvironment": true,
+    "terminal.integrated.profiles.linux": {
+        "Python (venv)": {
+            "path": "bash",
+            "args": ["-c", "source ${workspaceFolder}/.venv/bin/activate && exec bash"]
+        }
+    },
+    "terminal.integrated.defaultProfile.linux": "Python (venv)",
+    "terminal.integrated.automationProfile.linux": {
+        "path": "bash"
+    }
 }

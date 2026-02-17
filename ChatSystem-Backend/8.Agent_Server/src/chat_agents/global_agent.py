@@ -41,21 +41,21 @@ if str(src_dir) not in sys.path:
     sys.path.insert(0, str(src_dir))
 
 from config import settings
-from runtime import sse_bus, task_manager, Task, TaskStatus
+from runtime import sse_bus, stream_registry, AgentStream
 from runtime.redis_client import redis_cache, RedisKeys
 from runtime.dual_writer import (
     dual_writer,
-    TaskRecord,
     ThoughtChainNode,
     ThoughtChainNodeType,
 )
 from providers import get_default_provider
 from tools.sdk_tools import (
-    web_search, web_open, web_find, 
+    web_search, web_open, web_find,
     python_execute_with_approval,
     set_tool_context,
     current_task_id,
     current_user_id,
+    add_todos, update_todo, list_todos,
 )
 from tools.db_tools import (
     get_chat_history,
@@ -85,8 +85,10 @@ GLOBAL_AGENT_SYSTEM_PROMPT = """你是用户的私人 AI 助手。你可以帮�
 - `search_messages(chat_session_id, keyword)` - 搜索会话中的消息
 - `get_user_info(user_id)` - 获取用户信息
 
-### 任务管理
-- `create_task(description)` - 创建后台任务，用于复杂的多步骤工作
+### 任务规划
+- `add_todos(texts)` - 列出执行步骤
+- `update_todo(todo_id, status)` - 更新步骤状态
+- `list_todos()` - 查看当前步骤列表
 
 ### 信息检索
 - `web_search(query)` - 搜索网页信息
@@ -104,7 +106,7 @@ GLOBAL_AGENT_SYSTEM_PROMPT = """你是用户的私人 AI 助手。你可以帮�
 ## 使用指南
 1. 当用户询问聊天相关内容时，先用 `get_user_sessions` 找到相关会话
 2. 然后用 `get_chat_history` 或 `search_messages` 获取具体内容
-3. 复杂任务请创建 Task 在后台执行
+3. 复杂任务先用 `add_todos` 规划步骤，再逐步执行
 
 ## 回复风格
 - 亲切友好，像私人助手
@@ -113,15 +115,6 @@ GLOBAL_AGENT_SYSTEM_PROMPT = """你是用户的私人 AI 助手。你可以帮�
 
 请开始为用户服务！
 """
-
-
-# 用于存储待执行任务的队列
-_pending_global_tasks: dict[str, dict] = {}
-
-
-def get_pending_global_task(parent_task_id: str) -> Optional[dict]:
-    """获取并移除待执行的子任务"""
-    return _pending_global_tasks.pop(parent_task_id, None)
 
 
 @dataclass
@@ -233,40 +226,6 @@ class GlobalAgentHooks(AgentHooks):
         })
         
         self.state.current_chain_id = None
-
-
-# 创建任务的工具（GlobalAgent 专用）
-@function_tool
-async def create_global_task(
-    description: Annotated[str, "任务描述，清晰说明需要完成什么"],
-    target_session_id: Annotated[Optional[str], "目标会话 ID（如果任务与特定会话相关）"] = None
-) -> str:
-    """
-    创建一个后台任务来执行复杂的多步骤工作。
-    任务会在后台运行，用户可以在任务面板查看进度。
-    """
-    parent_task_id = current_task_id.get()
-    user_id = current_user_id.get()
-    
-    child_task_id = f"task_{uuid.uuid4().hex[:12]}"
-    
-    _pending_global_tasks[parent_task_id] = {
-        "child_task_id": child_task_id,
-        "description": description,
-        "user_id": user_id,
-        "chat_session_id": target_session_id
-    }
-    
-    await sse_bus.publish(parent_task_id, "task_created", {
-        "task_id": child_task_id,
-        "description": description,
-        "parent_task_id": parent_task_id,
-        "target_session_id": target_session_id
-    })
-    
-    logger.info(f"Created global child task {child_task_id} from {parent_task_id}")
-    
-    return f"任务已创建，ID: {child_task_id}。您可以在右侧任务面板查看进度。"
 
 
 # ==================== 会话管理 API ====================
@@ -502,7 +461,7 @@ global_conversation_service = GlobalAgentConversationService()
 def create_global_agent(state: GlobalStreamState) -> Agent:
     """创建全局 Agent 实例"""
     set_tool_context(state.task_id, state.user_id)
-    
+
     instructions = GLOBAL_AGENT_SYSTEM_PROMPT + f"""
 
 ## 当前用户
@@ -510,20 +469,22 @@ def create_global_agent(state: GlobalStreamState) -> Agent:
 
 使用数据库工具时，可以直接使用此用户 ID 查询用户相关数据。
 """
-    
+
     tools = [
         get_user_sessions,
         get_chat_history,
         get_session_members,
         get_user_info,
         search_messages,
-        create_global_task,
+        add_todos,
+        update_todo,
+        list_todos,
         web_search,
         web_open,
         web_find,
         python_execute_with_approval,
     ]
-    
+
     return Agent(
         name="GlobalAgent",
         instructions=instructions,
@@ -549,7 +510,7 @@ def _build_input_from_history(chat_history: Optional[List[Dict]], new_input: str
 
 
 async def run_global_agent(
-    task: Task,
+    stream,  # AgentStream
     conversation_id: Optional[str] = None,
     chat_history: Optional[List[Dict]] = None
 ) -> AsyncIterator[dict]:
@@ -560,8 +521,8 @@ async def run_global_agent(
     - 传入 conversation_id 时，会从数据库加载历史并保存新消息
     - 不传时，使用传入的 chat_history（内存模式）
     """
-    task_id = task.id
-    user_id = task.user_id
+    task_id = stream.id
+    user_id = stream.user_id
     
     # 如果没有 conversation_id，自动创建会话
     if not conversation_id:
@@ -571,7 +532,7 @@ async def run_global_agent(
             await global_conversation_service.create_conversation(
                 user_id=user_id,
                 conversation_id=conversation_id,
-                title=task.input_text[:50] if task.input_text else "新对话"
+                title=stream.input_text[:50] if stream.input_text else "新对话"
             )
             logger.info(f"Created new conversation: {conversation_id}")
         except Exception as e:
@@ -584,7 +545,7 @@ async def run_global_agent(
                 await global_conversation_service.create_conversation(
                     user_id=user_id,
                     conversation_id=conversation_id,
-                    title=task.input_text[:50] if task.input_text else "新对话"
+                    title=stream.input_text[:50] if stream.input_text else "新对话"
                 )
                 logger.info(f"Created missing conversation: {conversation_id}")
             except Exception as e:
@@ -600,20 +561,6 @@ async def run_global_agent(
     )
     
     try:
-        # 更新状态为运行中
-        await task_manager.update_task_status(task_id, TaskStatus.RUNNING)
-        
-        # 记录任务到数据库
-        task_record = TaskRecord(
-            task_id=task_id,
-            user_id=user_id,
-            task_type="global",
-            status="running",
-            conversation_id=conversation_id,
-            input_text=task.input_text
-        )
-        await dual_writer.write_task(task_record)
-        
         # 发送初始化事件
         await sse_bus.publish(task_id, "init", {
             "task_id": task_id,
@@ -634,7 +581,7 @@ async def run_global_agent(
         provider = get_default_provider()
         
         # 构建输入
-        runner_input = _build_input_from_history(chat_history, task.input_text)
+        runner_input = _build_input_from_history(chat_history, stream.input_text)
         
         # 运行流式 Agent
         run_config = RunConfig(model_provider=provider)
@@ -726,7 +673,7 @@ async def run_global_agent(
         try:
             # 保存用户消息
             await global_conversation_service.add_message(
-                conversation_id, "user", task.input_text
+                conversation_id, "user", stream.input_text
             )
             # 保存助手消息
             await global_conversation_service.add_message(
@@ -735,34 +682,6 @@ async def run_global_agent(
             )
         except Exception as e:
             logger.warning(f"Failed to persist messages: {e}")
-        
-        # 检查是否有创建的子任务需要启动
-        pending = get_pending_global_task(task_id)
-        if pending:
-            from .task_agent import run_task_agent
-            
-            child_task = Task(
-                id=pending["child_task_id"],
-                user_id=pending["user_id"],
-                input_text=pending["description"],
-                task_type="task",
-                chat_session_id=pending.get("chat_session_id")
-            )
-            
-            await task_manager.create_task(
-                task_id=child_task.id,
-                user_id=child_task.user_id,
-                input_text=child_task.input_text,
-                task_type="task",
-                chat_session_id=child_task.chat_session_id
-            )
-            
-            asyncio.create_task(_run_global_child_task(child_task))
-            logger.info(f"Started global child task {child_task.id}")
-        
-        # 更新任务状态
-        await task_manager.update_task_status(task_id, TaskStatus.DONE, result=final_text)
-        await dual_writer.update_task_status(task_id, "completed", result=final_text)
         
         # 发送完成事件
         await sse_bus.publish(task_id, "done", {
@@ -774,24 +693,8 @@ async def run_global_agent(
         
     except Exception as e:
         logger.error(f"GlobalAgent error: {e}", exc_info=True)
-        
-        await task_manager.update_task_status(task_id, TaskStatus.FAILED, error=str(e))
-        await dual_writer.update_task_status(task_id, "failed", error=str(e))
-        
         await sse_bus.publish(task_id, "error", {"message": str(e)})
-        
         yield {"type": "error", "error": str(e)}
-
-
-async def _run_global_child_task(task: Task):
-    """在后台运行子任务"""
-    from .task_agent import run_task_agent
-    
-    try:
-        async for _ in run_task_agent(task):
-            pass
-    except Exception as e:
-        logger.error(f"Global child task {task.id} failed: {e}")
 
 
 # 导出配置
@@ -803,7 +706,8 @@ def get_global_agent_config() -> dict:
         "model": settings.openrouter_model,
         "tools": [
             "get_user_sessions", "get_chat_history", "get_session_members",
-            "get_user_info", "search_messages", "create_global_task",
+            "get_user_info", "search_messages",
+            "add_todos", "update_todo", "list_todos",
             "web_search", "web_open", "web_find", "python_execute"
         ]
     }

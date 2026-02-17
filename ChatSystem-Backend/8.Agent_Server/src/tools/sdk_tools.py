@@ -173,9 +173,8 @@ async def python_execute_with_approval(
     
     # 导入审批相关模块
     from runtime.approval_store import approval_store, ApprovalStatus
-    from runtime import task_manager, TaskStatus
     from runtime.sse_bus import sse_bus
-    
+
     # 发送需要审批的事件
     await sse_bus.publish(task_id, "tool_call", {
         "tool_name": "python_execute",
@@ -196,16 +195,10 @@ async def python_execute_with_approval(
         reason=reason
     )
     
-    # 更新任务状态
-    await task_manager.update_task_status(task_id, TaskStatus.WAITING_APPROVAL)
-    
     # 等待审批结果
     approval_status = await approval_store.wait_for_approval(approval.id)
     
     if approval_status == ApprovalStatus.APPROVED:
-        # 更新任务状态
-        await task_manager.update_task_status(task_id, TaskStatus.RUNNING)
-        
         # 执行代码
         result = await execute_python(
             code=code,
@@ -220,11 +213,9 @@ async def python_execute_with_approval(
             return f"执行失败: {result.error}"
     
     elif approval_status == ApprovalStatus.REJECTED:
-        await task_manager.update_task_status(task_id, TaskStatus.RUNNING)
         return "用户拒绝了代码执行请求"
-    
+
     else:  # EXPIRED
-        await task_manager.update_task_status(task_id, TaskStatus.RUNNING)
         return "审批请求已超时"
 
 

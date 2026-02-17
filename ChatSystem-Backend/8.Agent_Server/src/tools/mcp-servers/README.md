@@ -9,15 +9,10 @@ The build system prompt script show case all the care needed to automatically di
 
 ## Usage
 
-```bash
-# Install the dependencies
-uv pip install -r requirements.txt
-```
+依赖已合并至工作区根目录 `pyproject.toml`，请先执行 `uv sync`（在工作区根目录）。
 
 ```bash
-# Assume we have harmony and gpt-oss installed
-uv pip install mcp[cli]
-# start the servers
+# 启动服务器（需先 uv sync 创建 .venv）
 mcp run -t sse browser_server.py:mcp
 mcp run -t sse python_server.py:mcp
 ```

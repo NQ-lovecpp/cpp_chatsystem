@@ -14,9 +14,10 @@ A hybrid chat system with two backends:
 ### Agent Server (Python)
 ```bash
 cd ChatSystem-Backend/8.Agent_Server
-source /home/chen/cpp_chatsystem/venv/bin/activate
+source /home/chen/cpp_chatsystem/.venv/bin/activate  # 或: uv sync 后使用 uv run
 uvicorn src.main:app --host 0.0.0.0 --port 8080 --reload
 ```
+环境：工作区使用 uv + Python 3.12，详见 `8.Agent_Server/PYTHON_SETUP.md`
 
 ### React Frontend
 ```bash

@@ -11,8 +11,8 @@
 这是默认的传输方式，适用于通过 `MCPServerStdio` 连接：
 
 ```bash
-# 进入服务器目录
-cd backend/gpt-oss-mcp-server
+# 进入服务器目录（从工作区根目录）
+cd ChatSystem-Backend/8.Agent_Server/src/tools/mcp-servers
 
 # 启动 Python 执行服务器
 uv run mcp run python_server.py:mcp

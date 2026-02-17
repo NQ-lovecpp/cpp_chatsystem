@@ -16,7 +16,6 @@
  */
 
 import { useState, useCallback } from 'react';
-import { motion, AnimatePresence } from 'motion/react';
 import { useAuth } from '../contexts/AuthContext';
 import { ChatProvider, useChat } from '../contexts/ChatContext';
 import { AgentProvider, useAgent } from '../contexts/AgentContext';
@@ -25,7 +24,7 @@ import SessionList from '../components/SessionList';
 import MessageArea from '../components/MessageArea';
 import FriendList from '../components/FriendList';
 import SettingsPanel from '../components/SettingsPanel';
-import { TaskSidebar, GlobalAgentChat, GlobalAgentSidePanel } from '../components/agent';
+import { GlobalAgentChat, GlobalAgentSidePanel } from '../components/agent';
 import ApprovalModalAntd from '../components/agent/ApprovalModalAntd';
 
 // 移动端消息区域包装组件
@@ -49,35 +48,6 @@ function MobileMessageArea({ onBack }) {
     );
 }
 
-// 将聊天消息转为 Agent 所需的 chat_history 格式 [{role, content}, ...]
-function messagesToChatHistory(messages, currentUserId) {
-    if (!messages?.length || !currentUserId) return [];
-    return messages
-        .filter(m => m.message?.string_message?.content)
-        .map(m => ({
-            role: m.sender?.user_id === currentUserId ? 'user' : 'assistant',
-            content: m.message.string_message.content,
-        }));
-}
-
-// 右侧 Agent 面板（桌面端）- Chat 标签下仅显示任务中心
-function AgentSidePanel() {
-    const { currentSession, currentMessages } = useChat();
-    const { user } = useAuth();
-    const chatSessionId = currentSession?.chat_session_id ?? null;
-    const chatHistory = messagesToChatHistory(currentMessages, user?.user_id);
-
-    return (
-        <div className="flex flex-col h-full min-h-0">
-            <TaskSidebar 
-                className="h-full" 
-                chatSessionId={chatSessionId} 
-                chatHistory={chatHistory} 
-            />
-        </div>
-    );
-}
-
 // 内部组件，使用 ChatContext
 function ChatPageContent() {
     const { user } = useAuth();
@@ -85,7 +55,6 @@ function ChatPageContent() {
     const { hasRunningTasks, selectedTaskId } = useAgent();
     const [activeTab, setActiveTab] = useState('chat');
     const [showMobileChat, setShowMobileChat] = useState(false);
-    const [showAgentPanel, setShowAgentPanel] = useState(false);
 
     const handleMobileBack = () => setShowMobileChat(false);
 
@@ -157,13 +126,10 @@ function ChatPageContent() {
                             {/* Chat 标签内容 */}
                             {activeTab === 'chat' && (
                                 <div className="flex-1 flex min-h-0">
-                                    {/* 消息区域 - 始终可见，flex-1 自适应 */}
+                                    {/* 消息区域 */}
                                     <div className="flex-1 flex flex-col min-w-0 min-h-0">
                                         <div className="hidden lg:flex flex-col h-full min-h-0">
                                             <MessageArea
-                                                showAgentPanel={showAgentPanel}
-                                                onToggleAgentPanel={() => setShowAgentPanel(v => !v)}
-                                                onAgentPanelOpen={() => setShowAgentPanel(true)}
                                                 hasRunningTasks={hasRunningTasks}
                                             />
                                         </div>
@@ -171,23 +137,6 @@ function ChatPageContent() {
                                             <MobileMessageArea onBack={handleMobileBack} />
                                         </div>
                                     </div>
-
-                                    {/* Agent 右侧面板（带滑入动画） */}
-                                    <AnimatePresence>
-                                        {showAgentPanel && (
-                                            <motion.div
-                                                initial={{ width: 0, opacity: 0 }}
-                                                animate={{ width: 340, opacity: 1 }}
-                                                exit={{ width: 0, opacity: 0 }}
-                                                transition={{ type: 'spring', stiffness: 400, damping: 30 }}
-                                                className="hidden lg:flex border-l border-[var(--color-border)] flex-col shrink-0 min-h-0 overflow-hidden"
-                                            >
-                                                <div className="w-[340px] h-full">
-                                                    <AgentSidePanel />
-                                                </div>
-                                            </motion.div>
-                                        )}
-                                    </AnimatePresence>
                                 </div>
                             )}
 

@@ -16,7 +16,7 @@ if str(src_dir) not in sys.path:
     sys.path.insert(0, str(src_dir))
 
 from tools import get_browser, execute_python, get_python_executor
-from runtime import sse_bus, task_manager, TaskStatus
+from runtime import sse_bus
 from runtime.approval_store import approval_store, ApprovalStatus
 
 
@@ -307,9 +307,6 @@ async def execute_tool_with_approval(
             reason=reason
         )
         
-        # 更新任务状态
-        await task_manager.update_task_status(task_id, TaskStatus.WAITING_APPROVAL)
-        
         # 等待审批结果
         logger.info(f"Waiting for approval: {approval.id}")
         approval_status = await approval_store.wait_for_approval(approval.id)
@@ -317,14 +314,12 @@ async def execute_tool_with_approval(
         if approval_status == ApprovalStatus.APPROVED:
             logger.info(f"Approval granted for {tool_name}")
             # 更新任务状态为运行中
-            await task_manager.update_task_status(task_id, TaskStatus.RUNNING)
             # 执行工具
             return await execute_tool(tool_name, arguments, task_id, user_id, session_id)
         
         elif approval_status == ApprovalStatus.REJECTED:
             logger.info(f"Approval rejected for {tool_name}")
             # 更新任务状态为运行中（继续后续流程）
-            await task_manager.update_task_status(task_id, TaskStatus.RUNNING)
             
             # 返回拒绝结果
             result = {
@@ -343,7 +338,6 @@ async def execute_tool_with_approval(
         
         else:  # EXPIRED
             logger.info(f"Approval expired for {tool_name}")
-            await task_manager.update_task_status(task_id, TaskStatus.RUNNING)
             
             result = {
                 "success": False,
