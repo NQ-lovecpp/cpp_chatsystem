@@ -1,5 +1,3 @@
-version: "3.8"
-
 networks:
   chatsystem-overlay:
     driver: overlay
@@ -316,6 +314,44 @@ services:
       timeout: 5s
       retries: 3
 
+  agent_server:
+    build:
+      context: ..
+      dockerfile: ChatSystem-Backend/8.Agent_Server/Dockerfile
+    image: agent_server:v1
+    container_name: agent_server
+    hostname: agent_server
+    networks:
+      - chatsystem-overlay
+    ports:
+      - "8080:8080"
+    environment:
+      - MYSQL_HOST=mysql
+      - MYSQL_PORT=3306
+      - MYSQL_USER=root
+      - MYSQL_PASSWORD=Cydia4384!
+      - MYSQL_DATABASE=chen_im
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - REDIS_DB=0
+      - HOST=0.0.0.0
+      - PORT=8080
+      - DEBUG=false
+    deploy:
+      replicas: 1
+      restart_policy:
+        condition: on-failure
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: [ "CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:8080/health')\" || exit 1" ]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
   gateway_server:
     build:
       context: ./7.Gateway_Server
@@ -323,13 +359,15 @@ services:
     image: gateway_server:v3
     networks:
       - chatsystem-overlay
-    # Linux Docker：使 host.docker.internal 指向宿主机，以便 Gateway 访问宿主机上的 Agent Server
+    # Linux Docker：host.docker.internal 用于兼容宿主机上的其他服务
     extra_hosts:
       - "host.docker.internal:host-gateway"
     ports:
       - "9000:9000"
       - "9001:9001"
     volumes:
+      # 使用 gateway_server.conf：Agent 在宿主机运行时通过 host.docker.internal 访问
+      # 当 agent_server 容器部署后，可改为 gateway_server_docker.conf
       - ./Configs/gateway_server.conf:/im/conf/gateway_server.conf:ro
       - ./docker_image_data/logs:/im/logs:rw
       - ./docker_image_data/data:/im/data:rw
