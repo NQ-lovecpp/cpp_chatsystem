@@ -415,11 +415,52 @@ export function subscribeSessionEvents(sessionId, chatSessionId, handlers) {
         onInterruption,
     } = handlers;
 
-    const url = `${getAgentBaseUrl()}/events/session/${chatSessionId}`;
+    const baseUrl = `${getAgentBaseUrl()}/events/session/${chatSessionId}`;
     const controller = new AbortController();
+    const lastEventIdKey = `agent_session_last_event_id_${chatSessionId}`;
+    let reconnectTimer = null;
+    let reconnectAttempts = 0;
+    let stopped = false;
+    let lastEventId = localStorage.getItem(lastEventIdKey) || null;
+
+    const scheduleReconnect = () => {
+        if (stopped) return;
+        reconnectAttempts += 1;
+        const delay = Math.min(1000 * (2 ** (reconnectAttempts - 1)), 10000) + Math.floor(Math.random() * 300);
+        reconnectTimer = setTimeout(() => {
+            connect();
+        }, delay);
+    };
+
+    const handleEvent = (eventType, data) => {
+        switch (eventType) {
+            case 'agent_start':
+                onAgentStart?.(data);
+                break;
+            case 'content_delta':
+                onContentDelta?.(data);
+                break;
+            case 'agent_done':
+                onAgentDone?.(data);
+                break;
+            case 'agent_error':
+                onAgentError?.(data);
+                break;
+            case 'interruption':
+                onInterruption?.(data);
+                break;
+            default:
+                console.log('Unknown session SSE event:', eventType, data);
+        }
+    };
 
     const connect = async () => {
+        if (stopped) return;
         try {
+            const url = lastEventId
+                ? `${baseUrl}?last_event_id=${encodeURIComponent(lastEventId)}`
+                : baseUrl;
+
             const response = await fetch(url, {
                 headers: {
                     'Accept': 'text/event-stream',
@@ -432,11 +473,15 @@ export function subscribeSessionEvents(sessionId, chatSessionId, handlers) {
                 throw new Error(`Session SSE connection failed: ${response.status}`);
             }
 
+            reconnectAttempts = 0;
             const reader = response.body.getReader();
             const decoder = new TextDecoder('utf-8');
             let buffer = '';
+            let eventType = null;
+            let eventData = '';
+            let eventId = null;
 
-            while (true) {
+            while (!stopped) {
                 const { done, value } = await reader.read();
                 if (done) break;
 
@@ -444,48 +489,41 @@ export function subscribeSessionEvents(sessionId, chatSessionId, handlers) {
                 const lines = buffer.split('\n');
                 buffer = lines.pop() || '';
 
-                let eventType = null;
-                let eventData = '';
-
                 for (const line of lines) {
                     if (line.startsWith('event:')) {
                         eventType = line.slice(6).trim();
                     } else if (line.startsWith('data:')) {
                         eventData = line.slice(5).trim();
+                    } else if (line.startsWith('id:')) {
+                        eventId = line.slice(3).trim();
                     } else if (line === '' && eventType && eventData) {
                         try {
                             const data = JSON.parse(eventData);
-                            switch (eventType) {
-                                case 'agent_start':
-                                    onAgentStart?.(data);
-                                    break;
-                                case 'content_delta':
-                                    onContentDelta?.(data);
-                                    break;
-                                case 'agent_done':
-                                    onAgentDone?.(data);
-                                    break;
-                                case 'agent_error':
-                                    onAgentError?.(data);
-                                    break;
-                                case 'interruption':
-                                    onInterruption?.(data);
-                                    break;
-                                default:
-                                    console.log('Unknown session SSE event:', eventType, data);
+                            if (eventId) {
+                                lastEventId = eventId;
+                                localStorage.setItem(lastEventIdKey, eventId);
+                            } else if (data.id) {
+                                lastEventId = data.id;
+                                localStorage.setItem(lastEventIdKey, data.id);
                             }
+                            handleEvent(eventType, data);
                         } catch (e) {
                             console.error('Failed to parse session SSE data:', e);
                         }
                         eventType = null;
                         eventData = '';
+                        eventId = null;
                     }
                 }
             }
+
+            if (!stopped) {
+                scheduleReconnect();
+            }
         } catch (error) {
-            if (error.name !== 'AbortError') {
+            if (error.name !== 'AbortError' && !stopped) {
                 console.error('Session SSE error:', error);
-                onAgentError?.({ error: error.message });
+                scheduleReconnect();
             }
         }
     };
@@ -493,6 +531,11 @@ export function subscribeSessionEvents(sessionId, chatSessionId, handlers) {
     connect();
 
     return () => {
+        stopped = true;
         controller.abort();
+        if (reconnectTimer) {
+            clearTimeout(reconnectTimer);
+            reconnectTimer = null;
+        }
     };
 }

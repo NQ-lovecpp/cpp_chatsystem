@@ -5,16 +5,27 @@
 
 const STORAGE_KEY = 'chat_server_config';
 
-// 默认配置 - 使用用户部署的后端服务器
-const DEFAULT_CONFIG = {
-    httpHost: '117.72.15.209',
-    httpPort: 9000,
-    wsHost: '117.72.15.209',
-    wsPort: 9001,
+// 构建时可通过 VITE_* 注入；生产部署时优先使用当前访问的 hostname，便于公网访问
+const getDefaultHost = () => {
+    const buildHost = import.meta.env?.VITE_HTTP_HOST;
+    if (buildHost) return buildHost;
+    const hn = typeof window !== 'undefined' ? window.location.hostname : '';
+    if (hn && hn !== 'localhost' && hn !== '127.0.0.1') return hn;
+    return '117.72.15.209';
 };
+const getDefaultHttpPort = () => import.meta.env?.VITE_HTTP_PORT || '9000';
+const getDefaultWsPort = () => import.meta.env?.VITE_WS_PORT || '9001';
+
+function buildDefaultConfig() {
+    const host = getDefaultHost();
+    const httpPort = getDefaultHttpPort();
+    const wsPort = getDefaultWsPort();
+    return { httpHost: host, httpPort, wsHost: host, wsPort };
+}
+const DEFAULT_CONFIG = buildDefaultConfig();
 
 // 检测是否为开发模式
-const isDev = import.meta.env?.DEV || window.location.hostname === 'localhost';
+const isDev = import.meta.env?.DEV || (typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'));
 
 /**
  * 获取当前服务器配置

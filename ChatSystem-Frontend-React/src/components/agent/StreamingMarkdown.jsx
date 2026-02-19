@@ -9,10 +9,12 @@
  * - Mermaid 图表支持
  */
 
-import { memo, useEffect, useState, useMemo } from 'react';
+import { memo, useState, useMemo } from 'react';
 import XMarkdown from '@ant-design/x-markdown';
-import { Mermaid, Think } from '@ant-design/x';
-import { ToolOutlined, CheckCircleOutlined, CloseCircleOutlined } from '@ant-design/icons';
+import { Mermaid, Think, ThoughtChain } from '@ant-design/x';
+import { ToolOutlined, BulbOutlined } from '@ant-design/icons';
+import '@ant-design/x-markdown/themes/dark.css';
+import { useTheme } from '../../contexts/ThemeContext';
 
 /**
  * 代码块组件 - 支持 Mermaid 图表
@@ -49,145 +51,125 @@ const CodeComponent = memo(function CodeComponent({ className, children }) {
  * Think 组件 - 展示推理过程
  */
 const ThinkComponent = memo(function ThinkComponent({ children, streamStatus }) {
-    const [title, setTitle] = useState('思考中...');
-    const [loading, setLoading] = useState(true);
-    const [expand, setExpand] = useState(true);
+    const [doneExpanded, setDoneExpanded] = useState(false);
 
-    useEffect(() => {
-        if (streamStatus === 'done') {
-            setTitle('思考完成');
-            setLoading(false);
-            setExpand(false);
-        }
-    }, [streamStatus]);
+    const isDone = streamStatus === 'done';
+    const title = isDone ? '思考完成' : '思考中...';
+    const loading = !isDone;
+    const expanded = isDone ? doneExpanded : true;
+    const titleNode = <span style={{ color: 'var(--color-text)' }}>{title}</span>;
 
     return (
         <Think
-            title={title}
+            title={titleNode}
+            blink={loading}
             loading={loading}
-            expanded={expand}
-            onClick={() => setExpand(v => !v)}
-            style={{ marginBottom: 8 }}
+            icon={<BulbOutlined style={{ color: 'var(--color-text-secondary)' }} />}
+            expanded={expanded}
+            onClick={() => {
+                if (isDone) {
+                    setDoneExpanded(v => !v);
+                }
+            }}
+            style={{
+                marginBottom: 8,
+                color: 'var(--color-text)',
+            }}
         >
-            {children}
+            <div style={{ color: 'var(--color-text-secondary)' }}>{children}</div>
         </Think>
     );
 });
 
 /**
- * ToolCallBlock - 工具调用展示块
+ * ToolEventBlock - 工具调用与结果合并展示
  */
-const ToolCallBlock = memo(function ToolCallBlock({ name, content, isStreaming }) {
-    const [expanded, setExpanded] = useState(isStreaming);
+const ToolEventBlock = memo(function ToolEventBlock({ event, isStreamingTail = false }) {
+    const isPending = !event.result && (event.inProgress || isStreamingTail);
+    const isSuccess = event.result?.status === 'success';
+    const hasResult = !!event.result;
+    const title = isPending
+        ? `Calling: ${event.name || 'tool'}`
+        : `Called: ${event.name || 'tool'}`;
+    const description = ``;
+    const status = isPending ? undefined : (isSuccess ? 'success' : 'error');
+    const key = `tool-${event.name || 'tool'}-${hasResult ? 'done' : 'pending'}`;
+    const [doneExpandedKeys, setDoneExpandedKeys] = useState([]);
+    const expandedKeys = isPending ? [key] : doneExpandedKeys;
 
-    useEffect(() => {
-        if (!isStreaming) setExpanded(false);
-    }, [isStreaming]);
-
-    return (
-        <div style={{
-            margin: '6px 0',
-            border: '1px solid var(--color-border)',
-            borderRadius: 8,
-            overflow: 'hidden',
-            fontSize: 12,
-        }}>
+    const detailBlocks = [];
+    if (event.arguments) {
+        detailBlocks.push(
             <div
-                onClick={() => setExpanded(v => !v)}
+                key={`${key}-args`}
                 style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 6,
-                    padding: '6px 10px',
-                    background: 'var(--color-surface)',
-                    cursor: 'pointer',
-                    userSelect: 'none',
-                }}
-            >
-                <ToolOutlined style={{ color: 'var(--color-primary)', fontSize: 13 }} />
-                <span style={{ fontWeight: 500, color: 'var(--color-text)' }}>
-                    {name || '工具调用'}
-                </span>
-                {isStreaming && (
-                    <span style={{
-                        fontSize: 10,
-                        padding: '1px 5px',
-                        borderRadius: 4,
-                        background: 'var(--color-primary)',
-                        color: '#fff',
-                    }}>调用中</span>
-                )}
-                <span style={{ marginLeft: 'auto', color: 'var(--color-text-muted)', fontSize: 11 }}>
-                    {expanded ? '▼' : '▶'}
-                </span>
-            </div>
-            {expanded && content && (
-                <div style={{
-                    padding: '6px 10px',
-                    color: 'var(--color-text-secondary)',
+                    border: '1px solid var(--color-border)',
+                    borderRadius: 8,
+                    padding: '8px 10px',
+                    maxHeight: 140,
+                    overflowY: 'auto',
                     whiteSpace: 'pre-wrap',
                     wordBreak: 'break-all',
-                    maxHeight: 200,
-                    overflow: 'auto',
-                    borderTop: '1px solid var(--color-border)',
-                }}>
-                    {content}
-                </div>
-            )}
-        </div>
-    );
-});
-
-/**
- * ToolResultBlock - 工具结果展示块
- */
-const ToolResultBlock = memo(function ToolResultBlock({ name, status, content, isStreaming }) {
-    const [expanded, setExpanded] = useState(false);
-    const isSuccess = status === 'success';
-
-    return (
-        <div style={{
-            margin: '6px 0',
-            border: `1px solid ${isSuccess ? 'var(--color-border)' : '#ff4d4f33'}`,
-            borderRadius: 8,
-            overflow: 'hidden',
-            fontSize: 12,
-        }}>
-            <div
-                onClick={() => setExpanded(v => !v)}
-                style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 6,
-                    padding: '6px 10px',
-                    background: isSuccess ? 'var(--color-surface)' : '#fff1f0',
-                    cursor: 'pointer',
-                    userSelect: 'none',
+                    color: 'var(--color-text-secondary)',
+                    fontSize: 12,
                 }}
             >
-                {isSuccess
-                    ? <CheckCircleOutlined style={{ color: '#52c41a', fontSize: 13 }} />
-                    : <CloseCircleOutlined style={{ color: '#ff4d4f', fontSize: 13 }} />}
-                <span style={{ fontWeight: 500, color: 'var(--color-text)' }}>
-                    {name || '工具结果'} — {isSuccess ? '成功' : '失败'}
-                </span>
-                <span style={{ marginLeft: 'auto', color: 'var(--color-text-muted)', fontSize: 11 }}>
-                    {expanded ? '▼' : '▶'}
-                </span>
+                <div style={{ fontWeight: 600, marginBottom: 6, color: 'var(--color-text)' }}>Arguments</div>
+                {event.arguments}
             </div>
-            {expanded && content && (
-                <div style={{
-                    padding: '6px 10px',
-                    color: 'var(--color-text-secondary)',
+        );
+    }
+    if (hasResult) {
+        detailBlocks.push(
+            <div
+                key={`${key}-result`}
+                style={{
+                    border: `1px solid ${isSuccess ? 'var(--color-border)' : 'rgba(255,77,79,0.35)'}`,
+                    borderRadius: 8,
+                    padding: '8px 10px',
+                    maxHeight: 220,
+                    overflowY: 'auto',
                     whiteSpace: 'pre-wrap',
                     wordBreak: 'break-all',
-                    maxHeight: 300,
-                    overflow: 'auto',
-                    borderTop: '1px solid var(--color-border)',
-                }}>
-                    {content}
+                    color: 'var(--color-text-secondary)',
+                    fontSize: 12,
+                }}
+            >
+                <div style={{ fontWeight: 600, marginBottom: 6, color: 'var(--color-text)' }}>
+                    {`Result (${event.result.status || 'success'})`}
                 </div>
-            )}
+                {event.result.content || ''}
+            </div>
+        );
+    }
+
+    return (
+        <div style={{ margin: '6px 0' }}>
+            <ThoughtChain
+                items={[
+                    {
+                        key,
+                        title,
+                        description,
+                        icon: <ToolOutlined />,
+                        variant: 'outlined',
+                        status,
+                        blink: isPending,
+                        collapsible: detailBlocks.length > 0,
+                        content: detailBlocks.length > 0 ? (
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                                {detailBlocks}
+                            </div>
+                        ) : null,
+                    },
+                ]}
+                expandedKeys={expandedKeys}
+                onExpand={(keys) => {
+                    if (!isPending) {
+                        setDoneExpandedKeys(keys);
+                    }
+                }}
+            />
         </div>
     );
 });
@@ -244,6 +226,110 @@ function parseXMarkdown(content) {
     return sections;
 }
 
+function parseThinkSections(content) {
+    if (!content) return [];
+
+    const sections = [];
+    const tokenRegex = /<think(?:\s+[^>]*)?>|<\/think>/gi;
+    let cursor = 0;
+    let inThink = false;
+    let thinkStart = -1;
+    let match;
+
+    while ((match = tokenRegex.exec(content)) !== null) {
+        const token = match[0].toLowerCase();
+        const isClose = token.startsWith('</think');
+        const idx = match.index;
+
+        if (!inThink && !isClose) {
+            if (idx > cursor) {
+                const before = content.slice(cursor, idx);
+                if (before.trim()) {
+                    sections.push({ type: 'markdown', content: before });
+                }
+            }
+            inThink = true;
+            thinkStart = tokenRegex.lastIndex;
+        } else if (inThink && isClose) {
+            sections.push({
+                type: 'think',
+                content: content.slice(thinkStart, idx),
+                complete: true,
+            });
+            inThink = false;
+            thinkStart = -1;
+            cursor = tokenRegex.lastIndex;
+        }
+    }
+
+    if (inThink && thinkStart >= 0) {
+        sections.push({
+            type: 'think',
+            content: content.slice(thinkStart),
+            complete: false,
+        });
+    } else if (cursor < content.length) {
+        const tail = content.slice(cursor);
+        if (tail.trim()) {
+            sections.push({ type: 'markdown', content: tail });
+        }
+    }
+
+    return sections;
+}
+
+function mergeToolSections(sections) {
+    const merged = [];
+
+    for (let i = 0; i < sections.length; i += 1) {
+        const section = sections[i];
+        if (section.type !== 'tool-call') {
+            merged.push(section);
+            continue;
+        }
+
+        const next = sections[i + 1];
+        if (next?.type === 'tool-result' && next.name === section.name) {
+            merged.push({
+                type: 'tool-event',
+                name: section.name,
+                arguments: section.content || '',
+                result: {
+                    status: next.status || 'success',
+                    content: next.content || '',
+                },
+                inProgress: false,
+            });
+            i += 1;
+        } else {
+            merged.push({
+                type: 'tool-event',
+                name: section.name,
+                arguments: section.content || '',
+                result: null,
+                inProgress: true,
+            });
+        }
+    }
+
+    return merged;
+}
+
+function buildRenderSections(content) {
+    const thinkSections = parseThinkSections(content);
+    const merged = [];
+
+    for (const section of thinkSections) {
+        if (section.type === 'think') {
+            merged.push(section);
+            continue;
+        }
+        merged.push(...mergeToolSections(parseXMarkdown(section.content)));
+    }
+
+    return merged;
+}
+
 /**
  * StreamingMarkdown
  *
@@ -252,12 +338,12 @@ function parseXMarkdown(content) {
  * @param {string} className - 额外 CSS class
  */
 export default function StreamingMarkdown({ content, isStreaming = false, className = '' }) {
-    const sections = useMemo(() => parseXMarkdown(content), [content]);
+    const { isDark } = useTheme();
+    const sections = useMemo(() => buildRenderSections(content), [content]);
 
     const mdComponents = useMemo(() => ({
         code: CodeComponent,
-        think: (props) => <ThinkComponent {...props} streamStatus={isStreaming ? 'loading' : 'done'} />,
-    }), [isStreaming]);
+    }), []);
 
     if (!content && isStreaming) {
         return (
@@ -272,11 +358,13 @@ export default function StreamingMarkdown({ content, isStreaming = false, classN
     // If no tool sections found, render as pure markdown (fast path)
     if (sections.length <= 1 && sections[0]?.type === 'markdown') {
         return (
-            <div className={`text-sm leading-relaxed ${className}`}>
+            <div className={`text-sm leading-relaxed text-[var(--color-text)] ${className}`}>
                 <XMarkdown
+                    className={isDark ? 'x-markdown-dark' : undefined}
                     components={mdComponents}
                     paragraphTag="div"
                     streaming={{ hasNextChunk: isStreaming }}
+                    style={{ color: 'var(--color-text)' }}
                 >
                     {content}
                 </XMarkdown>
@@ -286,7 +374,7 @@ export default function StreamingMarkdown({ content, isStreaming = false, classN
 
     // Render mixed content sections
     return (
-        <div className={`text-sm leading-relaxed ${className}`}>
+        <div className={`text-sm leading-relaxed text-[var(--color-text)] ${className}`}>
             {sections.map((section, i) => {
                 const isLast = i === sections.length - 1;
                 const sectionStreaming = isStreaming && isLast;
@@ -295,35 +383,44 @@ export default function StreamingMarkdown({ content, isStreaming = false, classN
                     return (
                         <XMarkdown
                             key={i}
+                            className={isDark ? 'x-markdown-dark' : undefined}
                             components={mdComponents}
                             paragraphTag="div"
                             streaming={{ hasNextChunk: sectionStreaming }}
+                            style={{ color: 'var(--color-text)' }}
                         >
                             {section.content}
                         </XMarkdown>
                     );
                 }
 
-                if (section.type === 'tool-call') {
+                if (section.type === 'tool-event') {
                     return (
-                        <ToolCallBlock
+                        <ToolEventBlock
                             key={i}
-                            name={section.name}
-                            content={section.content}
-                            isStreaming={sectionStreaming}
+                            event={section}
+                            isStreamingTail={sectionStreaming}
                         />
                     );
                 }
 
-                if (section.type === 'tool-result') {
+                if (section.type === 'think') {
+                    const thinkLoading = !section.complete;
                     return (
-                        <ToolResultBlock
+                        <ThinkComponent
                             key={i}
-                            name={section.name}
-                            status={section.status}
-                            content={section.content}
-                            isStreaming={sectionStreaming}
-                        />
+                            streamStatus={thinkLoading ? 'loading' : 'done'}
+                        >
+                            <XMarkdown
+                                className={isDark ? 'x-markdown-dark' : undefined}
+                                components={mdComponents}
+                                paragraphTag="div"
+                                streaming={{ hasNextChunk: thinkLoading && isStreaming }}
+                                style={{ color: 'var(--color-text-secondary)' }}
+                            >
+                                {section.content || ''}
+                            </XMarkdown>
+                        </ThinkComponent>
                     );
                 }
 

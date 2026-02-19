@@ -43,6 +43,7 @@ function processFetchQueue() {
 export function ChatProvider({ children }) {
     const { sessionId, user, isAuthenticated } = useAuth();
     const userId = user?.user_id;
+    const sessionStorageKey = userId ? `chat_current_session_id_${userId}` : null;
 
     const [sessions, setSessions] = useState([]);
     const [currentSessionId, setCurrentSessionId] = useState(null);
@@ -133,11 +134,29 @@ export function ChatProvider({ children }) {
         try {
             // 传 excludeFileContent=true 来跳过文件二进制内容
             const result = await getHistoryMessages(sessionId, userId, chatSessionId, startTime, overTime, true);
-            if (result.success && result.msg_list) {
-                setMessages(prev => ({
-                    ...prev,
-                    [chatSessionId]: result.msg_list,
-                }));
+            if (result.success && Array.isArray(result.msg_list)) {
+                setMessages(prev => {
+                    const existingMessages = prev[chatSessionId] || [];
+                    const mergedMap = new Map(existingMessages.map((m) => [m.message_id, m]));
+
+                    // 保留本地 _pending/_streaming 消息，服务器同 id 消息仅覆盖已稳定消息
+                    for (const msg of result.msg_list) {
+                        const local = mergedMap.get(msg.message_id);
+                        if (local?._pending || local?._streaming) {
+                            continue;
+                        }
+                        mergedMap.set(msg.message_id, msg);
+                    }
+
+                    const merged = Array.from(mergedMap.values()).sort(
+                        (a, b) => (a.timestamp || 0) - (b.timestamp || 0)
+                    );
+
+                    return {
+                        ...prev,
+                        [chatSessionId]: merged,
+                    };
+                });
                 
                 // 异步加载图片消息的内容
                 const imageMessages = result.msg_list.filter(
@@ -166,7 +185,7 @@ export function ChatProvider({ children }) {
                 return next;
             });
         }
-        if (chatSessionId && !messages[chatSessionId]) {
+        if (chatSessionId && (!messages[chatSessionId] || messages[chatSessionId].length === 0)) {
             loadMessages(chatSessionId);
         }
     }, [messages, loadMessages]);
@@ -208,6 +227,21 @@ export function ChatProvider({ children }) {
                 ...prev,
                 [chatSessionId]: [...existingMessages, message],
             };
+        });
+
+        // 增量消息到达时同步更新会话预览与排序，避免依赖额外 HTTP 回拉
+        setSessions(prev => {
+            const idx = prev.findIndex(s => s.chat_session_id === chatSessionId);
+            if (idx === -1) return prev;
+
+            const updated = [...prev];
+            updated[idx] = { ...updated[idx], prev_message: message };
+            updated.sort((a, b) => {
+                const ta = a.prev_message?.timestamp || 0;
+                const tb = b.prev_message?.timestamp || 0;
+                return tb - ta;
+            });
+            return updated;
         });
     }, []);
 
@@ -395,6 +429,41 @@ export function ChatProvider({ children }) {
             loadFriendRequests();
         }
     }, [isAuthenticated, userId, loadSessions, loadFriends, loadFriendRequests]);
+
+    // 持久化当前选中的会话，支持刷新后恢复
+    useEffect(() => {
+        if (!sessionStorageKey) return;
+        if (currentSessionId) {
+            localStorage.setItem(sessionStorageKey, currentSessionId);
+        } else {
+            localStorage.removeItem(sessionStorageKey);
+        }
+    }, [sessionStorageKey, currentSessionId]);
+
+    // 会话列表加载后自动恢复上次会话；若不存在则默认选第一条
+    useEffect(() => {
+        if (!isAuthenticated || !userId || sessions.length === 0) return;
+
+        // 当前会话仍然有效则不处理
+        if (currentSessionId && sessions.some(s => s.chat_session_id === currentSessionId)) {
+            return;
+        }
+
+        const stored = sessionStorageKey ? localStorage.getItem(sessionStorageKey) : null;
+        if (stored && sessions.some(s => s.chat_session_id === stored)) {
+            selectSession(stored);
+            return;
+        }
+
+        selectSession(sessions[0].chat_session_id);
+    }, [isAuthenticated, userId, sessions, currentSessionId, sessionStorageKey, selectSession]);
+
+    // 登出时清空当前会话，避免串用户状态
+    useEffect(() => {
+        if (!isAuthenticated) {
+            setCurrentSessionId(null);
+        }
+    }, [isAuthenticated]);
 
     // 清除通知
     const clearNotification = useCallback((notificationId) => {

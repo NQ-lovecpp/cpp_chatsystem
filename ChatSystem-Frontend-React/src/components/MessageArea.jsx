@@ -2,7 +2,7 @@
  * 消息区域组件
  */
 
-import { useState, useRef, useEffect, useCallback } from 'react';
+import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { useChat } from '../contexts/ChatContext';
 import { useAuth } from '../contexts/AuthContext';
 import { useAgent } from '../contexts/AgentContext';
@@ -41,6 +41,48 @@ function formatFileSize(bytes) {
     if (bytes < 1024) return bytes + ' B';
     if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
     return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+}
+
+function renderTextWithAgentMentions(text, options = {}) {
+    const { isSelf = false, agentNameMap = {} } = options;
+    const content = text || '';
+    const mentionRegex = /@\[([^\]]+)\]\{(agent-[^}]+)\}/g;
+    const nodes = [];
+    let lastIndex = 0;
+    let match;
+
+    while ((match = mentionRegex.exec(content)) !== null) {
+        if (match.index > lastIndex) {
+            nodes.push(content.slice(lastIndex, match.index));
+        }
+
+        const mentionId = match[2];
+        const mentionName = agentNameMap[mentionId] || match[1];
+        nodes.push(
+            <span
+                key={`${mentionId}-${match.index}`}
+                className={`inline-flex items-center gap-1 px-2 py-0.5 mx-0.5 rounded-full text-xs font-medium align-middle ${
+                    isSelf
+                        ? 'bg-white/15 text-white/95'
+                        : 'bg-[var(--color-surface)] text-[var(--color-text-secondary)] border border-[var(--color-border)]'
+                }`}
+                title={mentionId}
+            >
+                <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 7h6m-7 4h8m-9 4h10M7 3h10a2 2 0 012 2v14a2 2 0 01-2 2H7a2 2 0 01-2-2V5a2 2 0 012-2z" />
+                </svg>
+                @{mentionName}
+            </span>
+        );
+
+        lastIndex = mentionRegex.lastIndex;
+    }
+
+    if (lastIndex < content.length) {
+        nodes.push(content.slice(lastIndex));
+    }
+
+    return nodes.length > 0 ? nodes : content;
 }
 
 // 图片预览器组件
@@ -140,15 +182,37 @@ function LazyImageMessage({ fileId, imageContent, fetchImage, getCachedImage }) 
 }
 
 export default function MessageArea() {
-    const { currentSession, currentMessages, addMessage, updateMessageStatus, updateAgentMessageContent, fetchImage, getCachedImage, loadMessages, loadSessions } = useChat();
+    const { currentSession, currentMessages, addMessage, updateMessageStatus, updateAgentMessageContent, fetchImage, getCachedImage } = useChat();
     const { user, sessionId } = useAuth();
     const { agentUsers, subscribeSession, unsubscribeSession } = useAgent();
 
     const messagesEndRef = useRef(null);
     const messagesContainerRef = useRef(null);
     const prevSessionIdRef = useRef(null);
-    // 流式内容缓冲区 streamId -> accumulated content
+    // 流式内容缓冲区：messageId -> { content, currentPart }
     const streamBufferRef = useRef({});
+    const ensureStreamBufferEntry = useCallback((messageId) => {
+        const existing = streamBufferRef.current[messageId];
+        if (existing && typeof existing === 'object') return existing;
+        if (typeof existing === 'string') {
+            const migrated = { content: existing, currentPart: null };
+            streamBufferRef.current[messageId] = migrated;
+            return migrated;
+        }
+        const created = { content: '', currentPart: null };
+        streamBufferRef.current[messageId] = created;
+        return created;
+    }, []);
+
+    const finalizeStreamingContent = useCallback((entry) => {
+        if (!entry) return '';
+        if (entry.currentPart === 'think') {
+            entry.content += '\n</think>';
+            entry.currentPart = null;
+        }
+        return entry.content;
+    }, []);
+
     const [showSessionInfo, setShowSessionInfo] = useState(false);
     const [showMembersModal, setShowMembersModal] = useState(false);
     const [showSearch, setShowSearch] = useState(false);
@@ -184,7 +248,7 @@ export default function MessageArea() {
                 const agent = agentUsers.find(a => a.user_id === agent_user_id);
                 const nickname = agent?.nickname || 'AI 助手';
                 // 初始化流缓冲区
-                streamBufferRef.current[message_id] = '';
+                streamBufferRef.current[message_id] = { content: '', currentPart: null };
                 // 添加占位消息
                 addMessage(chatSessionId, {
                     message_id,
@@ -197,26 +261,38 @@ export default function MessageArea() {
                 });
             },
             onContentDelta: (data) => {
-                const { message_id, delta } = data;
+                const { message_id, delta, part_type } = data;
                 if (!delta) return;
-                streamBufferRef.current[message_id] = (streamBufferRef.current[message_id] || '') + delta;
-                updateAgentMessageContent(chatSessionId, message_id, streamBufferRef.current[message_id], true);
+                const entry = ensureStreamBufferEntry(message_id);
+                const currentPart = entry.currentPart;
+                const nextPart = part_type || null;
+
+                // 从 think 切到非 think：补齐闭合标签
+                if (currentPart === 'think' && nextPart !== 'think') {
+                    entry.content += '\n</think>\n\n';
+                    entry.currentPart = null;
+                }
+                // 从非 think 切到 think：补齐开始标签
+                if (currentPart !== 'think' && nextPart === 'think') {
+                    entry.content += '<think>\n';
+                    entry.currentPart = 'think';
+                }
+
+                entry.content += delta;
+                updateAgentMessageContent(chatSessionId, message_id, entry.content, true);
             },
             onAgentDone: (data) => {
                 const { message_id, final_content } = data;
-                const content = final_content || streamBufferRef.current[message_id] || '';
+                const entry = ensureStreamBufferEntry(message_id);
+                const content = final_content || finalizeStreamingContent(entry);
                 updateAgentMessageContent(chatSessionId, message_id, content, false);
                 delete streamBufferRef.current[message_id];
-                // 延迟刷新以获取持久化后的消息
-                setTimeout(() => {
-                    loadMessages(chatSessionId);
-                    loadSessions();
-                }, 1500);
             },
             onAgentError: (data) => {
                 const { message_id, error } = data;
                 if (message_id) {
-                    const content = streamBufferRef.current[message_id] || '';
+                    const entry = ensureStreamBufferEntry(message_id);
+                    const content = finalizeStreamingContent(entry);
                     const errorContent = content + `\n\n**Error:** ${error || '未知错误'}`;
                     updateAgentMessageContent(chatSessionId, message_id, errorContent, false);
                     delete streamBufferRef.current[message_id];
@@ -227,7 +303,7 @@ export default function MessageArea() {
         return () => {
             // 切换会话时取消订阅在 subscribeSession 中处理
         };
-    }, [currentSession?.chat_session_id, subscribeSession, unsubscribeSession, agentUsers, addMessage, updateAgentMessageContent, loadMessages, loadSessions]);
+    }, [currentSession?.chat_session_id, subscribeSession, unsubscribeSession, agentUsers, addMessage, updateAgentMessageContent, ensureStreamBufferEntry, finalizeStreamingContent]);
 
     // 发送文本消息
     const handleSendMessage = async (content) => {
@@ -360,6 +436,16 @@ export default function MessageArea() {
     const handleSendToUser = () => handleCloseUserCard();
     const handleViewUserProfile = () => handleCloseUserCard();
 
+    const agentNameMap = useMemo(() => {
+        const map = {};
+        for (const agent of agentUsers) {
+            if (agent?.user_id) {
+                map[agent.user_id] = agent.nickname || agent.user_id;
+            }
+        }
+        return map;
+    }, [agentUsers]);
+
     // 渲染消息内容
     const renderMessageContent = (msg) => {
         const content = msg.message;
@@ -377,7 +463,15 @@ export default function MessageArea() {
                         />
                     );
                 }
-                return <p className="break-words whitespace-pre-wrap">{content.string_message?.content}</p>;
+                const isSelf = msg.sender?.user_id === user?.user_id;
+                return (
+                    <p className="break-words whitespace-pre-wrap">
+                        {renderTextWithAgentMentions(content.string_message?.content, {
+                            isSelf,
+                            agentNameMap,
+                        })}
+                    </p>
+                );
             case 1: // IMAGE
                 return (
                     <LazyImageMessage
