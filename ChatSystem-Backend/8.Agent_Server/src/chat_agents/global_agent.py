@@ -21,6 +21,7 @@ from agents import (
     Agent,
     Runner,
     RunConfig,
+    ModelSettings,
     ItemHelpers,
     AgentHooks,
     AgentHookContext,
@@ -142,18 +143,23 @@ class GlobalStreamState:
     task_id: str
     user_id: str
     conversation_id: str
-    
+
     # 内容累积
     full_response: str = ""
-    reasoning_content: str = ""
-    
+    reasoning_content: str = ""  # 全量 reasoning（用于 metadata）
+
     # ThoughtChain 追踪
     thought_chain_sequence: int = 0
-    current_chain_id: Optional[str] = None
-    
+    current_chain_id: Optional[str] = None  # 当前 tool_call 节点 ID
+
+    # Reasoning 节点追踪（独立于 tool chain）
+    current_reasoning_chain_id: Optional[str] = None
+    current_reasoning_content: str = ""  # 当前 reasoning 分段内容
+    reasoning_active: bool = False  # 当前是否处于 reasoning 阶段
+
     # 工具调用追踪
     tool_calls: List[Dict[str, Any]] = None
-    
+
     def __post_init__(self):
         if self.tool_calls is None:
             self.tool_calls = []
@@ -173,7 +179,23 @@ class GlobalAgentHooks(AgentHooks):
     
     async def on_tool_start(self, context: RunContextWrapper, agent: Agent, tool: Tool) -> None:
         logger.info(f"[{self.state.task_id}] Tool {tool.name} started")
-        
+
+        # 关闭当前活跃的 reasoning 节点（think → tool_call 边界）
+        if self.state.current_reasoning_chain_id:
+            await dual_writer.update_thought_chain_status(
+                self.state.current_reasoning_chain_id,
+                "success",
+                self.state.current_reasoning_content[:2000]
+            )
+            await sse_bus.publish(self.state.task_id, "thought_chain_update", {
+                "chain_id": self.state.current_reasoning_chain_id,
+                "status": "success",
+                "content": self.state.current_reasoning_content[:2000]
+            })
+            self.state.current_reasoning_chain_id = None
+            self.state.current_reasoning_content = ""
+            self.state.reasoning_active = False
+
         # 创建 ThoughtChain 节点
         chain_id = str(uuid.uuid4())
         self.state.current_chain_id = chain_id
@@ -561,6 +583,15 @@ async def run_global_agent(
     )
     
     try:
+        # 确保 agent_task 中存在 stream 记录，满足 agent_thought_chain 外键约束
+        await dual_writer.ensure_stream_in_agent_task(
+            stream_id=task_id,
+            user_id=user_id,
+            stream_type="global",
+            conversation_id=conversation_id,
+            input_text=stream.input_text,
+        )
+
         # 发送初始化事件
         await sse_bus.publish(task_id, "init", {
             "task_id": task_id,
@@ -584,7 +615,10 @@ async def run_global_agent(
         runner_input = _build_input_from_history(chat_history, stream.input_text)
         
         # 运行流式 Agent
-        run_config = RunConfig(model_provider=provider)
+        run_config = RunConfig(
+            model_provider=provider,
+            model_settings=ModelSettings(max_tokens=16384),
+        )
         result = Runner.run_streamed(
             agent,
             input=runner_input,
@@ -592,23 +626,21 @@ async def run_global_agent(
         )
         
         # 追踪状态
-        reasoning_started = False
         output_started = False
-        event_sequence = 0
-        
+
         # 处理流式事件
         async for event in result.stream_events():
-            event_sequence += 1
-            
             if event.type == "raw_response_event":
                 data = event.data
-                
+
                 # Reasoning 内容
                 if data.type == "response.reasoning_text.delta":
                     delta = data.delta
                     if delta:
-                        if not reasoning_started:
-                            reasoning_started = True
+                        if not state.reasoning_active:
+                            # 新的 reasoning 阶段开始（首次或 tool_call 之后）
+                            state.reasoning_active = True
+                            state.current_reasoning_content = ""
                             state.thought_chain_sequence += 1
                             chain_id = str(uuid.uuid4())
                             node = ThoughtChainNode(
@@ -620,38 +652,41 @@ async def run_global_agent(
                                 sequence=state.thought_chain_sequence
                             )
                             await dual_writer.write_thought_chain_node(node)
-                            state.current_chain_id = chain_id
-                            
-                            # 发送 thought_chain SSE 事件
+                            state.current_reasoning_chain_id = chain_id
+
                             await sse_bus.publish(task_id, "thought_chain", {
                                 "node": node.to_dict()
                             })
-                        
+
                         state.reasoning_content += delta
+                        state.current_reasoning_content += delta
                         await sse_bus.publish(task_id, "reasoning_delta", {
                             "content": delta,
                             "delta": True
                         })
                         yield {"type": "reasoning_delta", "content": delta}
-                
+
                 # 输出文本增量
                 elif isinstance(data, ResponseTextDeltaEvent):
                     delta = data.delta
                     if delta:
-                        if reasoning_started and not output_started:
+                        if not output_started:
                             output_started = True
-                            if state.current_chain_id:
+                            # 关闭最后一个 reasoning 节点
+                            if state.current_reasoning_chain_id:
                                 await dual_writer.update_thought_chain_status(
-                                    state.current_chain_id,
+                                    state.current_reasoning_chain_id,
                                     "success",
-                                    state.reasoning_content[:2000]
+                                    state.current_reasoning_content[:2000]
                                 )
-                                # 发送 thought_chain_update SSE 事件
                                 await sse_bus.publish(task_id, "thought_chain_update", {
-                                    "chain_id": state.current_chain_id,
+                                    "chain_id": state.current_reasoning_chain_id,
                                     "status": "success",
-                                    "content": state.reasoning_content[:2000]
+                                    "content": state.current_reasoning_content[:2000]
                                 })
+                                state.current_reasoning_chain_id = None
+                                state.current_reasoning_content = ""
+                                state.reasoning_active = False
                         
                         state.full_response += delta
                         await sse_bus.publish(task_id, "message", {

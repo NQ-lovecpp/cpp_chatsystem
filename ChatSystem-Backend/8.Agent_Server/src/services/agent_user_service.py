@@ -52,10 +52,10 @@ PREDEFINED_AGENTS: List[AgentUserConfig] = [
         provider="openai"
     ),
     AgentUserConfig(
-        user_id="agent-gpt-oss-120b",
-        nickname="AI 助手 (GPT-OSS-120B)",
-        description="基于 OpenRouter GPT-OSS-120B 模型的智能助手，具备强大的推理和创作能力",
-        model="openai/gpt-oss-120b",
+        user_id="agent-gpt-5-mini",
+        nickname="AI 助手 (GPT 5 Mini)",
+        description="基于 OpenRouter GPT 5 Mini 模型的智能助手，具备强大的推理和创作能力",
+        model="openai/gpt-5-mini",
         provider="openrouter"
     ),
 ]

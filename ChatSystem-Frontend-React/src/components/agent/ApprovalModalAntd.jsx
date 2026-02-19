@@ -200,17 +200,14 @@ function ApprovalCard({ approval, onApprove, onReject, processing }) {
     );
 }
 
-export default function ApprovalModalAntd({ taskId }) {
-    const { tasks, approveApproval, rejectApproval } = useAgent();
+export default function ApprovalModalAntd() {
+    const { pendingApprovals: approvals, approveApproval, rejectApproval } = useAgent();
     const [processing, setProcessing] = useState(null);
-
-    const task = tasks[taskId];
-    const approvals = task?.pendingApprovals || [];
 
     const handleApprove = async (approvalId) => {
         setProcessing(approvalId);
         try {
-            await approveApproval(taskId, approvalId);
+            await approveApproval(approvalId);
         } finally {
             setProcessing(null);
         }
@@ -219,7 +216,7 @@ export default function ApprovalModalAntd({ taskId }) {
     const handleReject = async (approvalId) => {
         setProcessing(approvalId);
         try {
-            await rejectApproval(taskId, approvalId);
+            await rejectApproval(approvalId);
         } finally {
             setProcessing(null);
         }

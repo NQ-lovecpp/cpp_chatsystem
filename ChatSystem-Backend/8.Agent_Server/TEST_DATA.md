@@ -36,7 +36,7 @@ cd /home/chen/cpp_chatsystem/ChatSystem-Backend/8.Agent_Server
 | 用户ID | 昵称 | 模型 | Provider |
 |--------|------|------|----------|
 | `agent-o4-mini` | AI 助手 (O4-Mini) | o4-mini | openai |
-| `agent-gpt-oss-120b` | AI 助手 (GPT-OSS-120B) | openai/gpt-oss-120b | openrouter |
+| `agent-gpt-oss-120b` | AI 助手 (DeepSeek V3.2) | deepseek/deepseek-v3.2 | openrouter |
 
 ---
 

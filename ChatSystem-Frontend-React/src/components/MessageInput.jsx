@@ -1,13 +1,17 @@
 /**
  * 消息输入组件
+ * 支持 @mention Agent 用户：键入 @ 弹出下拉选择 Agent
  */
 
-import { useState, useRef } from 'react';
+import { useState, useRef, useCallback } from 'react';
+import MentionDropdown from './MentionDropdown';
 
-export default function MessageInput({ onSend, onSendImage, onSendFile, onStartAgentTask }) {
+export default function MessageInput({ onSend, onSendImage, onSendFile, agentMembers = [] }) {
     const [message, setMessage] = useState('');
+    const [mentionState, setMentionState] = useState({ visible: false, filter: '' });
     const imageInputRef = useRef(null);
     const fileInputRef = useRef(null);
+    const textareaRef = useRef(null);
 
     const handleSubmit = (e) => {
         e.preventDefault();
@@ -18,11 +22,62 @@ export default function MessageInput({ onSend, onSendImage, onSendFile, onStartA
     };
 
     const handleKeyDown = (e) => {
+        // When mention dropdown is visible, let it handle keyboard events
+        if (mentionState.visible) return;
+
         if (e.key === 'Enter' && !e.shiftKey) {
             e.preventDefault();
             handleSubmit(e);
         }
     };
+
+    const handleChange = (e) => {
+        const val = e.target.value;
+        setMessage(val);
+
+        // Detect @ trigger for mention dropdown
+        const cursorPos = e.target.selectionStart;
+        const textBefore = val.slice(0, cursorPos);
+        // Match @ at word boundary (start of text or after space/newline)
+        const mentionMatch = textBefore.match(/(^|[\s])@([^\s]*)$/);
+
+        if (mentionMatch && agentMembers.length > 0) {
+            setMentionState({ visible: true, filter: mentionMatch[2] });
+        } else {
+            setMentionState({ visible: false, filter: '' });
+        }
+    };
+
+    const handleMentionSelect = useCallback((agent) => {
+        const textarea = textareaRef.current;
+        if (!textarea) return;
+
+        const cursorPos = textarea.selectionStart;
+        const textBefore = message.slice(0, cursorPos);
+        const textAfter = message.slice(cursorPos);
+
+        // Find the @ trigger position
+        const mentionMatch = textBefore.match(/(^|[\s])@([^\s]*)$/);
+        if (!mentionMatch) return;
+
+        const atStart = textBefore.length - mentionMatch[0].length + (mentionMatch[1] ? 1 : 0);
+        const mentionTag = `@[${agent.nickname}]{${agent.user_id}} `;
+        const newMessage = message.slice(0, atStart) + mentionTag + textAfter;
+
+        setMessage(newMessage);
+        setMentionState({ visible: false, filter: '' });
+
+        // Restore focus and cursor position
+        setTimeout(() => {
+            textarea.focus();
+            const newPos = atStart + mentionTag.length;
+            textarea.setSelectionRange(newPos, newPos);
+        }, 0);
+    }, [message]);
+
+    const handleMentionClose = useCallback(() => {
+        setMentionState({ visible: false, filter: '' });
+    }, []);
 
     const handleImageSelect = (e) => {
         const file = e.target.files?.[0];
@@ -37,7 +92,6 @@ export default function MessageInput({ onSend, onSendImage, onSendFile, onStartA
             }
             onSendImage(file);
         }
-        // 清空 input 以允许重复选择同一文件
         e.target.value = '';
     };
 
@@ -51,19 +105,6 @@ export default function MessageInput({ onSend, onSendImage, onSendFile, onStartA
             onSendFile(file);
         }
         e.target.value = '';
-    };
-
-    const handleAgentClick = () => {
-        if (!onStartAgentTask) return;
-        const instruction = message.trim();
-        if (instruction) {
-            onStartAgentTask(instruction);
-            setMessage('');
-        } else {
-            // 无内容时提示用户先输入
-            const textarea = document.querySelector('textarea[data-agent-input]');
-            if (textarea) textarea.focus();
-        }
     };
 
     return (
@@ -108,33 +149,28 @@ export default function MessageInput({ onSend, onSendImage, onSendFile, onStartA
                     </svg>
                 </button>
 
-                {/* 输入框 */}
-                <div className="flex-1 min-w-0">
+                {/* 输入框容器（相对定位，用于 mention dropdown） */}
+                <div className="flex-1 min-w-0 relative">
+                    {/* @mention 下拉框 */}
+                    <MentionDropdown
+                        agents={agentMembers}
+                        filter={mentionState.filter}
+                        visible={mentionState.visible}
+                        position={{ bottom: '100%', left: 0 }}
+                        onSelect={handleMentionSelect}
+                        onClose={handleMentionClose}
+                    />
                     <textarea
+                        ref={textareaRef}
                         value={message}
-                        onChange={(e) => setMessage(e.target.value)}
+                        onChange={handleChange}
                         onKeyDown={handleKeyDown}
-                        placeholder="输入消息..."
+                        placeholder={agentMembers.length > 0 ? '输入消息... 输入 @ 提及 AI 助手' : '输入消息...'}
                         rows={1}
-                        data-agent-input
                         className="w-full px-3 md:px-4 py-2 md:py-2.5 bg-[var(--color-surface)] border border-[var(--color-border)] text-[var(--color-text)] placeholder:text-[var(--color-text-muted)] rounded-xl resize-none focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]/20 focus:border-[var(--color-primary)] transition-all text-base"
                         style={{ maxHeight: '120px' }}
                     />
                 </div>
-
-                {/* @AI助手 按钮 */}
-                {onStartAgentTask && (
-                    <button
-                        type="button"
-                        onClick={handleAgentClick}
-                        className="p-2 md:p-2.5 text-[var(--color-primary)] hover:bg-[var(--color-primary-light)] rounded-xl transition-colors shrink-0"
-                        title="让 AI 助手处理此请求（后台任务）"
-                    >
-                        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
-                        </svg>
-                    </button>
-                )}
 
                 {/* 发送按钮 */}
                 <button

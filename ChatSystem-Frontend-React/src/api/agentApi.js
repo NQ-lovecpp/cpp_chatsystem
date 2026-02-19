@@ -161,7 +161,7 @@ export function subscribeTaskEvents(sessionId, taskId, handlers) {
             }
 
             const reader = response.body.getReader();
-            const decoder = new TextDecoder();
+            const decoder = new TextDecoder('utf-8');
             let buffer = '';
 
             while (true) {
@@ -386,4 +386,113 @@ export async function getAgentStatus() {
         throw new Error(`HTTP ${response.status}`);
     }
     return response.json();
+}
+
+/**
+ * 获取可用 Agent 用户列表（供 @mention 下拉框）
+ */
+export async function getAgentUsers() {
+    const response = await fetch(`${getAgentBaseUrl()}/agents`);
+    if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`);
+    }
+    return response.json();
+}
+
+/**
+ * 订阅会话级 Agent SSE 事件
+ * @param {string} sessionId - 用户会话 ID（认证用）
+ * @param {string} chatSessionId - 聊天会话 ID
+ * @param {object} handlers - 事件处理器
+ * @returns {function} 取消订阅函数
+ */
+export function subscribeSessionEvents(sessionId, chatSessionId, handlers) {
+    const {
+        onAgentStart,
+        onContentDelta,
+        onAgentDone,
+        onAgentError,
+        onInterruption,
+    } = handlers;
+
+    const url = `${getAgentBaseUrl()}/events/session/${chatSessionId}`;
+    const controller = new AbortController();
+
+    const connect = async () => {
+        try {
+            const response = await fetch(url, {
+                headers: {
+                    'Accept': 'text/event-stream',
+                    'X-Session-Id': sessionId,
+                },
+                signal: controller.signal,
+            });
+
+            if (!response.ok) {
+                throw new Error(`Session SSE connection failed: ${response.status}`);
+            }
+
+            const reader = response.body.getReader();
+            const decoder = new TextDecoder('utf-8');
+            let buffer = '';
+
+            while (true) {
+                const { done, value } = await reader.read();
+                if (done) break;
+
+                buffer += decoder.decode(value, { stream: true });
+                const lines = buffer.split('\n');
+                buffer = lines.pop() || '';
+
+                let eventType = null;
+                let eventData = '';
+
+                for (const line of lines) {
+                    if (line.startsWith('event:')) {
+                        eventType = line.slice(6).trim();
+                    } else if (line.startsWith('data:')) {
+                        eventData = line.slice(5).trim();
+                    } else if (line === '' && eventType && eventData) {
+                        try {
+                            const data = JSON.parse(eventData);
+                            switch (eventType) {
+                                case 'agent_start':
+                                    onAgentStart?.(data);
+                                    break;
+                                case 'content_delta':
+                                    onContentDelta?.(data);
+                                    break;
+                                case 'agent_done':
+                                    onAgentDone?.(data);
+                                    break;
+                                case 'agent_error':
+                                    onAgentError?.(data);
+                                    break;
+                                case 'interruption':
+                                    onInterruption?.(data);
+                                    break;
+                                default:
+                                    console.log('Unknown session SSE event:', eventType, data);
+                            }
+                        } catch (e) {
+                            console.error('Failed to parse session SSE data:', e);
+                        }
+                        eventType = null;
+                        eventData = '';
+                    }
+                }
+            }
+        } catch (error) {
+            if (error.name !== 'AbortError') {
+                console.error('Session SSE error:', error);
+                onAgentError?.({ error: error.message });
+            }
+        }
+    };
+
+    connect();
+
+    return () => {
+        controller.abort();
+    };
 }

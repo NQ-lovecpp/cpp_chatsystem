@@ -1,676 +1,136 @@
 /**
  * Agent 上下文 - 简化版
- * 管理 Session/GlobalAgent 流状态、Todo 进度、思维链、审批请求
- * 每条 Agent 消息关联一个 stream_id，用于打开 ReasoningPanel
+ *
+ * 只保留：
+ * - Agent 用户列表管理（供 @mention）
+ * - 审批处理
+ * - Session SSE 订阅管理
  */
 
 import { createContext, useContext, useState, useCallback, useRef, useEffect } from 'react';
 import { useAuth } from './AuthContext';
 import {
-    createAgentTask,
-    cancelAgentTask,
-    subscribeTaskEvents,
+    getAgentUsers,
+    subscribeSessionEvents,
     submitApproval,
 } from '../api/agentApi';
 
 const AgentContext = createContext(null);
 
-// 任务状态枚举
-export const TaskStatus = {
-    PENDING: 'pending',
-    RUNNING: 'running',
-    WAITING_APPROVAL: 'waiting_approval',
-    DONE: 'done',
-    FAILED: 'failed',
-    CANCELLED: 'cancelled',
-};
-
-// 消息类型枚举
-export const MessageType = {
-    USER: 'user',
-    ASSISTANT: 'assistant',
-    TOOL_CALL: 'tool_call',
-    TOOL_OUTPUT: 'tool_output',
-    REASONING: 'reasoning',
-    ERROR: 'error',
-    SYSTEM: 'system',
-};
-
-// Todo 状态枚举
-export const TodoStatus = {
-    IDLE: 'idle',
-    RUNNING: 'running',
-    COMPLETED: 'completed',
-    FAILED: 'failed',
-    SKIPPED: 'skipped',
-};
-
-/**
- * 创建一个 stream 对象（对应一次 Agent 调用）
- * @param {string} chatSessionId - 会话 ID（session 类型需要，用于过滤）
- */
-function createTaskObject(taskId, inputText, taskType = 'session', chatSessionId = null) {
-    return {
-        id: taskId,
-        inputText,
-        taskType,
-        chatSessionId,
-        status: TaskStatus.PENDING,
-        messages: [],
-        todos: [],
-        thoughtChain: [],
-        pendingApprovals: [],
-        progress: null,
-        createdAt: Date.now(),
-        updatedAt: Date.now(),
-    };
-}
-
 export function AgentProvider({ children }) {
     const { sessionId } = useAuth();
-    
-    // 所有任务 Map: taskId -> task
-    const [tasks, setTasks] = useState({});
-    
-    // 当前选中的任务 ID
-    const [selectedTaskId, setSelectedTaskId] = useState(null);
-    
-    // GlobalAgent 当前任务 ID（左侧边栏的私人助手）
-    const [globalAgentTaskId, setGlobalAgentTaskId] = useState(null);
 
-    // GlobalAgent 多会话：{ id, title, messages, createdAt }[]
-    const [globalConversations, setGlobalConversations] = useState([]);
-    const [activeGlobalConversationId, setActiveGlobalConversationId] = useState(null);
-    // 任务完成时追加到对应会话：taskId -> conversationId
-    const taskIdToGlobalConversationIdRef = useRef({});
-    // Session 任务完成时：taskId -> chatSessionId（用于 @ 触发后写入聊天）
-    const taskIdToChatSessionIdRef = useRef({});
+    // 可用 Agent 用户列表（供 @mention 下拉）
+    const [agentUsers, setAgentUsers] = useState([]);
 
-    // ReasoningPanel 状态（per-message 思维链弹窗）
-    const [reasoningPanelStreamId, setReasoningPanelStreamId] = useState(null);
+    // 当前订阅的会话 SSE
+    const sessionSseRef = useRef(null);
+    const currentSseSessionRef = useRef(null);
 
-    // 全局加载状态
-    const [loading, setLoading] = useState(false);
+    // 审批状态
+    const [pendingApprovals, setPendingApprovals] = useState([]);
 
-    // 全局错误
-    const [error, setError] = useState(null);
-
-    // SSE 取消订阅函数 Map
-    const unsubscribeMapRef = useRef({});
-
-    // 流式文本缓冲区 Map
-    const streamBufferMapRef = useRef({});
-
-    // 任务类型 Map（用于 onDone 时判断是否 global 以更新对话历史）
-    const taskTypeMapRef = useRef({});
-
-    // 清理特定任务的 SSE 订阅
-    const cleanupTask = useCallback((taskId) => {
-        if (unsubscribeMapRef.current[taskId]) {
-            unsubscribeMapRef.current[taskId]();
-            delete unsubscribeMapRef.current[taskId];
+    // 加载 Agent 用户列表
+    const loadAgentUsers = useCallback(async () => {
+        try {
+            const agents = await getAgentUsers();
+            setAgentUsers(agents);
+        } catch (err) {
+            console.error('Failed to load agent users:', err);
         }
-        delete streamBufferMapRef.current[taskId];
-        delete taskTypeMapRef.current[taskId];
     }, []);
 
-    // 清理所有订阅
-    const cleanupAll = useCallback(() => {
-        Object.keys(unsubscribeMapRef.current).forEach(taskId => {
-            unsubscribeMapRef.current[taskId]();
+    // 初始化时加载 Agent 用户
+    useEffect(() => {
+        if (sessionId) {
+            loadAgentUsers();
+        }
+    }, [sessionId, loadAgentUsers]);
+
+    // 订阅会话级 SSE（由 ChatContext 调用）
+    const subscribeSession = useCallback((chatSessionId, handlers) => {
+        if (!sessionId || !chatSessionId) return;
+
+        // 如果已订阅同一会话，不重复订阅
+        if (currentSseSessionRef.current === chatSessionId && sessionSseRef.current) {
+            return;
+        }
+
+        // 先取消之前的订阅
+        if (sessionSseRef.current) {
+            sessionSseRef.current();
+            sessionSseRef.current = null;
+        }
+
+        currentSseSessionRef.current = chatSessionId;
+
+        const unsubscribe = subscribeSessionEvents(sessionId, chatSessionId, {
+            onAgentStart: (data) => {
+                handlers.onAgentStart?.(data);
+            },
+            onContentDelta: (data) => {
+                handlers.onContentDelta?.(data);
+            },
+            onAgentDone: (data) => {
+                handlers.onAgentDone?.(data);
+            },
+            onAgentError: (data) => {
+                handlers.onAgentError?.(data);
+            },
+            onInterruption: (data) => {
+                if (data.approval) {
+                    setPendingApprovals(prev => [...prev, data.approval]);
+                }
+                handlers.onInterruption?.(data);
+            },
         });
-        unsubscribeMapRef.current = {};
-        streamBufferMapRef.current = {};
-        taskTypeMapRef.current = {};
+
+        sessionSseRef.current = unsubscribe;
+    }, [sessionId]);
+
+    // 取消当前会话 SSE 订阅
+    const unsubscribeSession = useCallback(() => {
+        if (sessionSseRef.current) {
+            sessionSseRef.current();
+            sessionSseRef.current = null;
+        }
+        currentSseSessionRef.current = null;
     }, []);
 
     // 组件卸载时清理
     useEffect(() => {
-        return cleanupAll;
-    }, [cleanupAll]);
-
-    // 更新任务
-    const updateTask = useCallback((taskId, updates) => {
-        setTasks(prev => {
-            if (!prev[taskId]) return prev;
-            return {
-                ...prev,
-                [taskId]: {
-                    ...prev[taskId],
-                    ...updates,
-                    updatedAt: Date.now(),
-                }
-            };
-        });
-    }, []);
-
-    // 添加消息到任务
-    const addMessageToTask = useCallback((taskId, message) => {
-        setTasks(prev => {
-            if (!prev[taskId]) return prev;
-            const task = prev[taskId];
-            return {
-                ...prev,
-                [taskId]: {
-                    ...task,
-                    messages: [...task.messages, {
-                        ...message,
-                        id: message.id || `msg_${Date.now()}_${Math.random().toString(36).slice(2)}`,
-                        timestamp: message.timestamp || Date.now(),
-                    }],
-                    updatedAt: Date.now(),
-                }
-            };
-        });
-    }, []);
-
-    // 更新任务最后一条 assistant 消息
-    const updateLastAssistantMessage = useCallback((taskId, content, streaming = true) => {
-        setTasks(prev => {
-            if (!prev[taskId]) return prev;
-            const task = prev[taskId];
-            const messages = [...task.messages];
-            
-            for (let i = messages.length - 1; i >= 0; i--) {
-                if (messages[i].type === MessageType.ASSISTANT) {
-                    messages[i] = { ...messages[i], content, streaming };
-                    break;
-                }
+        return () => {
+            if (sessionSseRef.current) {
+                sessionSseRef.current();
             }
-            
-            return {
-                ...prev,
-                [taskId]: { ...task, messages, updatedAt: Date.now() }
-            };
-        });
+        };
     }, []);
-
-    // 添加 Todo 到任务
-    const addTodoToTask = useCallback((taskId, todo) => {
-        setTasks(prev => {
-            if (!prev[taskId]) return prev;
-            const task = prev[taskId];
-            return {
-                ...prev,
-                [taskId]: {
-                    ...task,
-                    todos: [...task.todos, todo],
-                    updatedAt: Date.now(),
-                }
-            };
-        });
-    }, []);
-
-    // 添加/更新 ThoughtChain 节点
-    const addOrUpdateThoughtChainNode = useCallback((taskId, node) => {
-        setTasks(prev => {
-            if (!prev[taskId]) return prev;
-            const task = prev[taskId];
-            const existingIndex = task.thoughtChain.findIndex(n => n.chain_id === node.chain_id);
-            
-            let newChain;
-            if (existingIndex >= 0) {
-                // 更新现有节点
-                newChain = [...task.thoughtChain];
-                newChain[existingIndex] = { ...newChain[existingIndex], ...node };
-            } else {
-                // 添加新节点
-                newChain = [...task.thoughtChain, node];
-            }
-            
-            return {
-                ...prev,
-                [taskId]: {
-                    ...task,
-                    thoughtChain: newChain,
-                    updatedAt: Date.now(),
-                }
-            };
-        });
-    }, []);
-
-    // 更新 ThoughtChain 节点状态
-    const updateThoughtChainStatus = useCallback((taskId, chainId, status, content) => {
-        setTasks(prev => {
-            if (!prev[taskId]) return prev;
-            const task = prev[taskId];
-            const newChain = task.thoughtChain.map(n => 
-                n.chain_id === chainId 
-                    ? { ...n, status, ...(content !== undefined ? { content } : {}) }
-                    : n
-            );
-            return {
-                ...prev,
-                [taskId]: { ...task, thoughtChain: newChain, updatedAt: Date.now() }
-            };
-        });
-    }, []);
-
-    // 更新 Todo 状态
-    const updateTodoStatus = useCallback((taskId, todoId, status) => {
-        setTasks(prev => {
-            if (!prev[taskId]) return prev;
-            const task = prev[taskId];
-            const todos = task.todos.map(t => 
-                t.id === todoId ? { ...t, status } : t
-            );
-            
-            // 计算进度
-            const total = todos.length;
-            const completed = todos.filter(t => t.status === TodoStatus.COMPLETED).length;
-            const progress = total > 0 ? Math.round(completed / total * 100) : 0;
-            
-            return {
-                ...prev,
-                [taskId]: { ...task, todos, progress, updatedAt: Date.now() }
-            };
-        });
-    }, []);
-
-    // 创建 GlobalAgent 新会话
-    const createGlobalConversation = useCallback(() => {
-        const id = `gc_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
-        const conv = { id, title: '新对话', messages: [], createdAt: Date.now() };
-        setGlobalConversations(prev => [conv, ...prev]);
-        setActiveGlobalConversationId(id);
-        setGlobalAgentTaskId(null);
-        return id;
-    }, []);
-
-    // 切换 GlobalAgent 会话
-    const switchGlobalConversation = useCallback((conversationId) => {
-        setActiveGlobalConversationId(conversationId);
-        setGlobalAgentTaskId(null);
-    }, []);
-
-    // 删除 GlobalAgent 会话
-    const deleteGlobalConversation = useCallback((conversationId) => {
-        setGlobalConversations(prev => prev.filter(c => c.id !== conversationId));
-        if (activeGlobalConversationId === conversationId) {
-            setActiveGlobalConversationId(null);
-            setGlobalAgentTaskId(null);
-        }
-    }, [activeGlobalConversationId]);
-
-    // 添加消息到指定 GlobalAgent 会话
-    const addMessageToGlobalConversation = useCallback((conversationId, message) => {
-        setGlobalConversations(prev => prev.map(c => 
-            c.id === conversationId 
-                ? { ...c, messages: [...c.messages, message], updatedAt: Date.now() }
-                : c
-        ));
-    }, []);
-
-    // 移除会话最后一条消息（用于发送失败回滚）
-    const removeLastMessageFromGlobalConversation = useCallback((conversationId) => {
-        setGlobalConversations(prev => prev.map(c => 
-            c.id === conversationId && c.messages.length > 0
-                ? { ...c, messages: c.messages.slice(0, -1), updatedAt: Date.now() }
-                : c
-        ));
-    }, []);
-
-    // 创建并启动任务
-    // chatHistory: 多轮对话历史 [{role, content}, ...]，用于 global/session 类型
-    // globalConversationId: GlobalAgent 会话 ID，用于多会话时追加回复
-    const startTask = useCallback(async (input, taskType = 'session', chatSessionId = null, chatHistory = null, globalConversationId = null) => {
-        if (!sessionId) {
-            setError('未登录');
-            return null;
-        }
-
-        setError(null);
-        setLoading(true);
-
-        try {
-            // 创建任务（global 类型传入 chat_history 实现多轮对话）
-            const response = await createAgentTask(sessionId, input, taskType, chatSessionId, chatHistory);
-            const taskId = response.task_id;
-            
-            // 初始化任务对象（session 类型需存储 chat_session_id 用于过滤）
-            const task = createTaskObject(taskId, input, taskType, chatSessionId);
-            
-            // 添加用户消息
-            task.messages.push({
-                id: `msg_user_${Date.now()}`,
-                type: MessageType.USER,
-                content: input,
-                timestamp: Date.now(),
-            });
-            
-            // 添加空的 assistant 消息用于流式填充
-            task.messages.push({
-                id: `msg_assistant_${Date.now()}`,
-                type: MessageType.ASSISTANT,
-                content: '',
-                streaming: true,
-                timestamp: Date.now(),
-            });
-            
-            // 保存任务
-            taskTypeMapRef.current[taskId] = taskType;
-            if (taskType === 'global' && globalConversationId) {
-                taskIdToGlobalConversationIdRef.current[taskId] = globalConversationId;
-            }
-            if (taskType === 'session' && chatSessionId) {
-                taskIdToChatSessionIdRef.current[taskId] = chatSessionId;
-            }
-            setTasks(prev => ({ ...prev, [taskId]: task }));
-            setSelectedTaskId(taskId);
-            
-            // 初始化流缓冲区
-            streamBufferMapRef.current[taskId] = '';
-
-            // 订阅 SSE 事件
-            const unsubscribe = subscribeTaskEvents(sessionId, taskId, {
-                onInit: (data) => {
-                    console.log('[Agent] Init:', data);
-                },
-
-                onReasoningDelta: (data) => {
-                    // Reasoning 内容通过 ThoughtChain 展示
-                    // 累积 reasoning 并更新对应 thought chain 节点
-                    if (data.content) {
-                        setTasks(prev => {
-                            if (!prev[taskId]) return prev;
-                            const task = prev[taskId];
-                            const chain = [...task.thoughtChain];
-                            // 找到最后一个 reasoning 类型的节点
-                            let reasoningNode = null;
-                            for (let i = chain.length - 1; i >= 0; i--) {
-                                if (chain[i].node_type === 'reasoning' && chain[i].status === 'running') {
-                                    reasoningNode = chain[i];
-                                    break;
-                                }
-                            }
-                            if (reasoningNode) {
-                                const updatedContent = (reasoningNode.content || '') + data.content;
-                                const newChain = chain.map(n =>
-                                    n.chain_id === reasoningNode.chain_id
-                                        ? { ...n, content: updatedContent }
-                                        : n
-                                );
-                                return {
-                                    ...prev,
-                                    [taskId]: { ...task, thoughtChain: newChain, updatedAt: Date.now() }
-                                };
-                            }
-                            return prev;
-                        });
-                    }
-                },
-
-                onToolCall: () => {
-                    // 工具调用通过 ThoughtChain 展示，不创建消息气泡
-                },
-
-                onToolOutput: () => {
-                    // 工具输出通过 ThoughtChain 展示，不创建消息气泡
-                },
-
-                onInterruption: (data) => {
-                    if (data.approval) {
-                        setTasks(prev => {
-                            if (!prev[taskId]) return prev;
-                            return {
-                                ...prev,
-                                [taskId]: {
-                                    ...prev[taskId],
-                                    pendingApprovals: [...prev[taskId].pendingApprovals, data.approval],
-                                    status: TaskStatus.WAITING_APPROVAL,
-                                }
-                            };
-                        });
-                    }
-                },
-
-                onMessage: (data) => {
-                    // SessionAgent 输出 → 聊天消息气泡
-                    if (data.delta) {
-                        streamBufferMapRef.current[taskId] =
-                            (streamBufferMapRef.current[taskId] || '') + data.content;
-                        updateLastAssistantMessage(taskId, streamBufferMapRef.current[taskId], true);
-                    } else if (data.content) {
-                        updateLastAssistantMessage(taskId, data.content, false);
-                    }
-                },
-                
-                onTodoAdded: (data) => {
-                    if (data.todo) {
-                        addTodoToTask(taskId, data.todo);
-                    }
-                },
-                
-                onTodoStatus: (data) => {
-                    updateTodoStatus(taskId, data.todoId, data.status);
-                },
-                
-                onThoughtChain: (data) => {
-                    // 添加或更新思维链节点
-                    if (data.node) {
-                        addOrUpdateThoughtChainNode(taskId, data.node);
-                    }
-                },
-                
-                onThoughtChainUpdate: (data) => {
-                    // 更新思维链节点状态
-                    if (data.chain_id) {
-                        updateThoughtChainStatus(taskId, data.chain_id, data.status, data.content);
-                    }
-                },
-                
-                onDone: (data) => {
-                    const finalText = streamBufferMapRef.current[taskId] || data.final_text || '完成';
-                    updateTask(taskId, { status: TaskStatus.DONE });
-                    updateLastAssistantMessage(taskId, finalText, false);
-                    const doneTaskType = taskTypeMapRef.current[taskId];
-                    // GlobalAgent 多轮：将本轮 assistant 回复追加到对应会话
-                    if (doneTaskType === 'global') {
-                        const convId = taskIdToGlobalConversationIdRef.current[taskId];
-                        if (convId) {
-                            setGlobalConversations(prev => prev.map(c => 
-                                c.id === convId 
-                                    ? { ...c, messages: [...c.messages, { role: 'assistant', content: finalText }], updatedAt: Date.now() }
-                                    : c
-                            ));
-                            delete taskIdToGlobalConversationIdRef.current[taskId];
-                        }
-                    }
-                    // SessionAgent @ 触发：通知前端将回复写入聊天（附带 stream_id 用于关联推理面板）
-                    if (doneTaskType === 'session') {
-                        const chatSessionIdForDone = taskIdToChatSessionIdRef.current[taskId];
-                        if (chatSessionIdForDone) {
-                            window.dispatchEvent(new CustomEvent('session-agent-done', {
-                                detail: { chatSessionId: chatSessionIdForDone, finalText, streamId: taskId },
-                            }));
-                            delete taskIdToChatSessionIdRef.current[taskId];
-                        }
-                    }
-                    setLoading(false);
-                    cleanupTask(taskId);
-                },
-                
-                onError: (errorMsg) => {
-                    setError(errorMsg);
-                    updateTask(taskId, { status: TaskStatus.FAILED });
-                    addMessageToTask(taskId, {
-                        type: MessageType.ERROR,
-                        content: errorMsg,
-                    });
-                    setLoading(false);
-                    cleanupTask(taskId);
-                },
-                
-                onTaskStatus: (data) => {
-                    updateTask(taskId, { status: data.status });
-                },
-
-                onApprovalResolved: (data) => {
-                    setTasks(prev => {
-                        if (!prev[taskId]) return prev;
-                        return {
-                            ...prev,
-                            [taskId]: {
-                                ...prev[taskId],
-                                pendingApprovals: prev[taskId].pendingApprovals.filter(
-                                    a => a.id !== data.approval_id
-                                ),
-                            }
-                        };
-                    });
-                },
-            });
-
-            unsubscribeMapRef.current[taskId] = unsubscribe;
-            return task;
-            
-        } catch (err) {
-            setError(err.message);
-            setLoading(false);
-            return null;
-        }
-    }, [sessionId, addMessageToTask, updateLastAssistantMessage,
-        addTodoToTask, updateTodoStatus, addOrUpdateThoughtChainNode, updateThoughtChainStatus,
-        updateTask, cleanupTask]);
-
-    // 取消任务
-    const cancelTask = useCallback(async (taskId) => {
-        if (!taskId || !sessionId) return;
-
-        try {
-            await cancelAgentTask(sessionId, taskId);
-            cleanupTask(taskId);
-            updateTask(taskId, { status: TaskStatus.CANCELLED });
-            setLoading(false);
-        } catch (err) {
-            setError(err.message);
-        }
-    }, [sessionId, cleanupTask, updateTask]);
 
     // 处理审批
-    const handleApproval = useCallback(async (_taskId, approvalId, approved) => {
+    const handleApproval = useCallback(async (approvalId, approved) => {
         if (!sessionId) return;
-
         try {
             await submitApproval(sessionId, approvalId, approved);
+            setPendingApprovals(prev => prev.filter(a => a.id !== approvalId));
         } catch (err) {
-            setError(err.message);
+            console.error('Approval error:', err);
         }
     }, [sessionId]);
 
-    // 选择任务
-    const selectTask = useCallback((taskId) => {
-        setSelectedTaskId(taskId);
-    }, []);
-
-    // 清除错误
-    const clearError = useCallback(() => {
-        setError(null);
-    }, []);
-
-    // 重置所有状态
-    const reset = useCallback(() => {
-        cleanupAll();
-        setTasks({});
-        setSelectedTaskId(null);
-        setGlobalConversations([]);
-        setActiveGlobalConversationId(null);
-        taskIdToGlobalConversationIdRef.current = {};
-        setReasoningPanelStreamId(null);
-        setError(null);
-        setLoading(false);
-    }, [cleanupAll]);
-
-    // 计算派生状态
-    const taskList = Object.values(tasks).sort((a, b) => b.createdAt - a.createdAt);
-    const selectedTask = selectedTaskId ? tasks[selectedTaskId] : null;
-    const runningTasks = taskList.filter(t => t.status === TaskStatus.RUNNING);
-    const hasRunningTasks = runningTasks.length > 0;
-    
-    // 计算任务消息 Map（用于 GlobalAgent 等组件访问）
-    const taskMessages = Object.fromEntries(
-        Object.entries(tasks).map(([id, task]) => [id, task.messages])
-    );
-    
-    // 获取任务状态
-    const getTaskStatus = useCallback((taskId) => {
-        return tasks[taskId]?.status || null;
-    }, [tasks]);
-
-    // 获取 GlobalAgent 相关任务（global 类型）
-    const getGlobalTasks = useCallback(() => {
-        return Object.values(tasks)
-            .filter(t => t.taskType === 'global')
-            .sort((a, b) => b.createdAt - a.createdAt);
-    }, [tasks]);
-
-    // 获取指定会话的 SessionAgent 相关任务（session 类型）
-    const getSessionTasks = useCallback((chatSessionId) => {
-        if (!chatSessionId) return [];
-        return Object.values(tasks)
-            .filter(t => t.taskType === 'session' && t.chatSessionId === chatSessionId)
-            .sort((a, b) => b.createdAt - a.createdAt);
-    }, [tasks]);
-
-    // 打开 / 关闭 ReasoningPanel（per-message 思维链弹窗）
-    const openReasoningPanel = useCallback((streamId) => {
-        setReasoningPanelStreamId(streamId);
-    }, []);
-
-    const closeReasoningPanel = useCallback(() => {
-        setReasoningPanelStreamId(null);
-    }, []);
-
     const value = {
-        // 状态
-        tasks,
-        taskList,
-        selectedTask,
-        selectedTaskId,
-        loading,
-        error,
+        // Agent 用户
+        agentUsers,
+        loadAgentUsers,
 
-        // GlobalAgent 状态
-        globalAgentTaskId,
-        setGlobalAgentTaskId,
-        globalConversations,
-        setGlobalConversations,
-        activeGlobalConversationId,
-        setActiveGlobalConversationId,
-        createGlobalConversation,
-        switchGlobalConversation,
-        deleteGlobalConversation,
-        addMessageToGlobalConversation,
-        removeLastMessageFromGlobalConversation,
-        taskMessages,
-        getTaskStatus,
-        getGlobalTasks,
-        getSessionTasks,
+        // Session SSE
+        subscribeSession,
+        unsubscribeSession,
 
-        // ReasoningPanel 状态
-        reasoningPanelStreamId,
-        openReasoningPanel,
-        closeReasoningPanel,
-
-        // 派生状态
-        runningTasks,
-        hasRunningTasks,
-
-        // 操作
-        startTask,
-        cancelTask,
-        selectTask,
+        // 审批
+        pendingApprovals,
         handleApproval,
-        clearError,
-        reset,
-
-        // ThoughtChain 相关
-        addOrUpdateThoughtChainNode,
-        updateThoughtChainStatus,
-
-        // 便捷方法
-        approveApproval: (taskId, approvalId) => handleApproval(taskId, approvalId, true),
-        rejectApproval: (taskId, approvalId) => handleApproval(taskId, approvalId, false),
+        approveApproval: (approvalId) => handleApproval(approvalId, true),
+        rejectApproval: (approvalId) => handleApproval(approvalId, false),
     };
 
     return (

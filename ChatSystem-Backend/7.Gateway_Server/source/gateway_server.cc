@@ -22,6 +22,10 @@ DEFINE_int32(redis_port, 6379, "Redis服务器访问端口");
 DEFINE_int32(redis_db, 0, "Redis默认库号");
 DEFINE_bool(redis_keep_alive, true, "Redis长连接保活选项");
 
+// Agent Server webhook（Gateway 在 Docker 内时需用 host.docker.internal 或宿主机 IP）
+DEFINE_string(agent_server_host, "127.0.0.1", "Agent Server 主机（容器内访问宿主机请用 host.docker.internal）");
+DEFINE_int32(agent_server_port, 8080, "Agent Server 端口");
+
 int main(int argc, char *argv[])
 {
     google::ParseCommandLineFlags(&argc, &argv, true);
@@ -32,7 +36,8 @@ int main(int argc, char *argv[])
     gsb.make_discovery_object(FLAGS_registry_host, FLAGS_base_service, FLAGS_file_service,
         FLAGS_speech_service, FLAGS_message_store_service, FLAGS_friend_service, 
         FLAGS_user_service, FLAGS_message_transmit_service);
-    gsb.make_server_object(FLAGS_websocket_listen_port, FLAGS_http_listen_port);
+    gsb.make_server_object(FLAGS_websocket_listen_port, FLAGS_http_listen_port,
+        FLAGS_agent_server_host, FLAGS_agent_server_port);
     auto server = gsb.build();
     server->start();
     return 0;

@@ -140,7 +140,7 @@ CREATE TABLE IF NOT EXISTS `agent_thought_chain` (
 
 INSERT IGNORE INTO `user` (`user_id`, `nickname`, `description`, `phone`, `is_agent`, `agent_model`, `agent_provider`) VALUES
 ('agent-o4-mini', 'AI 助手 (O4-Mini)', '基于 OpenAI O4-Mini 模型的智能助手', NULL, 1, 'o4-mini', 'openai'),
-('agent-gpt-oss-120b', 'AI 助手 (GPT-OSS-120B)', '基于 OpenRouter GPT-OSS-120B 模型的智能助手', NULL, 1, 'openai/gpt-oss-120b', 'openrouter');
+('agent-gpt-5-mini', 'AI 助手 (GPT 5 Mini)', '基于 OpenRouter GPT 5 Mini 模型的智能助手', NULL, 1, 'openai/gpt-5-mini', 'openrouter');
 
 
 -- =====================================================

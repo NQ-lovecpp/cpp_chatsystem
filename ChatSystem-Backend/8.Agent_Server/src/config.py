@@ -24,7 +24,7 @@ class Settings(BaseSettings):
     # OpenRouter 配置
     openrouter_api_key: Optional[str] = os.getenv("OPENROUTER_API_KEY")
     openrouter_base_url: str = "https://openrouter.ai/api/v1"
-    openrouter_model: str = "deepseek/deepseek-v3.2"
+    openrouter_model: str = "openai/gpt-5-mini"
     
     # 代理配置 (Clash)
     http_proxy: Optional[str] = None
@@ -65,7 +65,7 @@ class Settings(BaseSettings):
     # Agent 配置
     agent_context_limit: int = 50    # 上下文消息数量限制
     agent_o4_mini_user_id: str = "agent-o4-mini"
-    agent_gpt_oss_user_id: str = "agent-gpt-oss-120b"
+    agent_gpt_5_mini_user_id: str = "agent-gpt-5-mini"
     
     class Config:
         env_file = ".env"

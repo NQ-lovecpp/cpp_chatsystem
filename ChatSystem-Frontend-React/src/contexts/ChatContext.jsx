@@ -229,6 +229,28 @@ export function ChatProvider({ children }) {
         });
     }, []);
 
+    // 按 streamId 更新 Agent 消息内容（用于流式输出）
+    const updateAgentMessageContent = useCallback((chatSessionId, streamId, content, streaming = true) => {
+        setMessages(prev => {
+            const existingMessages = prev[chatSessionId] || [];
+            const index = existingMessages.findIndex(m => m._streamId === streamId);
+            if (index === -1) return prev;
+            
+            const newMessages = [...existingMessages];
+            const msg = newMessages[index];
+            newMessages[index] = {
+                ...msg,
+                message: {
+                    ...msg.message,
+                    message_type: 0,
+                    string_message: { content: content || '' },
+                },
+                _streaming: streaming,
+            };
+            return { ...prev, [chatSessionId]: newMessages };
+        });
+    }, []);
+
     // 总未读数
     const totalUnread = Object.values(unreadCounts).reduce((sum, c) => sum + c, 0);
 
@@ -401,6 +423,7 @@ export function ChatProvider({ children }) {
         loadMessages,
         addMessage,
         updateMessageStatus,
+        updateAgentMessageContent,
         fetchImage,
         getCachedImage,
         clearNotification,

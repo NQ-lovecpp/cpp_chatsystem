@@ -323,6 +323,9 @@ services:
     image: gateway_server:v3
     networks:
       - chatsystem-overlay
+    # Linux Docker：使 host.docker.internal 指向宿主机，以便 Gateway 访问宿主机上的 Agent Server
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     ports:
       - "9000:9000"
       - "9001:9001"

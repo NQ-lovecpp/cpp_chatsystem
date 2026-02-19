@@ -36,7 +36,7 @@ class OpenRouterModelProvider(ModelProvider):
         self,
         api_key: Optional[str] = None,
         base_url: str = "https://openrouter.ai/api/v1/responses",
-        default_model: str = "openai/gpt-oss-120b"
+        default_model: str = "openai/gpt-5-mini"
     ):
         self.api_key = api_key or settings.openrouter_api_key
         self.base_url = base_url

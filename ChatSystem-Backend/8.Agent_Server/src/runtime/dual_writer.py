@@ -1,17 +1,16 @@
 """
-Dual Writer - Redis + MySQL 双写模块
+Dual Writer - Redis + MySQL 双写模块（简化版）
 
-负责：
-1. Agent 消息的双写（Redis 缓存 + MySQL 持久化）
-2. Todo 和 ThoughtChain 的持久化
+仅负责 Agent 消息的双写（Redis 缓存 + MySQL 持久化）。
+Todo 和 ThoughtChain 已移除，agent 的思考/工具调用内容
+直接以结构化 xmarkdown 存入 message.content 字段。
 """
 import json
 import asyncio
 import uuid
 from typing import Dict, Any, Optional, List
 from datetime import datetime, timezone
-from dataclasses import dataclass, asdict, field
-from enum import Enum
+from dataclasses import dataclass, asdict
 from loguru import logger
 
 import sys
@@ -24,23 +23,6 @@ from config import settings
 from runtime.redis_client import redis_cache, RedisKeys
 from runtime.context_manager import ContextMessage, MessageType
 from tools.db_tools import get_db_pool
-
-
-class TodoStatus(Enum):
-    """Todo 状态枚举"""
-    PENDING = "pending"
-    IN_PROGRESS = "in_progress"
-    COMPLETED = "completed"
-    CANCELLED = "cancelled"
-
-
-class ThoughtChainNodeType(Enum):
-    """思维链节点类型"""
-    REASONING = "reasoning"
-    TOOL_CALL = "tool_call"
-    TOOL_OUTPUT = "tool_output"
-    RESULT = "result"
-    ERROR = "error"
 
 
 @dataclass
@@ -69,7 +51,7 @@ class AgentMessage:
             message_id=self.message_id,
             user_id=self.user_id,
             nickname=nickname,
-            message_type=MessageType.AGENT_RESPONSE.value,
+            message_type=MessageType.TEXT.value,
             content=self.content,
             create_time=self.create_time,
             is_agent=True,
@@ -77,70 +59,17 @@ class AgentMessage:
         )
 
 
-@dataclass
-class TodoItem:
-    """Todo 项数据结构"""
-    todo_id: str
-    task_id: str   # 即 stream_id，DB 列名保持不变
-    content: str
-    status: str = TodoStatus.PENDING.value
-    sequence: int = 0
-    created_at: Optional[str] = None
-    updated_at: Optional[str] = None
-
-    def __post_init__(self):
-        if not self.todo_id:
-            self.todo_id = str(uuid.uuid4())
-        now = datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S')
-        if not self.created_at:
-            self.created_at = now
-        if not self.updated_at:
-            self.updated_at = now
-
-    def to_dict(self) -> Dict[str, Any]:
-        return asdict(self)
-
-
-@dataclass
-class ThoughtChainNode:
-    """思维链节点数据结构"""
-    chain_id: str
-    task_id: str   # 即 stream_id，DB 列名保持不变
-    node_type: str
-    title: Optional[str] = None
-    description: Optional[str] = None
-    content: Optional[str] = None
-    status: str = "pending"
-    sequence: int = 0
-    parent_id: Optional[str] = None
-    metadata: Optional[Dict[str, Any]] = None
-    created_at: Optional[str] = None
-
-    def __post_init__(self):
-        if not self.chain_id:
-            self.chain_id = str(uuid.uuid4())
-        if not self.created_at:
-            self.created_at = datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S')
-
-    def to_dict(self) -> Dict[str, Any]:
-        result = asdict(self)
-        if self.metadata and isinstance(self.metadata, dict):
-            result['metadata'] = json.dumps(self.metadata, ensure_ascii=False)
-        return result
-
-
 class DualWriter:
     """
-    双写器
+    双写器（简化版）
 
-    提供 Redis 缓存 + MySQL 持久化的双写功能
-    写入策略：先写 Redis（快速响应），异步写 MySQL（持久化）
+    提供 Redis 缓存 + MySQL 持久化的双写功能。
+    写入策略：先写 Redis（快速响应），异步写 MySQL（持久化）。
     """
 
     def __init__(self):
         self.cache = redis_cache
         self.context_ttl = settings.redis_context_ttl
-        self.task_ttl = settings.redis_task_ttl
         self._write_queue: Optional[asyncio.Queue] = None
         self._writer_task: Optional[asyncio.Task] = None
 
@@ -172,10 +101,6 @@ class DualWriter:
 
                 if write_type == "message":
                     await self._write_message_to_mysql(data)
-                elif write_type == "todo":
-                    await self._write_todo_to_mysql(data)
-                elif write_type == "thought_chain":
-                    await self._write_thought_chain_to_mysql(data)
 
                 self._write_queue.task_done()
             except asyncio.CancelledError:
@@ -238,243 +163,6 @@ class DualWriter:
         except Exception as e:
             logger.error(f"Failed to write message to MySQL: {e}")
             raise
-
-    # ==================== Todo 双写 ====================
-
-    async def write_todo(
-        self,
-        todo: TodoItem,
-        write_redis: bool = True,
-        write_mysql: bool = True
-    ) -> bool:
-        """写入 Todo 项"""
-        try:
-            if write_redis:
-                cache_key = RedisKeys.task_todos(todo.task_id)
-                await self.cache.rpush(cache_key, todo.to_dict(), ttl=self.task_ttl)
-
-            if write_mysql and self._write_queue:
-                await self._write_queue.put(("todo", todo))
-
-            return True
-        except Exception as e:
-            logger.error(f"Failed to write todo: {e}")
-            return False
-
-    async def update_todo_status(
-        self,
-        task_id: str,
-        todo_id: str,
-        status: str
-    ) -> bool:
-        """更新 Todo 状态"""
-        try:
-            pool = await get_db_pool()
-            async with pool.acquire() as conn:
-                async with conn.cursor() as cursor:
-                    sql = """
-                        UPDATE agent_todo
-                        SET status = %s, updated_at = NOW()
-                        WHERE todo_id = %s
-                    """
-                    await cursor.execute(sql, (status, todo_id))
-                    await conn.commit()
-
-            logger.info(f"Todo status updated: {todo_id} -> {status}")
-            return True
-        except Exception as e:
-            logger.error(f"Failed to update todo status: {e}")
-            return False
-
-    async def _write_todo_to_mysql(self, todo: TodoItem):
-        """将 Todo 写入 MySQL"""
-        try:
-            pool = await get_db_pool()
-            async with pool.acquire() as conn:
-                async with conn.cursor() as cursor:
-                    sql = """
-                        INSERT INTO agent_todo
-                        (todo_id, task_id, content, status, sequence, created_at, updated_at)
-                        VALUES (%s, %s, %s, %s, %s, %s, %s)
-                        ON DUPLICATE KEY UPDATE
-                            status = VALUES(status),
-                            updated_at = VALUES(updated_at)
-                    """
-                    await cursor.execute(sql, (
-                        todo.todo_id,
-                        todo.task_id,
-                        todo.content,
-                        todo.status,
-                        todo.sequence,
-                        todo.created_at,
-                        todo.updated_at
-                    ))
-                    await conn.commit()
-                    logger.debug(f"Todo persisted to MySQL: {todo.todo_id}")
-        except Exception as e:
-            logger.error(f"Failed to write todo to MySQL: {e}")
-            raise
-
-    # ==================== ThoughtChain 双写 ====================
-
-    async def write_thought_chain_node(
-        self,
-        node: ThoughtChainNode,
-        write_redis: bool = True,
-        write_mysql: bool = True
-    ) -> bool:
-        """写入思维链节点"""
-        try:
-            if write_redis:
-                cache_key = RedisKeys.thought_chain(node.task_id)
-                await self.cache.rpush(cache_key, node.to_dict(), ttl=self.task_ttl)
-
-            if write_mysql and self._write_queue:
-                await self._write_queue.put(("thought_chain", node))
-
-            return True
-        except Exception as e:
-            logger.error(f"Failed to write thought chain node: {e}")
-            return False
-
-    async def update_thought_chain_status(
-        self,
-        chain_id: str,
-        status: str,
-        content: Optional[str] = None
-    ) -> bool:
-        """更新思维链节点状态"""
-        try:
-            pool = await get_db_pool()
-            async with pool.acquire() as conn:
-                async with conn.cursor() as cursor:
-                    if content:
-                        sql = """
-                            UPDATE agent_thought_chain
-                            SET status = %s, content = %s, updated_at = NOW()
-                            WHERE chain_id = %s
-                        """
-                        await cursor.execute(sql, (status, content, chain_id))
-                    else:
-                        sql = """
-                            UPDATE agent_thought_chain
-                            SET status = %s, updated_at = NOW()
-                            WHERE chain_id = %s
-                        """
-                        await cursor.execute(sql, (status, chain_id))
-                    await conn.commit()
-
-            logger.debug(f"ThoughtChain node updated: {chain_id} -> {status}")
-            return True
-        except Exception as e:
-            logger.error(f"Failed to update thought chain status: {e}")
-            return False
-
-    async def _write_thought_chain_to_mysql(self, node: ThoughtChainNode):
-        """将思维链节点写入 MySQL"""
-        try:
-            pool = await get_db_pool()
-            async with pool.acquire() as conn:
-                async with conn.cursor() as cursor:
-                    sql = """
-                        INSERT INTO agent_thought_chain
-                        (chain_id, task_id, parent_id, node_type, title, description,
-                         content, status, sequence, metadata, created_at)
-                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-                        ON DUPLICATE KEY UPDATE
-                            status = VALUES(status),
-                            content = VALUES(content),
-                            updated_at = NOW()
-                    """
-                    metadata_json = json.dumps(node.metadata, ensure_ascii=False) if node.metadata else None
-                    await cursor.execute(sql, (
-                        node.chain_id,
-                        node.task_id,
-                        node.parent_id,
-                        node.node_type,
-                        node.title,
-                        node.description,
-                        node.content,
-                        node.status,
-                        node.sequence,
-                        metadata_json,
-                        node.created_at
-                    ))
-                    await conn.commit()
-                    logger.debug(f"ThoughtChain node persisted to MySQL: {node.chain_id}")
-        except Exception as e:
-            logger.error(f"Failed to write thought chain to MySQL: {e}")
-            raise
-
-    # ==================== 查询方法 ====================
-
-    async def get_stream_todos(self, stream_id: str) -> List[TodoItem]:
-        """获取 stream 的 Todo 列表"""
-        try:
-            cache_key = RedisKeys.task_todos(stream_id)
-            cached = await self.cache.lrange(cache_key)
-            if cached:
-                return [TodoItem(**t) for t in cached]
-
-            pool = await get_db_pool()
-            async with pool.acquire() as conn:
-                async with conn.cursor() as cursor:
-                    sql = "SELECT * FROM agent_todo WHERE task_id = %s ORDER BY sequence"
-                    await cursor.execute(sql, (stream_id,))
-                    rows = await cursor.fetchall()
-                    columns = [desc[0] for desc in cursor.description]
-                    todos = []
-                    for row in rows:
-                        row_dict = dict(zip(columns, row))
-                        todos.append(TodoItem(
-                            todo_id=row_dict['todo_id'],
-                            task_id=row_dict['task_id'],
-                            content=row_dict['content'],
-                            status=row_dict['status'],
-                            sequence=row_dict['sequence']
-                        ))
-                    return todos
-        except Exception as e:
-            logger.error(f"Failed to get stream todos: {e}")
-            return []
-
-    async def get_thought_chain(self, stream_id: str) -> List[ThoughtChainNode]:
-        """获取 stream 的思维链"""
-        try:
-            cache_key = RedisKeys.thought_chain(stream_id)
-            cached = await self.cache.lrange(cache_key)
-            if cached:
-                return [ThoughtChainNode(**n) for n in cached]
-
-            pool = await get_db_pool()
-            async with pool.acquire() as conn:
-                async with conn.cursor() as cursor:
-                    sql = "SELECT * FROM agent_thought_chain WHERE task_id = %s ORDER BY sequence"
-                    await cursor.execute(sql, (stream_id,))
-                    rows = await cursor.fetchall()
-                    columns = [desc[0] for desc in cursor.description]
-                    nodes = []
-                    for row in rows:
-                        row_dict = dict(zip(columns, row))
-                        metadata = row_dict.get('metadata')
-                        if metadata and isinstance(metadata, str):
-                            metadata = json.loads(metadata)
-                        nodes.append(ThoughtChainNode(
-                            chain_id=row_dict['chain_id'],
-                            task_id=row_dict['task_id'],
-                            parent_id=row_dict.get('parent_id'),
-                            node_type=row_dict['node_type'],
-                            title=row_dict.get('title'),
-                            description=row_dict.get('description'),
-                            content=row_dict.get('content'),
-                            status=row_dict.get('status', 'pending'),
-                            sequence=row_dict['sequence'],
-                            metadata=metadata
-                        ))
-                    return nodes
-        except Exception as e:
-            logger.error(f"Failed to get thought chain: {e}")
-            return []
 
 
 # 全局实例

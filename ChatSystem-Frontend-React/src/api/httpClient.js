@@ -654,7 +654,7 @@ function decodeUserInfo(bytes) {
                     // avatar 是 bytes 字段，转为 base64 data URL（空数据不设置，避免无效 img src）
                     result.avatar = 'data:image/png;base64,' + uint8ArrayToBase64(data);
                 } else if (fieldNum !== 5) {
-                    const str = new TextDecoder().decode(data);
+                    const str = new TextDecoder('utf-8').decode(data);
                     if (fieldNum === 1) result.user_id = str;
                     else if (fieldNum === 2) result.nickname = str;
                     else if (fieldNum === 3) result.description = str;
@@ -705,9 +705,9 @@ export function decodeMessageInfo(bytes) {
             pos += length;
 
             if (fieldNum === 1) {
-                result.message_id = new TextDecoder().decode(data);
+                result.message_id = new TextDecoder('utf-8').decode(data);
             } else if (fieldNum === 2) {
-                result.chat_session_id = new TextDecoder().decode(data);
+                result.chat_session_id = new TextDecoder('utf-8').decode(data);
             } else if (fieldNum === 4) {
                 result.sender = decodeUserInfo(data);
                 console.log('[DEBUG decodeMessageInfo] field 4 (sender) 解码结果:', result.sender);
@@ -747,8 +747,8 @@ function decodeFileMessage(bytes) {
             if (pos + length > bytes.length) break;
             const data = bytes.slice(pos, pos + length);
             pos += length;
-            if (fieldNum === 1) result.file_id = new TextDecoder().decode(data);
-            else if (fieldNum === 3) result.file_name = new TextDecoder().decode(data);
+            if (fieldNum === 1) result.file_id = new TextDecoder('utf-8').decode(data);
+            else if (fieldNum === 3) result.file_name = new TextDecoder('utf-8').decode(data);
             // field 4 (file_contents) 是 bytes，暂不解码
         } else {
             break;
@@ -776,7 +776,7 @@ function decodeImageMessage(bytes) {
             if (pos + length > bytes.length) break;
             const data = bytes.slice(pos, pos + length);
             pos += length;
-            if (fieldNum === 1) result.file_id = new TextDecoder().decode(data);
+            if (fieldNum === 1) result.file_id = new TextDecoder('utf-8').decode(data);
             else if (fieldNum === 2) result.image_content = uint8ArrayToBase64(data); // bytes -> base64
         } else {
             break;
@@ -804,7 +804,7 @@ function decodeSpeechMessage(bytes) {
             if (pos + length > bytes.length) break;
             const data = bytes.slice(pos, pos + length);
             pos += length;
-            if (fieldNum === 1) result.file_id = new TextDecoder().decode(data);
+            if (fieldNum === 1) result.file_id = new TextDecoder('utf-8').decode(data);
             // field 2 (file_contents) 是 bytes，暂不解码
         } else {
             break;
@@ -891,7 +891,7 @@ function decodeStringMessage(bytes) {
             pos = newPos2;
             if (pos + length > bytes.length) break;
             const data = bytes.slice(pos, pos + length);
-            return { content: new TextDecoder().decode(data) };
+            return { content: new TextDecoder('utf-8').decode(data) };
         } else {
             break;
         }
@@ -919,7 +919,7 @@ function decodeFileDownloadData(bytes) {
             const data = bytes.slice(pos, pos + length);
             pos += length;
             if (fieldNum === 1) {
-                result.file_id = new TextDecoder().decode(data);
+                result.file_id = new TextDecoder('utf-8').decode(data);
             } else if (fieldNum === 2) {
                 result.file_content = uint8ArrayToBase64(data);
             }
@@ -955,11 +955,11 @@ function decodeChatSessionInfo(bytes) {
             pos += length;
 
             if (fieldNum === 1) {
-                result.single_chat_friend_id = new TextDecoder().decode(data);
+                result.single_chat_friend_id = new TextDecoder('utf-8').decode(data);
             } else if (fieldNum === 2) {
-                result.chat_session_id = new TextDecoder().decode(data);
+                result.chat_session_id = new TextDecoder('utf-8').decode(data);
             } else if (fieldNum === 3) {
-                result.chat_session_name = new TextDecoder().decode(data);
+                result.chat_session_name = new TextDecoder('utf-8').decode(data);
             } else if (fieldNum === 4) {
                 result.prev_message = decodeMessageInfo(data);
             }
@@ -1046,7 +1046,7 @@ function decodeNestedMessage(bytes) {
             if (isFriendEvent) {
                 // FriendEvent 格式: event_id=1, sender=3
                 if (fieldNum === 1) {
-                    result.event_id = new TextDecoder().decode(data);
+                    result.event_id = new TextDecoder('utf-8').decode(data);
                 } else if (fieldNum === 3) {
                     result.sender = decodeUserInfo(data);
                 }
@@ -1057,7 +1057,7 @@ function decodeNestedMessage(bytes) {
                     result.avatar = 'data:image/png;base64,' + uint8ArrayToBase64(data);
                 } else if (fieldNum !== 5) {
                     try {
-                        const str = new TextDecoder().decode(data);
+                        const str = new TextDecoder('utf-8').decode(data);
                         if (fieldNum === 1) result.user_id = str;
                         else if (fieldNum === 2) result.nickname = str;
                         else if (fieldNum === 3) result.description = str;
@@ -1119,7 +1119,7 @@ function decodeProtobufResponse(buffer, apiPath = '') {
                 // 尝试解析为字符串
                 let strValue = null;
                 try {
-                    strValue = new TextDecoder().decode(data);
+                    strValue = new TextDecoder('utf-8').decode(data);
                 } catch {
                     // ignore
                 }

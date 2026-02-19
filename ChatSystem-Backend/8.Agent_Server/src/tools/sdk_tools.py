@@ -219,17 +219,12 @@ async def python_execute_with_approval(
         return "审批请求已超时"
 
 
-# ============== 导入 Todo 工具 ==============
-
-from tools.todo_tools import add_todos, update_todo, list_todos, TODO_TOOLS
-
-
 # ============== 导出所有工具 ==============
 
 # 所有可用工具列表（供 Agent 使用）
 ALL_TOOLS = [
     web_search,
-    web_open, 
+    web_open,
     web_find,
     python_execute
 ]
@@ -249,20 +244,9 @@ APPROVAL_REQUIRED_TOOLS = [
 # 包含审批工具的完整工具集
 ALL_TOOLS_WITH_APPROVAL = [
     web_search,
-    web_open, 
-    web_find,
-    python_execute_with_approval
-]
-
-# 包含 Todo 工具的完整工具集（用于复杂任务）
-ALL_TOOLS_WITH_TODO = [
-    web_search,
     web_open,
     web_find,
-    python_execute_with_approval,
-    add_todos,
-    update_todo,
-    list_todos
+    python_execute_with_approval
 ]
 
 # 设置上下文的辅助函数

@@ -27,6 +27,7 @@
 #include "notify.pb.h"
 
 #include "httplib.h" // http服务器
+#include <regex>     // @agent mention 正则匹配
 
 namespace chen_im
 {
@@ -90,7 +91,9 @@ namespace chen_im
                       const std::string speech_service_name,
                       const std::string message_store_service_name,
                       const std::string message_transmit_service_name,
-                      const std::string friend_service_name)
+                      const std::string friend_service_name,
+                      const std::string agent_server_host = "127.0.0.1",
+                      int agent_server_port = 8080)
             : _redis_session(std::make_shared<Session>(redis_client)),
               _redis_status(std::make_shared<Status>(redis_client)),
               _redis_uti(std::make_shared<RedisDatabaseUtility>(redis_client)),
@@ -102,6 +105,8 @@ namespace chen_im
               _message_store_service_name(message_store_service_name),
               _message_transmit_service_name(message_transmit_service_name),
               _friend_service_name(friend_service_name),
+              _agent_server_host(agent_server_host),
+              _agent_server_port(agent_server_port),
               _connections(std::make_shared<Connection>())
         {
             _ws_server.set_access_channels(websocketpp::log::alevel::none);
@@ -1740,6 +1745,18 @@ namespace chen_im
             // 4. 若业务处理成功 --- 且获取被申请方长连接成功，则向被申请放进行新消息事件通知
             if (target_rsp.success())
             {
+                // 4.1 检查消息中是否有 @agent mention，如有则通过 webhook 路由给 Agent Server
+                if (target_rsp.message().message().message_type() == MessageType::STRING)
+                {
+                    const std::string &content = target_rsp.message().message().string_message().content();
+                    _check_and_forward_to_agent(
+                        content,
+                        target_rsp.message().chat_session_id(),
+                        target_rsp.message().message_id(),
+                        *uid);
+                }
+
+                // 4.2 WebSocket 推送给所有目标用户
                 for (int i = 0; i < target_rsp.target_id_list_size(); i++)
                 {
                     std::string notify_uid = target_rsp.target_id_list(i);
@@ -1765,9 +1782,96 @@ namespace chen_im
         }
 
     private:
+        // 检查消息中的 @agent mention 并转发给 Agent Server
+        // @mention 格式: @[显示名]{agent-user-id}
+        void _check_and_forward_to_agent(
+            const std::string &content,
+            const std::string &chat_session_id,
+            const std::string &message_id,
+            const std::string &sender_uid)
+        {
+            // 使用正则匹配 @[name]{agent-xxx} 模式
+            static const std::regex agent_regex(R"(@\[([^\]]+)\]\{(agent-[^}]+)\})");
+            std::sregex_iterator begin(content.begin(), content.end(), agent_regex);
+            std::sregex_iterator end;
+
+            for (auto it = begin; it != end; ++it)
+            {
+                std::string agent_user_id = (*it)[2].str();
+                LOG_INFO("Detected @agent mention: {} in session {}", agent_user_id, chat_session_id);
+
+                // 异步发送 webhook（不阻塞消息投递）
+                std::string content_copy = content;
+                std::string session_copy = chat_session_id;
+                std::string msg_id_copy = message_id;
+                std::string sender_copy = sender_uid;
+                std::string agent_copy = agent_user_id;
+
+                std::string agent_host = _agent_server_host;
+                int agent_port = _agent_server_port;
+                std::thread([=]() {
+                    try
+                    {
+                        httplib::Client client(agent_host.c_str(), agent_port);
+                        client.set_connection_timeout(5, 0);
+                        client.set_read_timeout(10, 0);
+
+                        // 手动构建 JSON（避免引入 JSON 库）
+                        // 需要转义 content 中的特殊字符
+                        std::string escaped_content;
+                        escaped_content.reserve(content_copy.size() + 64);
+                        for (char c : content_copy)
+                        {
+                            switch (c)
+                            {
+                            case '"': escaped_content += "\\\""; break;
+                            case '\\': escaped_content += "\\\\"; break;
+                            case '\n': escaped_content += "\\n"; break;
+                            case '\r': escaped_content += "\\r"; break;
+                            case '\t': escaped_content += "\\t"; break;
+                            default: escaped_content += c;
+                            }
+                        }
+
+                        std::string json_body =
+                            "{\"chat_session_id\":\"" + session_copy +
+                            "\",\"message_id\":\"" + msg_id_copy +
+                            "\",\"sender_user_id\":\"" + sender_copy +
+                            "\",\"agent_user_id\":\"" + agent_copy +
+                            "\",\"content\":\"" + escaped_content + "\"}";
+
+                        auto res = client.Post(
+                            "/agent/webhook/message",
+                            json_body,
+                            "application/json");
+
+                        if (!res)
+                        {
+                            LOG_ERROR("Agent webhook request failed (no response) for {}", agent_copy);
+                        }
+                        else if (res->status != 200)
+                        {
+                            LOG_ERROR("Agent webhook returned status {} for {}", res->status, agent_copy);
+                        }
+                        else
+                        {
+                            LOG_INFO("Agent webhook success for {} in session {}", agent_copy, session_copy);
+                        }
+                    }
+                    catch (const std::exception &ex)
+                    {
+                        LOG_ERROR("Agent webhook exception: {}", ex.what());
+                    }
+                }).detach();
+            }
+        }
+
         Session::ptr _redis_session; // session库
         Status::ptr _redis_status;   // status库
         RedisDatabaseUtility::ptr _redis_uti; // 用于操作整个redis数据库
+
+        std::string _agent_server_host;
+        int _agent_server_port;
 
         // 子服务的完整名称
         std::string _user_service_name;
@@ -1825,10 +1929,14 @@ namespace chen_im
             auto del_cb = std::bind(&ServiceManager::when_service_offline, _service_manager.get(), std::placeholders::_1, std::placeholders::_2);
             _service_discoverer = std::make_shared<Discovery>(reg_host, base_service_name, put_cb, del_cb);
         }
-        void make_server_object(int websocket_port, int http_port)
+        void make_server_object(int websocket_port, int http_port,
+                               const std::string &agent_server_host = "127.0.0.1",
+                               int agent_server_port = 8080)
         {
             _websocket_port = websocket_port;
             _http_port = http_port;
+            _agent_server_host = agent_server_host;
+            _agent_server_port = agent_server_port;
         }
         // 构造RPC服务器对象
         GatewayServer::ptr build()
@@ -1852,13 +1960,16 @@ namespace chen_im
                 _websocket_port, _http_port, _redis_client, _service_manager,
                 _service_discoverer, _user_service_name, _file_service_name,
                 _speech_service_name, _message_store_service_name,
-                _message_transmit_service_name, _friend_service_name);
+                _message_transmit_service_name, _friend_service_name,
+                _agent_server_host, _agent_server_port);
             return server;
         }
 
     private:
         int _websocket_port;
         int _http_port;
+        std::string _agent_server_host;
+        int _agent_server_port;
 
         std::shared_ptr<sw::redis::Redis> _redis_client;
 

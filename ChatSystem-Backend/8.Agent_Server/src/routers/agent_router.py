@@ -1,8 +1,13 @@
 """
-Agent 用户和会话管理路由
+Agent 用户管理 + Webhook 路由
+
+- GET /agents — 列出可用 Agent（供 @mention 下拉框）
+- POST /agents/add-to-session — 添加 Agent 到聊天会话
+- POST /webhook/message — C++ 网关 @mention 路由入口
 """
+import re
 from typing import Optional, List
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, BackgroundTasks
 from pydantic import BaseModel
 from loguru import logger
 
@@ -13,7 +18,8 @@ if str(src_dir) not in sys.path:
     sys.path.insert(0, str(src_dir))
 
 from services.agent_user_service import agent_user_service, AgentUserConfig
-from chat_agents.global_agent import global_conversation_service
+from runtime import stream_registry, sse_bus
+from chat_agents import run_session_agent
 
 
 router = APIRouter(tags=["agent"])
@@ -30,41 +36,34 @@ class AgentUserResponse(BaseModel):
     avatar_id: Optional[str] = None
 
 
-class ConversationCreate(BaseModel):
-    user_id: str
-    title: Optional[str] = "新对话"
-
-
-class ConversationUpdate(BaseModel):
-    title: str
-
-
-class ConversationResponse(BaseModel):
-    conversation_id: str
-    user_id: str
-    title: str
-    created_at: str
-    updated_at: str
-
-
-class MessageResponse(BaseModel):
-    message_id: str
-    role: str
-    content: str
-    metadata: Optional[dict] = None
-    created_at: Optional[str] = None
-
-
 class AddAgentToSessionRequest(BaseModel):
     chat_session_id: str
     agent_user_id: str
+
+
+class WebhookMessageRequest(BaseModel):
+    """C++ 网关 webhook 请求体"""
+    chat_session_id: str
+    message_id: str
+    sender_user_id: str
+    agent_user_id: str
+    content: str
+
+
+# @mention 格式: @[display_name]{agent_user_id}
+MENTION_PATTERN = re.compile(r'@\[([^\]]+)\]\{([^}]+)\}')
+
+
+def strip_mentions(content: str) -> str:
+    """移除 @mention 标签，保留可读文本"""
+    return MENTION_PATTERN.sub(r'@\1', content).strip()
 
 
 # ==================== Agent 用户 API ====================
 
 @router.get("/agents", response_model=List[AgentUserResponse])
 async def list_agent_users():
-    """列出所有可用的 Agent 用户"""
+    """列出所有可用的 Agent 用户（供 @mention 下拉框和会话成员管理）"""
     agents = await agent_user_service.list_agent_users()
     return [
         AgentUserResponse(
@@ -119,109 +118,71 @@ async def remove_agent_from_session(request: AddAgentToSessionRequest):
     return {"success": True, "message": "Agent removed from session"}
 
 
-# ==================== Global Agent 会话 API ====================
+# ==================== Webhook — C++ 网关 @mention 路由 ====================
 
-@router.post("/global/conversations", response_model=ConversationResponse)
-async def create_conversation(request: ConversationCreate):
-    """创建新的 Global Agent 会话"""
+async def _execute_webhook_stream(stream, agent_user_id: str):
+    """后台执行 webhook 触发的 agent 流"""
     try:
-        conv = await global_conversation_service.create_conversation(
-            user_id=request.user_id,
-            title=request.title or "新对话"
-        )
-        return ConversationResponse(
-            conversation_id=conv.conversation_id,
-            user_id=conv.user_id,
-            title=conv.title,
-            created_at=conv.created_at,
-            updated_at=conv.updated_at
-        )
+        async for _ in run_session_agent(
+            stream,
+            agent_user_id=agent_user_id,
+            use_approval=True
+        ):
+            pass
     except Exception as e:
-        logger.error(f"Failed to create conversation: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.error(f"Webhook stream execution error: {e}")
+        session_channel = f"session:{stream.chat_session_id}"
+        await sse_bus.publish(session_channel, "agent_error", {"error": str(e)})
 
 
-@router.get("/global/conversations", response_model=List[ConversationResponse])
-async def list_conversations(user_id: str, limit: int = 50):
-    """列出用户的 Global Agent 会话"""
-    convs = await global_conversation_service.list_conversations(user_id, limit)
-    return [
-        ConversationResponse(
-            conversation_id=c.conversation_id,
-            user_id=c.user_id,
-            title=c.title,
-            created_at=c.created_at,
-            updated_at=c.updated_at
-        )
-        for c in convs
-    ]
+@router.post("/webhook/message")
+async def webhook_new_message(
+    request: WebhookMessageRequest,
+    background_tasks: BackgroundTasks
+):
+    """
+    C++ 网关 webhook 入口
 
+    当网关检测到消息中有 @[AgentName]{agent-xxx} 标签时，
+    POST 到此端点触发 Agent 处理。
 
-@router.get("/global/conversations/{conversation_id}", response_model=ConversationResponse)
-async def get_conversation(conversation_id: str):
-    """获取 Global Agent 会话详情"""
-    conv = await global_conversation_service.get_conversation(conversation_id)
-    if not conv:
-        raise HTTPException(status_code=404, detail="Conversation not found")
-    return ConversationResponse(
-        conversation_id=conv.conversation_id,
-        user_id=conv.user_id,
-        title=conv.title,
-        created_at=conv.created_at,
-        updated_at=conv.updated_at
+    Request body:
+    - chat_session_id: 聊天会话 ID
+    - message_id: 触发消息的 ID
+    - sender_user_id: 发送者用户 ID
+    - agent_user_id: 被 @mention 的 Agent 用户 ID
+    - content: 消息内容（含 @mention 标签）
+    """
+    logger.info(
+        f"Webhook received: session={request.chat_session_id}, "
+        f"sender={request.sender_user_id}, agent={request.agent_user_id}"
     )
 
+    # 验证 agent 存在
+    agent = await agent_user_service.get_agent_user(request.agent_user_id)
+    if not agent:
+        raise HTTPException(status_code=404, detail=f"Agent user not found: {request.agent_user_id}")
 
-@router.patch("/global/conversations/{conversation_id}")
-async def update_conversation(conversation_id: str, request: ConversationUpdate):
-    """更新会话标题"""
-    success = await global_conversation_service.update_conversation_title(
-        conversation_id,
-        request.title
+    # 清理 @mention 标签得到实际输入
+    input_text = strip_mentions(request.content)
+    if not input_text:
+        input_text = request.content
+
+    # 创建 stream
+    stream = stream_registry.create(
+        user_id=request.sender_user_id,
+        input_text=input_text,
+        stream_type="session",
+        chat_session_id=request.chat_session_id,
     )
-    if not success:
-        raise HTTPException(status_code=500, detail="Failed to update conversation")
-    return {"success": True}
 
+    logger.info(f"Webhook stream created: {stream.id} for agent {request.agent_user_id}")
 
-@router.delete("/global/conversations/{conversation_id}")
-async def delete_conversation(conversation_id: str):
-    """删除会话"""
-    success = await global_conversation_service.delete_conversation(conversation_id)
-    if not success:
-        raise HTTPException(status_code=500, detail="Failed to delete conversation")
-    return {"success": True}
+    # 后台执行
+    background_tasks.add_task(_execute_webhook_stream, stream, request.agent_user_id)
 
-
-@router.get("/global/conversations/{conversation_id}/messages", response_model=List[MessageResponse])
-async def get_conversation_messages(conversation_id: str, limit: int = 50):
-    """获取会话消息"""
-    messages = await global_conversation_service.get_messages(conversation_id, limit)
-    return [
-        MessageResponse(
-            message_id=m.get("message_id", ""),
-            role=m.get("role", "user"),
-            content=m.get("content", ""),
-            metadata=m.get("metadata"),
-            created_at=m.get("created_at")
-        )
-        for m in messages
-    ]
-
-
-# ==================== 任务相关 API ====================
-
-@router.get("/tasks/{task_id}/todos")
-async def get_task_todos(task_id: str):
-    """获取任务的 Todo 列表"""
-    from runtime.dual_writer import dual_writer
-    todos = await dual_writer.get_task_todos(task_id)
-    return {"task_id": task_id, "todos": todos}
-
-
-@router.get("/tasks/{task_id}/thought-chain")
-async def get_task_thought_chain(task_id: str):
-    """获取任务的思维链"""
-    from runtime.dual_writer import dual_writer
-    chain = await dual_writer.get_thought_chain(task_id)
-    return {"task_id": task_id, "thought_chain": chain}
+    return {
+        "success": True,
+        "stream_id": stream.id,
+        "agent_user_id": request.agent_user_id,
+    }

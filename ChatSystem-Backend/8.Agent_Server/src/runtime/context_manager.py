@@ -101,7 +101,7 @@ class ContextManager:
     def __init__(self):
         self.cache = redis_cache
         self.context_ttl = settings.redis_context_ttl
-        self.context_limit = settings.agent_context_limit
+        self.context_limit = 30  # 默认 30 条上下文
     
     async def get_context(
         self,

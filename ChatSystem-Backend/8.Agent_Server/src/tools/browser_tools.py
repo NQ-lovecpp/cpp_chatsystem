@@ -197,7 +197,7 @@ class BrowserTools:
                 url = result.get("url", "")
                 summary = result.get("summary", "")[:200]
                 
-                lines.append(f"【{i}†{title}】")
+                lines.append(f"【{i}】{title}")
                 lines.append(f"  URL: {url}")
                 if summary:
                     lines.append(f"  {summary}")
@@ -373,7 +373,7 @@ class BrowserTools:
             # 构建结果显示
             lines = [f"Find results for: `{pattern}` in `{page.title}`", "=" * 50, ""]
             for i, match in enumerate(matches):
-                lines.append(f"【{i}†match at L{match['line']}】")
+                lines.append(f"【{i}】match at L{match['line']}")
                 lines.append(match["context"])
                 lines.append("")
             

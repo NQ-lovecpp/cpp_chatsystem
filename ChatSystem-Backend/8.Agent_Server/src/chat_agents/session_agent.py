@@ -1,12 +1,12 @@
 """
-SessionAgent - 会话 Agent
+SessionAgent - 会话 Agent（简化版）
 
-作为聊天会话中的一个实际用户存在，特点：
-1. 作为会话成员：在 user 表中有记录，可被添加到群聊
-2. 上下文管理：从 Redis 缓存/MySQL 获取聊天上下文
-3. 按钮触发机制：用户通过 @AI助手 按钮触发
-4. 双写机制：消息同时写入 Redis 和 MySQL
-5. 流式输出：支持 reasoning、tool_calls、ThoughtChain
+作为聊天会话中的一个实际用户存在：
+1. 通过 @mention 触发（由 C++ 网关 webhook 路由到此）
+2. 从 MySQL 读取最近 30 条消息作为上下文
+3. 思考、工具调用、最终输出全部累积为结构化 xmarkdown
+4. 通过 session 级 SSE 频道流式推送给前端
+5. 完成后整条 xmarkdown 存入 message 表
 """
 import uuid
 import json
@@ -19,6 +19,7 @@ from agents import (
     Agent,
     Runner,
     RunConfig,
+    ModelSettings,
     AgentHooks,
     AgentHookContext,
     RunContextWrapper,
@@ -39,19 +40,14 @@ if str(src_dir) not in sys.path:
 from config import settings
 from runtime import sse_bus, stream_registry, AgentStream
 from runtime.context_manager import context_manager, ContextMessage
-from runtime.dual_writer import (
-    dual_writer,
-    AgentMessage,
-    ThoughtChainNode,
-    ThoughtChainNodeType,
-)
+from runtime.content_builder import ContentBuilder
+from runtime.dual_writer import dual_writer, AgentMessage
 from providers import get_default_provider
 from services.agent_user_service import agent_user_service
 from tools.sdk_tools import (
     web_search, web_open, web_find,
     python_execute, python_execute_with_approval,
     set_tool_context,
-    add_todos, update_todo, list_todos,
 )
 from tools.db_tools import (
     get_chat_history,
@@ -67,21 +63,18 @@ SESSION_AGENT_SYSTEM_PROMPT = """你是聊天会话中的 AI 助手成员。你�
 
 ## 你的身份
 - 你是这个聊天会话的成员之一
-- 用户通过 @AI助手 按钮来请求你的帮助
+- 用户通过 @你的名字 来请求你的帮助
 - 你可以看到聊天历史，理解对话上下文
 
 ## 你的能力
 1. **直接回答**：根据聊天上下文回答问题
-2. **规划步骤**：复杂任务先用 `add_todos` 列出执行步骤，然后逐步完成并用 `update_todo` 更新状态
-3. **搜索信息**：使用网页搜索获取最新信息
-4. **执行代码**：执行 Python 代码（需要审批）
-5. **查询数据**：获取聊天历史、会话成员、用户信息等
+2. **搜索信息**：使用网页搜索获取最新信息
+3. **执行代码**：执行 Python 代码（需要审批）
+4. **查询数据**：获取聊天历史、会话成员、用户信息等
 
-## 使用 Todo 规划复杂任务
-当任务需要多个步骤时（如研究报告、数据分析、多信息源综合）：
-1. 首先调用 `add_todos` 列出 3-6 个步骤
-2. 执行每个步骤
-3. 用 `update_todo` 标记步骤完成
+## 搜索任务流程
+搜索类任务完整流程：web_search(获取结果) → web_open(用链接ID如0打开) → web_find(在页面查找) → 综合后回复。
+切勿在 web_open 或 web_find 之前就结束。
 
 ## 输出格式
 - 使用 Markdown 格式输出
@@ -103,26 +96,28 @@ class StreamState:
     stream_id: str
     chat_session_id: str
     agent_user_id: str
+    message_id: str  # 此次 agent 回复的 message_id
 
-    # 内容累积
-    full_response: str = ""
-    reasoning_content: str = ""
+    # 内容构建器
+    content_builder: ContentBuilder = None
 
-    # ThoughtChain 追踪
-    thought_chain_sequence: int = 0
-    current_tool_chain_id: Optional[str] = None
+    # Reasoning 追踪
+    reasoning_active: bool = False
 
     # 工具调用追踪
     tool_calls: List[Dict[str, Any]] = None
-    current_tool_call: Optional[Dict[str, Any]] = None
+    current_tool_name: Optional[str] = None
+    current_tool_args: str = ""
 
     def __post_init__(self):
+        if self.content_builder is None:
+            self.content_builder = ContentBuilder()
         if self.tool_calls is None:
             self.tool_calls = []
 
 
 class SessionAgentHooks(AgentHooks):
-    """SessionAgent 生命周期钩子"""
+    """SessionAgent 生命周期钩子 — 驱动 ContentBuilder + 会话级 SSE"""
 
     def __init__(self, state: StreamState):
         self.state = state
@@ -136,36 +131,20 @@ class SessionAgentHooks(AgentHooks):
     async def on_tool_start(self, context: RunContextWrapper, agent: Agent, tool: Tool) -> None:
         logger.info(f"[{self.state.stream_id}] Tool {tool.name} started")
 
-        chain_id = str(uuid.uuid4())
-        self.state.current_tool_chain_id = chain_id
-        self.state.thought_chain_sequence += 1
+        # 关闭当前 reasoning（think → tool_call 边界）
+        if self.state.reasoning_active:
+            self.state.reasoning_active = False
 
-        node = ThoughtChainNode(
-            chain_id=chain_id,
-            task_id=self.state.stream_id,
-            node_type=ThoughtChainNodeType.TOOL_CALL.value,
-            title=f"调用工具: {tool.name}",
-            description=f"正在执行 {tool.name}",
-            status="running",
-            sequence=self.state.thought_chain_sequence
-        )
-        await dual_writer.write_thought_chain_node(node)
+        self.state.current_tool_name = tool.name
+        self.state.current_tool_args = ""
 
-        await sse_bus.publish(self.state.stream_id, "thought_chain", {
-            "node": node.to_dict()
-        })
-
-        self.state.current_tool_call = {
-            "chain_id": chain_id,
-            "tool_name": tool.name,
-            "start_time": datetime.now().isoformat(),
-            "arguments": ""
-        }
-
-        await sse_bus.publish(self.state.stream_id, "tool_call", {
-            "chain_id": chain_id,
-            "tool_name": tool.name,
-            "status": "executing"
+        # 发送 tool_call 开始标签
+        delta = self.state.content_builder.start_tool_call(tool.name, "")
+        session_channel = f"session:{self.state.chat_session_id}"
+        await sse_bus.publish(session_channel, "content_delta", {
+            "message_id": self.state.message_id,
+            "delta": delta,
+            "part_type": "tool_call",
         })
 
     async def on_tool_end(
@@ -173,35 +152,34 @@ class SessionAgentHooks(AgentHooks):
     ) -> None:
         logger.info(f"[{self.state.stream_id}] Tool {tool.name} ended")
 
-        if self.state.current_tool_chain_id:
-            await dual_writer.update_thought_chain_status(
-                self.state.current_tool_chain_id,
-                "success",
-                result[:2000] if len(result) > 2000 else result
-            )
-            await sse_bus.publish(self.state.stream_id, "thought_chain_update", {
-                "chain_id": self.state.current_tool_chain_id,
-                "status": "success",
-                "content": result[:2000] if len(result) > 2000 else result
-            })
+        # 关闭 tool-call 标签
+        close_delta = self.state.content_builder.end_tool_call()
 
-        if self.state.current_tool_call:
-            self.state.current_tool_call["result"] = result[:500] if len(result) > 500 else result
-            self.state.current_tool_call["end_time"] = datetime.now().isoformat()
-            self.state.tool_calls.append(self.state.current_tool_call)
-            self.state.current_tool_call = None
+        # 添加 tool-result
+        result_delta = self.state.content_builder.add_tool_result(
+            tool.name,
+            result,
+            "success"
+        )
 
-        await sse_bus.publish(self.state.stream_id, "tool_output", {
-            "chain_id": self.state.current_tool_chain_id,
-            "tool_name": tool.name,
-            "result_preview": result[:500] if len(result) > 500 else result,
-            "status": "completed"
+        session_channel = f"session:{self.state.chat_session_id}"
+        await sse_bus.publish(session_channel, "content_delta", {
+            "message_id": self.state.message_id,
+            "delta": close_delta + "\n" + result_delta,
+            "part_type": "tool_result",
         })
 
-        self.state.current_tool_chain_id = None
+        # 记录工具调用
+        self.state.tool_calls.append({
+            "tool_name": tool.name,
+            "arguments": self.state.current_tool_args,
+            "result": result[:500] if len(result) > 500 else result,
+        })
+        self.state.current_tool_name = None
+        self.state.current_tool_args = ""
 
 
-def create_session_agents(
+def create_session_agent(
     state: StreamState,
     context_messages: List[ContextMessage],
     use_approval: bool = True
@@ -212,7 +190,7 @@ def create_session_agents(
     instructions = SESSION_AGENT_SYSTEM_PROMPT
     if context_messages:
         history_text = "\n## 近期聊天记录\n"
-        for msg in context_messages[-20:]:
+        for msg in context_messages[-30:]:
             sender = msg.nickname
             content = msg.content
             if content:
@@ -220,14 +198,13 @@ def create_session_agents(
                 history_text += f"- {prefix}{sender}: {content[:200]}\n"
         instructions = SESSION_AGENT_SYSTEM_PROMPT + history_text
 
-    python_tool = python_execute_with_approval if use_approval else python_execute
+    python_tool = python_execute
 
     session_agent = Agent(
         name="SessionAgent",
         instructions=instructions,
         tools=[
             web_search, web_open, web_find, python_tool,
-            add_todos, update_todo, list_todos,
             get_chat_history, get_session_members, get_user_info, search_messages,
         ],
         hooks=SessionAgentHooks(state),
@@ -242,9 +219,8 @@ async def run_session_agent(
     use_approval: bool = True,
     chat_history: Optional[list] = None
 ) -> AsyncIterator[dict]:
-    """运行会话 Agent（流式）"""
+    """运行会话 Agent（流式），发布事件到 session 级 SSE 频道"""
     stream_id = stream.id
-    user_id = stream.user_id
     chat_session_id = stream.chat_session_id
 
     if not agent_user_id:
@@ -257,145 +233,133 @@ async def run_session_agent(
 
     logger.info(f"Starting SessionAgent for stream {stream_id}, session={chat_session_id}")
 
+    message_id = str(uuid.uuid4())
     state = StreamState(
         stream_id=stream_id,
         chat_session_id=chat_session_id,
-        agent_user_id=agent_user_id
+        agent_user_id=agent_user_id,
+        message_id=message_id,
     )
 
+    session_channel = f"session:{chat_session_id}"
+
     try:
-        await sse_bus.publish(stream_id, "init", {
+        # 发布 agent_start 事件
+        await sse_bus.publish(session_channel, "agent_start", {
             "stream_id": stream_id,
-            "stream_type": "session_agent",
+            "message_id": message_id,
             "chat_session_id": chat_session_id,
             "agent_user_id": agent_user_id,
-            "agent_nickname": agent_config.nickname
+            "agent_nickname": agent_config.nickname,
         })
 
-        context_messages = await context_manager.get_context(chat_session_id)
+        # 加载上下文（30 条）
+        context_messages = await context_manager.get_context(chat_session_id, limit=30)
         logger.info(f"Loaded {len(context_messages)} context messages for session {chat_session_id}")
 
-        session_agent = create_session_agents(state, context_messages, use_approval=use_approval)
+        session_agent = create_session_agent(state, context_messages, use_approval=use_approval)
 
         provider = agent_user_service.get_provider_for_agent(agent_user_id)
-        run_config = RunConfig(model_provider=provider)
+        run_config = RunConfig(
+            model_provider=provider,
+            model_settings=ModelSettings(max_tokens=16384),
+        )
         result = Runner.run_streamed(
             session_agent,
             input=stream.input_text,
             run_config=run_config
         )
 
-        reasoning_started = False
         output_started = False
 
         async for event in result.stream_events():
             if event.type == "raw_response_event":
                 data = event.data
 
+                # ---- Reasoning delta ----
                 if data.type == "response.reasoning_text.delta":
-                    delta = data.delta
-                    if delta:
-                        if not reasoning_started:
-                            reasoning_started = True
-                            state.thought_chain_sequence += 1
-                            chain_id = str(uuid.uuid4())
-                            node = ThoughtChainNode(
-                                chain_id=chain_id,
-                                task_id=stream_id,
-                                node_type=ThoughtChainNodeType.REASONING.value,
-                                title="思考中...",
-                                status="running",
-                                sequence=state.thought_chain_sequence
-                            )
-                            await dual_writer.write_thought_chain_node(node)
-                            state.current_tool_chain_id = chain_id
+                    logger.info(f"get reasoning text delta: {data.delta}")
+                    delta_text = data.delta
+                    if delta_text:
+                        if not state.reasoning_active:
+                            state.reasoning_active = True
 
-                            await sse_bus.publish(stream_id, "thought_chain", {
-                                "node": node.to_dict()
-                            })
-
-                        state.reasoning_content += delta
-                        await sse_bus.publish(stream_id, "reasoning_delta", {
-                            "content": delta,
-                            "delta": True
+                        sse_delta = state.content_builder.add_thinking(delta_text)
+                        await sse_bus.publish(session_channel, "content_delta", {
+                            "message_id": message_id,
+                            "delta": sse_delta,
+                            "part_type": "think",
                         })
-                        yield {"type": "reasoning_delta", "content": delta}
+                        yield {"type": "reasoning_delta", "content": delta_text}
 
+                # ---- Reasoning summary (ignored for content) ----
                 elif data.type == "response.reasoning_summary_text.delta":
-                    delta = data.delta
-                    if delta:
-                        await sse_bus.publish(stream_id, "reasoning_summary", {
-                            "content": delta,
-                            "delta": True
-                        })
+                    logger.info(f"get reasoning summary delta: {data.delta}")
+                    pass
 
+                # ---- Text output delta ----
                 elif isinstance(data, ResponseTextDeltaEvent):
-                    delta = data.delta
-                    if delta:
-                        if reasoning_started and not output_started:
+                    delta_text = data.delta
+                    if delta_text:
+                        if not output_started:
                             output_started = True
-                            if state.current_tool_chain_id:
-                                await dual_writer.update_thought_chain_status(
-                                    state.current_tool_chain_id,
-                                    "success",
-                                    state.reasoning_content[:2000]
-                                )
-                                await sse_bus.publish(stream_id, "thought_chain_update", {
-                                    "chain_id": state.current_tool_chain_id,
-                                    "status": "success",
-                                    "content": state.reasoning_content[:2000]
-                                })
+                            state.reasoning_active = False
 
-                        state.full_response += delta
-                        await sse_bus.publish(stream_id, "message", {
-                            "content": delta,
-                            "delta": True,
-                            "format": "xmarkdown",
-                            "agent": "SessionAgent"
+                        sse_delta = state.content_builder.add_text(delta_text)
+                        await sse_bus.publish(session_channel, "content_delta", {
+                            "message_id": message_id,
+                            "delta": sse_delta,
+                            "part_type": "text",
                         })
-                        yield {"type": "message_delta", "content": delta}
+                        yield {"type": "message_delta", "content": delta_text}
 
+                # ---- Tool argument delta ----
                 elif isinstance(data, ResponseFunctionCallArgumentsDeltaEvent):
-                    if state.current_tool_call:
-                        state.current_tool_call["arguments"] += data.delta
-                        await sse_bus.publish(stream_id, "tool_args_delta", {
-                            "chain_id": state.current_tool_chain_id,
-                            "delta": data.delta
+                    if state.current_tool_name:
+                        state.current_tool_args += data.delta
+                        state.content_builder.append_tool_args(data.delta)
+                        await sse_bus.publish(session_channel, "content_delta", {
+                            "message_id": message_id,
+                            "delta": data.delta,
+                            "part_type": "tool_args",
                         })
 
-        # 流结束后处理
-        final_text = state.full_response.strip() if state.full_response else "处理完成"
-
-        message_metadata = {
-            "model": agent_config.model,
-            "provider": agent_config.provider,
-            "tool_calls": state.tool_calls,
-            "stream_id": stream_id,  # 关键：供前端点击「正在思考 >」时查询
-        }
-        if state.reasoning_content:
-            message_metadata["thinking"] = state.reasoning_content[:5000]
+        # ---- 流结束：持久化 ----
+        full_content = state.content_builder.to_string()
+        final_text = state.content_builder.get_full_text_only() or "处理完成"
 
         agent_message = AgentMessage(
-            message_id=str(uuid.uuid4()),
+            message_id=message_id,
             session_id=chat_session_id,
             user_id=agent_user_id,
-            content=final_text,
+            content=full_content,
             content_type="xmarkdown",
-            metadata=message_metadata
+            metadata={
+                "model": agent_config.model,
+                "provider": agent_config.provider,
+                "tool_calls": state.tool_calls,
+                "stream_id": stream_id,
+            }
         )
 
         await dual_writer.write_agent_message(agent_message, agent_config.nickname)
 
-        await sse_bus.publish(stream_id, "done", {
-            "final_text": final_text,
-            "metadata": message_metadata
+        await sse_bus.publish(session_channel, "agent_done", {
+            "message_id": message_id,
+            "stream_id": stream_id,
+            "chat_session_id": chat_session_id,
+            "agent_user_id": agent_user_id,
+            "final_content": full_content,
         })
 
-        yield {"type": "done", "result": final_text, "metadata": message_metadata}
+        yield {"type": "done", "result": final_text}
 
     except Exception as e:
         logger.error(f"SessionAgent error: {e}", exc_info=True)
-        await sse_bus.publish(stream_id, "error", {"message": str(e)})
+        await sse_bus.publish(session_channel, "agent_error", {
+            "message_id": message_id,
+            "error": str(e),
+        })
         yield {"type": "error", "error": str(e)}
 
 
@@ -411,10 +375,11 @@ async def run_session_agent_simple(
     state = StreamState(
         stream_id=stream_id,
         chat_session_id=chat_session_id,
-        agent_user_id=agent_user_service.get_default_agent().user_id
+        agent_user_id=agent_user_service.get_default_agent().user_id,
+        message_id=str(uuid.uuid4()),
     )
 
-    agent = create_session_agents(state, context_messages, use_approval=False)
+    agent = create_session_agent(state, context_messages, use_approval=False)
     provider = get_default_provider()
 
     result = await Runner.run(
@@ -436,7 +401,6 @@ def get_session_agent_config() -> dict:
         "provider": default_agent.provider,
         "tools": [
             "web_search", "web_open", "web_find", "python_execute",
-            "add_todos", "update_todo", "list_todos",
             "get_chat_history", "get_session_members", "get_user_info", "search_messages",
         ],
         "user_info": default_agent.to_dict(),
