@@ -1,0 +1,85 @@
+{
+  "name": "x-mono",
+  "version": "2.2.2",
+  "private": true,
+  "scripts": {
+    "presite": "npm run prestart --workspaces",
+    "predeploy": "npm run site",
+    "deploy": "gh-pages -d _site -b gh-pages -f",
+    "site": "npm run site --workspace packages/x && cp -rf packages/x/_site ./_site && cp CNAME _site",
+    "compile": "npm run compile --workspaces",
+    "version": "npm run version --workspaces",
+    "start": "npm run start --workspace packages/x",
+    "prestart": "npm run prestart --workspaces",
+    "pretest": "npm run pretest --workspaces",
+    "publish-version": "tsx ./scripts/synchronize-version.ts",
+    "prepublishOnly": "tsx ./scripts/pre-publish.ts",
+    "precompile": "npm run precompile --workspaces",
+    "prepare": "husky",
+    "size-limit": "size-limit",
+    "lint": "npm run lint --workspaces",
+    "tsc": "npm run tsc --workspaces",
+    "test": "npm run test --workspaces",
+    "coverage": "npm run test --workspaces",
+    "test:dekko": "npm run test:dekko --workspaces",
+    "test:package-diff": "npm run test:package-diff --workspaces"
+  },
+  "license": "MIT",
+  "workspaces": [
+    "packages/*"
+  ],
+  "devDependencies": {
+    "@ant-design/tools": "^19.1.0",
+    "@biomejs/biome": "^2.0.5",
+    "@codecov/webpack-plugin": "^1.4.0",
+    "@madccc/duplicate-package-checker-webpack-plugin": "^1.0.0",
+    "@size-limit/file": "^12.0.0",
+    "@testing-library/react": "^16.3.0",
+    "antd": "^6.1.1",
+    "circular-dependency-plugin": "^5.2.2",
+    "dekko": "^0.2.1",
+    "father": "^4.6.10",
+    "gh-pages": "^6.3.0",
+    "husky": "^9.1.6",
+    "lint-staged": "^16.1.5",
+    "marked-emoji": "^2.0.1",
+    "prettier": "^3.3.3",
+    "react-markdown": "^10.1.0",
+    "size-limit": "^12.0.0"
+  },
+  "size-limit": [
+    {
+      "path": "./packages/x/dist/antdx.min.js",
+      "limit": "500 KiB"
+    },
+    {
+      "path": "./packages/x-sdk/dist/x-sdk.min.js",
+      "limit": "350 KiB"
+    },
+    {
+      "path": "./packages/x-markdown/dist/x-markdown.min.js",
+      "limit": "150 KiB"
+    },
+    {
+      "path": "./packages/x-markdown/dist/plugins/latex.min.js",
+      "limit": "300 KiB"
+    }
+  ],
+  "description": "Craft AI-driven interfaces effortlessly",
+  "homepage": "https://x.ant.design",
+  "bugs": {
+    "url": "https://github.com/ant-design/x/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ant-design/x"
+  },
+  "funding": {
+    "type": "opencollective",
+    "url": "https://opencollective.com/ant-design"
+  },
+  "overrides": {
+    "@emotion/hash": "^0.9.2",
+    "react-is": "^18.3.1"
+  }
+}

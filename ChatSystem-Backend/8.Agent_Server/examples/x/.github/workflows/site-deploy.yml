@@ -1,0 +1,63 @@
+# When pushing a tag. this workflow will trigger site deployment and fixed version address comments
+
+name: Deploy website
+on:
+  push:
+    tags:
+      - '2.*'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    if: (startsWith(github.ref, 'refs/tags/') && (contains(github.ref_name, '-') == false)) || github.event_name == 'workflow_dispatch'
+    steps:
+      - name: checkout
+        uses: actions/checkout@v6
+      - uses: utooland/setup-utoo@v1
+      - run: ut
+      - name: build site
+        run: ut run predeploy
+        env:
+          NODE_OPTIONS: --max_old_space_size=4096
+
+      - name: build dist and bundle analyzer report
+        run: ut compile
+        env:
+          ANALYZER: 1
+          NODE_OPTIONS: --max_old_space_size=4096
+
+      - name: Get version
+        id: publish-version
+        run: echo "VERSION=$(echo ${{ github.ref_name }} | sed 's/\./-/g')" >> $GITHUB_OUTPUT
+
+      - name: Deploy to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./_site
+          force_orphan: true
+
+      # Since force_orphan will not trigger Sync to Gitee, we need to force run it here
+      - name: Sync to Gitee
+        uses: wearerequired/git-mirror-action@v1
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.GITEE_SSH_PRIVATE_KEY }}
+        with:
+          source-repo: 'git@github.com:ant-design/x.git'
+          destination-repo: 'git@gitee.com:ant-design/antd-x.git'
+
+      - name: Deploy to Surge (with TAG)
+        working-directory: ./packages/x
+        run: |
+          export DEPLOY_DOMAIN=ant-design-x-${{ steps.publish-version.outputs.VERSION }}.surge.sh
+          npx surge --project ./_site --domain $DEPLOY_DOMAIN --token ${{ secrets.SURGE_TOKEN }}
+
+      - name: Create Commit Comment
+        uses: peter-evans/commit-comment@v4
+        with:
+          body: |
+            - Documentation site for this release: https://ant-design-x-${{ steps.publish-version.outputs.VERSION }}.surge.sh
