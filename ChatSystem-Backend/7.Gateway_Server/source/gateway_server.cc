@@ -1,5 +1,5 @@
-//主要实现语音识别子服务的服务器的搭建
 #include "gateway_server.hpp"
+#include <csignal>
 
 DEFINE_bool(run_mode, false, "程序的运行模式，false-调试； true-发布；");
 DEFINE_string(log_file, "", "发布模式下，用于指定日志的输出文件");
@@ -26,6 +26,18 @@ DEFINE_bool(redis_keep_alive, true, "Redis长连接保活选项");
 DEFINE_string(agent_server_host, "127.0.0.1", "Agent Server 主机（容器内访问宿主机请用 host.docker.internal）");
 DEFINE_int32(agent_server_port, 8080, "Agent Server 端口");
 
+chen_im::GatewayServer::ptr g_gateway_server = nullptr;
+
+void signal_handler(int signum)
+{
+    if (g_gateway_server) {
+        g_gateway_server->when_server_exit();
+    }
+    // 恢复默认处理并重新发送信号，确保进程正常终止
+    std::signal(signum, SIG_DFL);
+    std::raise(signum);
+}
+
 int main(int argc, char *argv[])
 {
     google::ParseCommandLineFlags(&argc, &argv, true);
@@ -39,6 +51,11 @@ int main(int argc, char *argv[])
     gsb.make_server_object(FLAGS_websocket_listen_port, FLAGS_http_listen_port,
         FLAGS_agent_server_host, FLAGS_agent_server_port);
     auto server = gsb.build();
+    g_gateway_server = server;
+
+    std::signal(SIGINT, signal_handler);
+    std::signal(SIGTERM, signal_handler);
+
     server->start();
     return 0;
 }

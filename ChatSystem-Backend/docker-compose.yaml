@@ -1,7 +1,6 @@
 networks:
   chatsystem-overlay:
-    driver: overlay
-    attachable: true
+    driver: bridge
 
 # 所有中间件数据都使用本地目录绑定，不再使用 Docker volume
 # 数据存储在 ./docker_image_data/ 目录下
@@ -34,9 +33,6 @@ services:
       replicas: 1
       restart_policy:
         condition: on-failure
-      placement:
-        constraints:
-          - node.role == manager
     healthcheck:
       test: [ "CMD", "etcdctl", "endpoint", "health" ]
       interval: 10s
@@ -325,17 +321,15 @@ services:
       - chatsystem-overlay
     ports:
       - "8080:8080"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    env_file:
+      - ./8.Agent_Server/.env
     environment:
+      # Docker 网络内覆盖：容器间用 DNS 名通信
       - MYSQL_HOST=mysql
-      - MYSQL_PORT=3306
-      - MYSQL_USER=root
-      - MYSQL_PASSWORD=Cydia4384!
-      - MYSQL_DATABASE=chen_im
       - REDIS_HOST=redis
-      - REDIS_PORT=6379
-      - REDIS_DB=0
       - HOST=0.0.0.0
-      - PORT=8080
       - DEBUG=false
     deploy:
       replicas: 1

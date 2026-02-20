@@ -25,7 +25,7 @@ private:
 public:
     Registry(const string &host_url)
         :_client(make_shared<etcd::Client>(host_url))
-        ,_keep_alive(_client->leasekeepalive(3).get()) // 它的创建伴随着创建一个指定时长的租约（3s）
+        ,_keep_alive(_client->leasekeepalive(30).get()) // 租约 30s，减少因网络抖动导致注册失效
         ,_lease_id(_keep_alive->Lease())
     {}
 

@@ -150,30 +150,31 @@ namespace chen_im
             _http_server.Post(FILE_PUT_SINGLE, (httplib::Server::Handler)std::bind(&GatewayServer::PutSingleFile, this, std::placeholders::_1, std::placeholders::_2));
             _http_server.Post(FILE_PUT_MULTI, (httplib::Server::Handler)std::bind(&GatewayServer::PutMultiFile, this, std::placeholders::_1, std::placeholders::_2));
             _http_server.Post(SPEECH_RECOGNITION, (httplib::Server::Handler)std::bind(&GatewayServer::SpeechRecognition, this, std::placeholders::_1, std::placeholders::_2));
-            _http_thread = std::thread([this, http_port]() { 
+            _http_thread = std::thread([this, http_port]() {
                                             _http_server.Options(".*", [](const httplib::Request &req, httplib::Response &res) {
                                                 res.status = 200;
-                                                res.set_header("Access-Control-Allow-Origin", "*");
-                                                res.set_header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
-                                                res.set_header("Access-Control-Allow-Headers", "Content-Type, Authorization");
                                                 res.set_content("", "text/plain");
                                             });
 
-                                            _http_server.set_error_handler([](const httplib::Request&, httplib::Response &res) {
+                                            // 所有响应统一添加 CORS 头（支持 preview/production 跨域访问）
+                                            _http_server.set_post_routing_handler([](const httplib::Request &req, httplib::Response &res) {
                                                 res.set_header("Access-Control-Allow-Origin", "*");
-                                                // ... 其他 CORS 头
-                                                res.status = 400; // 或别的错误码
+                                                res.set_header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
+                                                res.set_header("Access-Control-Allow-Headers", "Content-Type, Authorization");
+                                            });
+
+                                            _http_server.set_error_handler([](const httplib::Request&, httplib::Response &res) {
+                                                res.status = 400;
                                                 res.set_content("Bad Request", "text/plain");
                                             });
 
-                                            // _http_server.set_default_headers({
-                                            //     {"Access-Control-Allow-Origin", "*"},
-                                            //     {"Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS"},
-                                            //     {"Access-Control-Allow-Headers", "Content-Type, Authorization"}
-                                            // });
                                             LOG_INFO("http server listening on port: {}", http_port);
                                             _http_server.listen("0.0.0.0", http_port); });
             _http_thread.detach(); // http线程与主执行流分离，退出时自动释放资源
+
+            // 清理上次 crash 残留的 online status（此时无活跃 WS 连接）
+            _redis_uti->flush_all_status();
+            LOG_INFO("Gateway 启动：已清理所有残留的 status 键");
         }
 
         void start()
@@ -181,25 +182,10 @@ namespace chen_im
             _ws_server.run();
         }
 
-        enum exit_mode
+        void when_server_exit()
         {
-            KILLED_BY_SIGNAL = 1, // 被信号所杀
-            NORMAL_EXIT = 2       // 自己退出
-        };
-        // 意外退出或被信号所杀时，清理redis缓存
-        void when_server_exit(exit_mode mode)
-        {
-            switch(mode)
-            {
-                case exit_mode::KILLED_BY_SIGNAL:
-                {
-                    _redis_uti->flush_all_db();
-                }
-                case exit_mode::NORMAL_EXIT:
-                {
-                    _redis_uti->flush_all_db();
-                }
-            }
+            LOG_INFO("Gateway 正在退出，清理所有 online status 键...");
+            _redis_uti->flush_all_status();
         }
 
     private:
@@ -390,13 +376,7 @@ namespace chen_im
 
         void UserLogin(const httplib::Request &request, httplib::Response &response)
         {
-            // 直接打印http请求的正文
             LOG_DEBUG("http 请求体：{}", request.body);
-            // 加上跨域请求头
-            response.set_header("Access-Control-Allow-Origin", "*");
-            response.set_header("Access-Control-Allow-Methods", "POST, OPTIONS");
-            response.set_header("Access-Control-Allow-Headers", "Content-Type");
-            
             // 1. 取出http请求正文，将正文进行反序列化
             UserLoginReq req;
             UserLoginRsp rsp;

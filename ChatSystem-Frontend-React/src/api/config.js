@@ -10,8 +10,7 @@ const getDefaultHost = () => {
     const buildHost = import.meta.env?.VITE_HTTP_HOST;
     if (buildHost) return buildHost;
     const hn = typeof window !== 'undefined' ? window.location.hostname : '';
-    if (hn && hn !== 'localhost' && hn !== '127.0.0.1') return hn;
-    return '117.72.15.209';
+    return hn || '127.0.0.1';
 };
 const getDefaultHttpPort = () => import.meta.env?.VITE_HTTP_PORT || '9000';
 const getDefaultWsPort = () => import.meta.env?.VITE_WS_PORT || '9001';
@@ -24,8 +23,8 @@ function buildDefaultConfig() {
 }
 const DEFAULT_CONFIG = buildDefaultConfig();
 
-// 检测是否为开发模式
-const isDev = import.meta.env?.DEV || (typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'));
+// 仅 Vite dev server (npm run dev) 才走代理，preview/production 直连后端
+const isDev = !!import.meta.env?.DEV;
 
 /**
  * 获取当前服务器配置

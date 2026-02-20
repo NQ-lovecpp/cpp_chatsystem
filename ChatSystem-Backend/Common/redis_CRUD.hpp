@@ -18,6 +18,8 @@
 
 #include <sw/redis++/redis.h>
 #include <iostream>
+#include <vector>
+#include <string>
 
 namespace chen_im
 {
@@ -34,11 +36,18 @@ namespace chen_im
         {}
         ~RedisDatabaseUtility() {}
 
-        // 清理redis所有的缓存
-        bool flush_all_db()
+        // 清理所有 status:* 键（不影响 session、验证码等其他数据）
+        void flush_all_status()
         {
-            _sw_redis_client->flushall();
-            return true;
+            long long cursor = 0;
+            do {
+                std::vector<std::string> keys;
+                cursor = _sw_redis_client->scan(
+                    cursor, "status:*", 1000, std::back_inserter(keys));
+                if (!keys.empty()) {
+                    _sw_redis_client->del(keys.begin(), keys.end());
+                }
+            } while (cursor != 0);
         }
 
     };
@@ -107,39 +116,37 @@ namespace chen_im
         std::shared_ptr<sw::redis::Redis> _redis_client;
     };
 
-    // 用户ID和空值的键值对
+    // 用户ID和空值的键值对，使用 "status:" 前缀区分命名空间
     class Status
     {
     public:
         using ptr = std::shared_ptr<Status>;
-        // 默认 TTL：2 小时（略大于连接异常检测时间，确保异常断开后能自动清理）
-        static constexpr auto DEFAULT_TTL = std::chrono::hours(2);
+        static constexpr std::string_view KEY_PREFIX = "status:";
+        // TTL 10 分钟：gateway 异常重启后最多等 10 分钟即可自动过期
+        static constexpr auto DEFAULT_TTL = std::chrono::minutes(10);
 
         Status(const std::shared_ptr<sw::redis::Redis> &redis_client) : _redis_client(redis_client) {}
         
         void append(const std::string &uid)
         {
-            // 添加 TTL 防止异常退出时数据残留
-            _redis_client->set(uid, "", DEFAULT_TTL);
+            _redis_client->set(std::string(KEY_PREFIX) + uid, "", DEFAULT_TTL);
         }
 
         void remove(const std::string &uid)
         {
-            _redis_client->del(uid);
+            _redis_client->del(std::string(KEY_PREFIX) + uid);
         }
 
         bool exists(const std::string &uid)
         {
-            auto res = _redis_client->get(uid);
-            if (res)
-                return true;
-            return false;
+            auto res = _redis_client->get(std::string(KEY_PREFIX) + uid);
+            return (bool)res;
         }
 
         // 刷新 TTL（用于 keepAlive 时调用）
         void refresh(const std::string &uid)
         {
-            _redis_client->expire(uid, DEFAULT_TTL);
+            _redis_client->expire(std::string(KEY_PREFIX) + uid, DEFAULT_TTL);
         }
 
     private:
