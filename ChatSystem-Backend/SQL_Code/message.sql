@@ -3,18 +3,18 @@
  */
 
 DROP TABLE IF EXISTS `message`;
--- 消息表：消息的完整信息（除了文件数据之外的所有数据）
+
 CREATE TABLE `message` (
-  `id` BIGINT UNSIGNED NOT NULL PRIMARY KEY AUTO_INCREMENT, -- 唯一的自增id：只是用来计数，和业务无关，不用画在ER图里
-  `message_id` varchar(64) NOT NULL, -- 消息id
-  `session_id` varchar(64) NOT NULL, -- 该消息所属的会话id
-  `user_id` varchar(64) NOT NULL, -- 消息的发送者的用户id
-  `message_type` TINYINT UNSIGNED NOT NULL, -- 消息类型：STRING = 0; IMAGE = 1; FILE = 2; SPEECH = 3;
-  `create_time` TIMESTAMP NULL, -- 消息创建的时间
-  `content` TEXT NULL, -- 消息内容（文件或者数据）
-  `file_id` varchar(64) NULL, -- 文件id
-  `file_name` varchar(128) NULL, -- 文件名称
-  `file_size` INT UNSIGNED NULL) -- 文件大小
+  `id` BIGINT UNSIGNED NOT NULL PRIMARY KEY AUTO_INCREMENT,
+  `message_id` varchar(64) NOT NULL,
+  `session_id` varchar(64) NOT NULL,
+  `user_id` varchar(64) NOT NULL,
+  `message_type` TINYINT UNSIGNED NOT NULL,
+  `create_time` TIMESTAMP NULL,
+  `content` TEXT NULL,
+  `file_id` varchar(64) NULL,
+  `file_name` varchar(128) NULL,
+  `file_size` INT UNSIGNED NULL)
  ENGINE=InnoDB;
 
 CREATE UNIQUE INDEX `message_id_i`

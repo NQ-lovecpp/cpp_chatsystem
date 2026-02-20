@@ -10,6 +10,7 @@ SessionAgent - 会话 Agent（简化版）
 """
 import uuid
 import json
+import re
 from typing import Optional, AsyncIterator, Any, List, Dict
 from datetime import datetime
 from dataclasses import dataclass
@@ -88,6 +89,60 @@ SESSION_AGENT_SYSTEM_PROMPT = """你是聊天会话中的 AI 助手成员。你�
 
 请自然地参与对话！
 """
+
+_THINK_BLOCK_RE = re.compile(r"<think(?:\s+[^>]*)?>[\s\S]*?</think>", re.IGNORECASE)
+_TOOL_CALL_RE = re.compile(
+    r"<tool-call\s+name=\"([^\"]*)\"(?:\s+arguments='([^']*)')?\s*>[\s\S]*?</tool-call>",
+    re.IGNORECASE,
+)
+_TOOL_RESULT_RE = re.compile(
+    r"<tool-result\s+name=\"([^\"]*)\"(?:\s+status=\"([^\"]*)\")?\s*>([\s\S]*?)</tool-result>",
+    re.IGNORECASE,
+)
+
+
+def _summarize_context_content(content: str, max_len: int = 420) -> str:
+    """将 xmarkdown 文本压缩成适合注入提示词的上下文摘要。"""
+    if not content:
+        return ""
+
+    tool_calls = []
+    for match in _TOOL_CALL_RE.finditer(content):
+        tool_name = (match.group(1) or "").strip()
+        args = (match.group(2) or "").strip()
+        if not tool_name:
+            continue
+        if args:
+            args_preview = re.sub(r"\s+", " ", args)[:80]
+            tool_calls.append(f"{tool_name}({args_preview})")
+        else:
+            tool_calls.append(tool_name)
+
+    tool_results = []
+    for match in _TOOL_RESULT_RE.finditer(content):
+        tool_name = (match.group(1) or "").strip() or "tool"
+        status = (match.group(2) or "success").strip()
+        result_text = re.sub(r"\s+", " ", (match.group(3) or "")).strip()
+        if result_text:
+            tool_results.append(f"{tool_name}/{status}: {result_text[:120]}")
+        else:
+            tool_results.append(f"{tool_name}/{status}")
+
+    plain_text = _THINK_BLOCK_RE.sub(" ", content)
+    plain_text = _TOOL_CALL_RE.sub(" ", plain_text)
+    plain_text = _TOOL_RESULT_RE.sub(" ", plain_text)
+    plain_text = re.sub(r"\s+", " ", plain_text).strip()
+
+    chunks = []
+    if plain_text:
+        chunks.append(plain_text)
+    if tool_calls:
+        chunks.append("工具调用: " + ", ".join(tool_calls))
+    if tool_results:
+        chunks.append("工具结果: " + " | ".join(tool_results))
+
+    summary = "；".join(chunks).strip() or "[空消息]"
+    return summary[:max_len]
 
 
 @dataclass
@@ -182,27 +237,32 @@ class SessionAgentHooks(AgentHooks):
 def create_session_agent(
     state: StreamState,
     context_messages: List[ContextMessage],
-    use_approval: bool = True
+    use_approval: bool = True,
+    model_name: Optional[str] = None
 ) -> Agent:
     """创建 SessionAgent"""
     set_tool_context(state.stream_id, state.agent_user_id, state.chat_session_id)
 
     instructions = SESSION_AGENT_SYSTEM_PROMPT
+    # 注入当前会话 ID，便于模型调用 get_chat_history/search_messages 等工具时使用
+    if state.chat_session_id:
+        instructions += f"\n\n## 当前会话\n- 会话 ID: `{state.chat_session_id}`\n- 调用 get_chat_history、get_session_members、search_messages 时请使用此 ID（或留空/填 current 以使用自动上下文）。"
     if context_messages:
         history_text = "\n## 近期聊天记录\n"
         for msg in context_messages[-30:]:
             sender = msg.nickname
-            content = msg.content
+            content = _summarize_context_content(msg.content, max_len=420)
             if content:
                 prefix = "[AI]" if msg.is_agent else ""
-                history_text += f"- {prefix}{sender}: {content[:200]}\n"
-        instructions = SESSION_AGENT_SYSTEM_PROMPT + history_text
+                history_text += f"- {prefix}{sender}: {content}\n"
+        instructions += history_text
 
     python_tool = python_execute
 
     session_agent = Agent(
         name="SessionAgent",
         instructions=instructions,
+        model=model_name,
         tools=[
             web_search, web_open, web_find, python_tool,
             get_chat_history, get_session_members, get_user_info, search_messages,
@@ -232,6 +292,10 @@ async def run_session_agent(
         agent_config = agent_user_service.get_default_agent()
 
     logger.info(f"Starting SessionAgent for stream {stream_id}, session={chat_session_id}")
+    logger.info(
+        f"SessionAgent model selected from agent profile: "
+        f"agent={agent_user_id}, provider={agent_config.provider}, model={agent_config.model}"
+    )
 
     message_id = str(uuid.uuid4())
     state = StreamState(
@@ -257,7 +321,13 @@ async def run_session_agent(
         context_messages = await context_manager.get_context(chat_session_id, limit=30)
         logger.info(f"Loaded {len(context_messages)} context messages for session {chat_session_id}")
 
-        session_agent = create_session_agent(state, context_messages, use_approval=use_approval)
+        # 以数据库中的 agent_model 为准，避免落到环境默认模型
+        session_agent = create_session_agent(
+            state,
+            context_messages,
+            use_approval=use_approval,
+            model_name=agent_config.model,
+        )
 
         provider = agent_user_service.get_provider_for_agent(agent_user_id)
         run_config = RunConfig(
@@ -278,7 +348,7 @@ async def run_session_agent(
 
                 # ---- Reasoning delta ----
                 if data.type == "response.reasoning_text.delta":
-                    logger.info(f"get reasoning text delta: {data.delta}")
+                    # logger.info(f"get reasoning text delta: {data.delta}")
                     delta_text = data.delta
                     if delta_text:
                         if not state.reasoning_active:
@@ -294,7 +364,7 @@ async def run_session_agent(
 
                 # ---- Reasoning summary (ignored for content) ----
                 elif data.type == "response.reasoning_summary_text.delta":
-                    logger.info(f"get reasoning summary delta: {data.delta}")
+                    # logger.info(f"get reasoning summary delta: {data.delta}")
                     pass
 
                 # ---- Text output delta ----
@@ -342,7 +412,12 @@ async def run_session_agent(
             }
         )
 
-        await dual_writer.write_agent_message(agent_message, agent_config.nickname)
+        # 确保持久化完成后再发 agent_done，避免前端补偿拉取时读不到该消息
+        await dual_writer.write_agent_message(
+            agent_message,
+            agent_config.nickname,
+            wait_mysql=True
+        )
 
         await sse_bus.publish(session_channel, "agent_done", {
             "message_id": message_id,

@@ -1,0 +1,10 @@
+# 排除 Docker 构建不需要的目录，避免权限与体积问题
+docker_image_data
+.venv
+venv
+node_modules
+.git
+dist
+*.log
+ChatSystem-Frontend-React
+build

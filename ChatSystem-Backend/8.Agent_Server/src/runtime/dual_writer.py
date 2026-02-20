@@ -97,12 +97,23 @@ class DualWriter:
         while True:
             try:
                 item = await self._write_queue.get()
-                write_type, data = item
+                if len(item) == 3:
+                    write_type, data, done_future = item
+                else:
+                    write_type, data = item
+                    done_future = None
 
-                if write_type == "message":
-                    await self._write_message_to_mysql(data)
-
-                self._write_queue.task_done()
+                try:
+                    if write_type == "message":
+                        await self._write_message_to_mysql(data)
+                    if done_future and not done_future.done():
+                        done_future.set_result(True)
+                except Exception as e:
+                    if done_future and not done_future.done():
+                        done_future.set_exception(e)
+                    raise
+                finally:
+                    self._write_queue.task_done()
             except asyncio.CancelledError:
                 break
             except Exception as e:
@@ -115,7 +126,8 @@ class DualWriter:
         message: AgentMessage,
         agent_nickname: str = "AI 助手",
         write_redis: bool = True,
-        write_mysql: bool = True
+        write_mysql: bool = True,
+        wait_mysql: bool = False
     ) -> bool:
         """
         写入 Agent 消息
@@ -130,8 +142,17 @@ class DualWriter:
                 await self.cache.rpush(cache_key, context_msg.to_dict(), ttl=self.context_ttl)
                 logger.debug(f"Message written to Redis: {message.message_id}")
 
-            if write_mysql and self._write_queue:
-                await self._write_queue.put(("message", message))
+            if write_mysql:
+                if self._write_queue:
+                    done_future = None
+                    if wait_mysql:
+                        done_future = asyncio.get_running_loop().create_future()
+                    await self._write_queue.put(("message", message, done_future))
+                    if done_future:
+                        await done_future
+                else:
+                    # 兜底：后台队列未启动时同步写库，保证最终持久化
+                    await self._write_message_to_mysql(message)
 
             return True
         except Exception as e:

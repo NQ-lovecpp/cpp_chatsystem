@@ -31,7 +31,7 @@ add_service_build(build_message_store_server clean_message_store_server "5.Messa
 add_service_build(build_friend_server clean_friend_server "6.Friend_Server")
 add_service_build(build_gateway_server clean_gateway_server "7.Gateway_Server")
 
-add_custom_target(build_all ALL
+add_custom_target(build_all
   DEPENDS
     build_speech_server
     build_file_server
@@ -40,6 +40,16 @@ add_custom_target(build_all ALL
     build_message_store_server
     build_friend_server
     build_gateway_server
+)
+
+# 所有子服务构建完成后，将 SQL_Code 下各表拼成 init_all.sql（ODB 生成的 SQL 为唯一来源）
+set(SQL_CODE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/SQL_Code)
+configure_file(${CMAKE_CURRENT_SOURCE_DIR}/GenInitAll.cmake ${CMAKE_BINARY_DIR}/GenInitAll.cmake @ONLY)
+add_custom_target(gen_init_all ALL
+  DEPENDS build_all
+  COMMAND ${CMAKE_COMMAND} -P ${CMAKE_BINARY_DIR}/GenInitAll.cmake
+  COMMENT "合并 ODB 生成的 SQL 为 init_all.sql"
+  VERBATIM
 )
 
 # 一键清理所有子服务的 build 目录（需先 configure 过各子目录）

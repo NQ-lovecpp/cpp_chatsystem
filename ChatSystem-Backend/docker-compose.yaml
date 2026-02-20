@@ -366,9 +366,7 @@ services:
       - "9000:9000"
       - "9001:9001"
     volumes:
-      # 使用 gateway_server.conf：Agent 在宿主机运行时通过 host.docker.internal 访问
-      # 当 agent_server 容器部署后，可改为 gateway_server_docker.conf
-      - ./Configs/gateway_server.conf:/im/conf/gateway_server.conf:ro
+      - ./Configs/gateway_server_docker.conf:/im/conf/gateway_server.conf:ro
       - ./docker_image_data/logs:/im/logs:rw
       - ./docker_image_data/data:/im/data:rw
     deploy:
@@ -379,6 +377,8 @@ services:
       etcd:
         condition: service_healthy
       redis:
+        condition: service_healthy
+      agent_server:
         condition: service_healthy
       speech_server:
         condition: service_healthy

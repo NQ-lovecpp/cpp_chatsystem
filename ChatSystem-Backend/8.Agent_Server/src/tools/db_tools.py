@@ -10,6 +10,7 @@
 这些工具供 TaskAgent 使用，让它能够获取聊天上下文
 """
 import asyncio
+import re
 from typing import Annotated, Optional, List, Dict, Any
 from datetime import datetime
 from loguru import logger
@@ -24,6 +25,64 @@ if str(src_dir) not in sys.path:
     sys.path.insert(0, str(src_dir))
 
 from config import settings
+from tools.sdk_tools import current_chat_session_id
+
+# LLM 可能传入的占位符，此时应使用上下文中的 current_chat_session_id
+_CHAT_SESSION_PLACEHOLDERS = frozenset({"", "current", "当前", "this session", "本会话", "current session"})
+_THINK_BLOCK_RE = re.compile(r"<think(?:\s+[^>]*)?>[\s\S]*?</think>", re.IGNORECASE)
+_TOOL_CALL_RE = re.compile(
+    r"<tool-call\s+name=\"([^\"]*)\"(?:\s+arguments='([^']*)')?\s*>[\s\S]*?</tool-call>",
+    re.IGNORECASE,
+)
+_TOOL_RESULT_RE = re.compile(
+    r"<tool-result\s+name=\"([^\"]*)\"(?:\s+status=\"([^\"]*)\")?\s*>([\s\S]*?)</tool-result>",
+    re.IGNORECASE,
+)
+
+
+def _resolve_chat_session_id(chat_session_id: str) -> str:
+    """当 LLM 传入占位符时，使用上下文中的 current_chat_session_id"""
+    if not chat_session_id or chat_session_id.strip().lower() in _CHAT_SESSION_PLACEHOLDERS:
+        try:
+            ctx = current_chat_session_id.get()
+            if ctx:
+                return ctx
+        except LookupError:
+            pass
+    return chat_session_id or ""
+
+
+def _normalize_text_message_content(content: str, max_len: int = 600) -> str:
+    """将 xmarkdown 文本转换为更适合上下文阅读的摘要。"""
+    if not content:
+        return "[空消息]"
+
+    tool_calls = [m.group(1).strip() for m in _TOOL_CALL_RE.finditer(content) if (m.group(1) or "").strip()]
+    tool_results = []
+    for match in _TOOL_RESULT_RE.finditer(content):
+        tool_name = (match.group(1) or "").strip() or "tool"
+        status = (match.group(2) or "success").strip()
+        result_text = re.sub(r"\s+", " ", (match.group(3) or "")).strip()
+        if result_text:
+            tool_results.append(f"{tool_name}/{status}: {result_text[:100]}")
+        else:
+            tool_results.append(f"{tool_name}/{status}")
+
+    plain_text = _THINK_BLOCK_RE.sub(" ", content)
+    plain_text = _TOOL_CALL_RE.sub(" ", plain_text)
+    plain_text = _TOOL_RESULT_RE.sub(" ", plain_text)
+    plain_text = re.sub(r"\s+", " ", plain_text).strip()
+
+    parts = []
+    if plain_text:
+        parts.append(plain_text)
+    if tool_calls:
+        parts.append("工具调用: " + ", ".join(tool_calls))
+    if tool_results:
+        parts.append("工具结果: " + " | ".join(tool_results))
+
+    summary = "；".join(parts).strip() or "[空消息]"
+    return summary[:max_len]
 
 
 # 数据库连接池
@@ -93,6 +152,9 @@ async def get_chat_history(
     - 3: 语音消息
     """
     try:
+        chat_session_id = _resolve_chat_session_id(chat_session_id)
+        if not chat_session_id:
+            return "未提供有效的聊天会话 ID，且当前上下文无会话信息。"
         # 查询消息，按时间倒序
         query = """
             SELECT 
@@ -135,7 +197,7 @@ async def get_chat_history(
             
             # 根据消息类型格式化内容
             if msg_type == 0:  # 文本
-                content_display = content or "[空消息]"
+                content_display = _normalize_text_message_content(content)
             elif msg_type == 1:  # 图片
                 content_display = "[图片消息]"
             elif msg_type == 2:  # 文件
@@ -168,6 +230,9 @@ async def get_session_members(
     用于了解群聊成员情况。
     """
     try:
+        chat_session_id = _resolve_chat_session_id(chat_session_id)
+        if not chat_session_id:
+            return "未提供有效的聊天会话 ID，且当前上下文无会话信息。"
         # 查询会话成员
         query = """
             SELECT 
@@ -281,6 +346,9 @@ async def search_messages(
     仅搜索文本消息。
     """
     try:
+        chat_session_id = _resolve_chat_session_id(chat_session_id)
+        if not chat_session_id:
+            return "未提供有效的聊天会话 ID，且当前上下文无会话信息。"
         query = """
             SELECT 
                 m.message_id,
@@ -317,7 +385,7 @@ async def search_messages(
                 else:
                     time_str = str(create_time)
             
-            result_lines.append(f"[{time_str}] {nickname}: {content}")
+            result_lines.append(f"[{time_str}] {nickname}: {_normalize_text_message_content(content, max_len=500)}")
         
         return "\n".join(result_lines)
         

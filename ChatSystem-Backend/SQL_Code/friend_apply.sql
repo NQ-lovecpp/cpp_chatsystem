@@ -3,12 +3,12 @@
  */
 
 DROP TABLE IF EXISTS `friend_apply`;
--- 好友申请表
+
 CREATE TABLE `friend_apply` (
-  `id` BIGINT UNSIGNED NOT NULL PRIMARY KEY AUTO_INCREMENT, -- 唯一的自增id：只是用来计数，和业务无关，不用画在ER图里
-  `event_id` varchar(64) NOT NULL, -- 事件id：用来标记这次好友申请的事件
-  `user_id` varchar(64) NOT NULL, -- 申请人的用户id
-  `peer_id` varchar(64) NOT NULL) -- 对方的用户id
+  `id` BIGINT UNSIGNED NOT NULL PRIMARY KEY AUTO_INCREMENT,
+  `event_id` varchar(64) NOT NULL,
+  `user_id` varchar(64) NOT NULL,
+  `peer_id` varchar(64) NOT NULL)
  ENGINE=InnoDB;
 
 CREATE UNIQUE INDEX `event_id_i`

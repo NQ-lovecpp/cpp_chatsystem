@@ -58,6 +58,27 @@ PREDEFINED_AGENTS: List[AgentUserConfig] = [
         model="openai/gpt-5-mini",
         provider="openrouter"
     ),
+    AgentUserConfig(
+        user_id="agent-deepseek-r1-0528",
+        nickname="AI 助手 (DeepSeek R1)",
+        description="基于 OpenRouter DeepSeek R1-0528 的智能助手",
+        model="deepseek/deepseek-r1-0528",
+        provider="openrouter"
+    ),
+    AgentUserConfig(
+        user_id="agent-claude-haiku-4-5",
+        nickname="AI 助手 (Claude Haiku 4.5)",
+        description="基于 OpenRouter Claude Haiku 4.5 的轻量助手",
+        model="anthropic/claude-haiku-4.5",
+        provider="openrouter"
+    ),
+    AgentUserConfig(
+        user_id="agent-qwen3-5-397b-a17b",
+        nickname="AI 助手 (Qwen3.5-397B-A17B)",
+        description="基于 OpenRouter Qwen3.5-397B-A17B 的推理助手",
+        model="qwen/qwen3.5-397b-a17b",
+        provider="openrouter"
+    ),
 ]
 
 
@@ -93,24 +114,24 @@ class AgentUserService:
                         existing = await cursor.fetchone()
                         
                         if existing:
-                            # 更新现有用户
+                            # 仅补充缺失配置，不强覆盖现有名称/描述/模型，避免覆盖数据库中的手工配置
                             update_sql = """
                                 UPDATE user SET
-                                    nickname = %s,
-                                    description = %s,
                                     is_agent = 1,
-                                    agent_model = %s,
-                                    agent_provider = %s
+                                    agent_model = COALESCE(agent_model, %s),
+                                    agent_provider = COALESCE(agent_provider, %s),
+                                    nickname = COALESCE(nickname, %s),
+                                    description = COALESCE(description, %s)
                                 WHERE user_id = %s
                             """
                             await cursor.execute(update_sql, (
-                                agent.nickname,
-                                agent.description,
                                 agent.model,
                                 agent.provider,
+                                agent.nickname,
+                                agent.description,
                                 agent.user_id
                             ))
-                            logger.info(f"Updated agent user: {agent.user_id}")
+                            logger.info(f"Ensured existing agent user: {agent.user_id}")
                         else:
                             # 插入新用户
                             insert_sql = """
@@ -126,14 +147,31 @@ class AgentUserService:
                                 agent.provider
                             ))
                             logger.info(f"Created agent user: {agent.user_id}")
-                        
-                        # 更新缓存
-                        self._agent_cache[agent.user_id] = agent
                     
                     await conn.commit()
+
+            # 以数据库为准刷新缓存，支持多个模型/多个 agent 动态扩展
+            rows = await execute_query(
+                """
+                SELECT user_id, nickname, description, agent_model, agent_provider
+                FROM user
+                WHERE is_agent = 1
+                """,
+                ()
+            )
+            self._agent_cache.clear()
+            for row in rows:
+                config = AgentUserConfig(
+                    user_id=row['user_id'],
+                    nickname=row.get('nickname') or row['user_id'],
+                    description=row.get('description', '') or '',
+                    model=row.get('agent_model', '') or '',
+                    provider=row.get('agent_provider', 'openrouter') or 'openrouter'
+                )
+                self._agent_cache[config.user_id] = config
             
             self._initialized = True
-            logger.info(f"Agent users initialized: {len(PREDEFINED_AGENTS)} agents")
+            logger.info(f"Agent users initialized from DB: {len(self._agent_cache)} agents")
             return True
             
         except Exception as e:
@@ -218,6 +256,13 @@ class AgentUserService:
     
     def get_default_agent(self) -> AgentUserConfig:
         """获取默认 Agent 用户配置"""
+        if self._agent_cache:
+            # 优先 openrouter，其次任意可用 agent
+            for agent in self._agent_cache.values():
+                if agent.provider == "openrouter":
+                    return agent
+            return next(iter(self._agent_cache.values()))
+
         # 优先返回 OpenRouter 的 Agent
         for agent in PREDEFINED_AGENTS:
             if agent.provider == "openrouter":
@@ -229,8 +274,7 @@ class AgentUserService:
         from providers import get_openai_provider, get_openrouter_provider
         
         agent = self._agent_cache.get(agent_user_id)
-        if not agent:
-            # 从预定义中查找
+        if not agent and agent_user_id in {a.user_id for a in PREDEFINED_AGENTS}:
             for a in PREDEFINED_AGENTS:
                 if a.user_id == agent_user_id:
                     agent = a

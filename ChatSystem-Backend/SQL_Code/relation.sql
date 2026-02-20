@@ -3,11 +3,11 @@
  */
 
 DROP TABLE IF EXISTS `relation`;
--- 好友关系表
+
 CREATE TABLE `relation` (
-  `id` BIGINT UNSIGNED NOT NULL PRIMARY KEY AUTO_INCREMENT, -- 唯一的自增id：只是用来计数，和业务无关，不用画在ER图里
-  `user_id` varchar(64) NOT NULL, -- 用户id
-  `peer_id` varchar(64) NOT NULL) -- 该用户的好友id
+  `id` BIGINT UNSIGNED NOT NULL PRIMARY KEY AUTO_INCREMENT,
+  `user_id` varchar(64) NOT NULL,
+  `peer_id` varchar(64) NOT NULL)
  ENGINE=InnoDB;
 
 CREATE INDEX `user_id_i`
