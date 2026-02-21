@@ -13,6 +13,7 @@ import SessionMembersModal from './SessionMembersModal';
 import Avatar from './Avatar';
 import UserInfoCard from './UserInfoCard';
 import StreamingMarkdown from './agent/StreamingMarkdown';
+import BackgroundTaskPanel from './agent/BackgroundTaskPanel';
 
 // 文件图标配置
 const FILE_ICONS = {
@@ -463,15 +464,17 @@ export default function MessageArea() {
                         />
                     );
                 }
-                const isSelf = msg.sender?.user_id === user?.user_id;
-                return (
-                    <p className="break-words whitespace-pre-wrap">
-                        {renderTextWithAgentMentions(content.string_message?.content, {
-                            isSelf,
-                            agentNameMap,
-                        })}
-                    </p>
-                );
+                {
+                    const isSelf = msg.sender?.user_id === user?.user_id;
+                    return (
+                        <p className="break-words whitespace-pre-wrap">
+                            {renderTextWithAgentMentions(content.string_message?.content, {
+                                isSelf,
+                                agentNameMap,
+                            })}
+                        </p>
+                    );
+                }
             case 1: // IMAGE
                 return (
                     <LazyImageMessage
@@ -538,6 +541,7 @@ export default function MessageArea() {
                         <h2 className="font-semibold text-[var(--color-text)] truncate max-w-[200px]">{currentSession.chat_session_name}</h2>
                     </div>
                     <div className="flex items-center gap-2">
+                        <BackgroundTaskPanel />
                         <button
                             onClick={() => setShowSearch(!showSearch)}
                             className={`p-2 hover:bg-[var(--color-surface)] rounded-lg transition-colors ${showSearch ? 'bg-[var(--color-primary-light)] text-[var(--color-primary)]' : 'text-[var(--color-text-muted)]'}`}

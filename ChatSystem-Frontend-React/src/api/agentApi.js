@@ -113,6 +113,15 @@ export async function cancelAgentTask(sessionId, taskId) {
 }
 
 /**
+ * 获取后台任务列表（深度研究等）
+ */
+export async function getBackgroundTasks() {
+    const response = await fetch(`${getAgentBaseUrl()}/tasks/background`);
+    if (!response.ok) return { tasks: [] };
+    return response.json();
+}
+
+/**
  * 订阅任务 SSE 事件
  * @param {string} sessionId - 用户会话 ID
  * @param {string} taskId - 任务 ID

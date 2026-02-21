@@ -57,6 +57,8 @@ from tools.db_tools import (
     search_messages,
     get_user_sessions,
 )
+from chat_agents.research_agent import run_deep_research, get_active_tasks
+from tools.sdk_tools import current_task_id, current_user_id, current_chat_session_id
 
 
 # SessionAgent 系统提示词
@@ -72,6 +74,7 @@ SESSION_AGENT_SYSTEM_PROMPT = """你是聊天会话中的 AI 助手成员。你�
 2. **搜索信息**：使用网页搜索获取最新信息
 3. **执行代码**：执行 Python 代码（需要审批）
 4. **查询数据**：获取聊天历史、会话成员、用户信息等
+5. **深度研究**：当用户需要深入研究某个主题时，使用 create_deep_research 工具。先向用户确认研究范围和侧重点，收集充足信息后再创建研究任务。研究会在后台执行，完成后自动发送报告。
 
 ## 搜索任务流程
 搜索类任务完整流程：web_search(获取结果) → web_open(用链接ID如0打开) → web_find(在页面查找) → 综合后回复。
@@ -234,6 +237,35 @@ class SessionAgentHooks(AgentHooks):
         self.state.current_tool_args = ""
 
 
+import asyncio as _asyncio
+from typing import Annotated
+
+
+@function_tool
+async def create_deep_research(
+    topic: Annotated[str, "研究主题，应当是一段清晰描述研究目标的文字"],
+    context: Annotated[str, "已经从用户处搜集到的补充信息（研究范围、侧重点等）"] = "",
+) -> str:
+    """
+    创建深度研究后台任务。使用前应先在聊天中向用户确认研究主题和侧重点。
+    任务创建后将在后台自动执行：制定搜索计划 → 并行搜索 → 撰写报告。
+    用户可在右侧边栏查看进度，完成后报告会自动发送到聊天中。
+    """
+    task_id = f"research_{uuid.uuid4().hex[:8]}"
+    chat_session_id = current_chat_session_id.get()
+    agent_user_id = current_user_id.get()
+
+    _asyncio.create_task(
+        run_deep_research(task_id, topic, chat_session_id, agent_user_id, context)
+    )
+
+    return (
+        f"已创建深度研究任务（ID: {task_id}）。\n"
+        f"研究主题: {topic}\n"
+        f"你可以在右侧边栏「后台任务」中查看实时进度。研究完成后，报告将自动发送到聊天中。"
+    )
+
+
 def create_session_agent(
     state: StreamState,
     context_messages: List[ContextMessage],
@@ -244,7 +276,6 @@ def create_session_agent(
     set_tool_context(state.stream_id, state.agent_user_id, state.chat_session_id)
 
     instructions = SESSION_AGENT_SYSTEM_PROMPT
-    # 注入当前会话 ID，便于模型调用 get_chat_history/search_messages 等工具时使用
     if state.chat_session_id:
         instructions += f"\n\n## 当前会话\n- 会话 ID: `{state.chat_session_id}`\n- 调用 get_chat_history、get_session_members、search_messages 时请使用此 ID（或留空/填 current 以使用自动上下文）。"
     if context_messages:
@@ -266,6 +297,7 @@ def create_session_agent(
         tools=[
             web_search, web_open, web_find, python_tool,
             get_chat_history, get_session_members, get_user_info, search_messages,
+            create_deep_research,
         ],
         hooks=SessionAgentHooks(state),
     )

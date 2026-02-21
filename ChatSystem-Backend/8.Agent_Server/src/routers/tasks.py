@@ -20,6 +20,7 @@ if str(src_dir) not in sys.path:
 from auth import UserContext, require_auth
 from runtime import stream_registry, AgentStream, sse_bus
 from chat_agents import run_session_agent
+from chat_agents.research_agent import get_active_tasks
 
 
 router = APIRouter(prefix="/tasks", tags=["tasks"])
@@ -181,3 +182,9 @@ async def cancel_task(
         )
 
     return {"message": "Stream cancelled", "task_id": task_id}
+
+
+@router.get("/background")
+async def list_background_tasks():
+    """获取所有活跃的后台任务（深度研究等）"""
+    return {"tasks": get_active_tasks()}
