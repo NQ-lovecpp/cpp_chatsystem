@@ -119,6 +119,12 @@ async def create_task(
     )
 
 
+@router.get("/background")
+async def list_background_tasks():
+    """获取所有活跃的后台任务（深度研究等）— 必须定义在 /{task_id} 之前"""
+    return {"tasks": get_active_tasks()}
+
+
 @router.get("/{task_id}")
 async def get_task(
     task_id: str,
@@ -182,9 +188,3 @@ async def cancel_task(
         )
 
     return {"message": "Stream cancelled", "task_id": task_id}
-
-
-@router.get("/background")
-async def list_background_tasks():
-    """获取所有活跃的后台任务（深度研究等）"""
-    return {"tasks": get_active_tasks()}
