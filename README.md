@@ -54,6 +54,7 @@
     - 单个文件的下载：在后台用于获取用户头像文件数据，以及客户端用于获取文件/语音/图片消息的文件数据
     - 多个文件的下载：在后台用于大批量获取用户头像数据（比如获取用户列表的时候），以及前端的批量文件下载
 25. 语音消息的文字转换：客户端进行语音消息的文字转换。
+26. **AI 智能助手**：用户可在聊天中通过 `@[AI助手]{agent-xxx}` 提及或前端「@AI助手」按钮，触发智能助手任务；支持会话内对话、后台任务、待办列表、思考链等能力，由独立的 Agent Server（Python）提供。
 
 
 >除了以上的与客户端之间交互的功能之外，还包含一些服务器后台内部所需的功能：
@@ -84,12 +85,14 @@
 
 
 
->基于微服务的思想，以及聊天室项目的业务功能，将聊天室项目进行服务拆分为以下**6个子服务**和**1个网关服务**：
+>基于微服务的思想，以及聊天室项目的业务功能，将聊天室项目进行服务拆分为以下**6个子服务**、**1个网关服务**和**1个 Agent 服务**：
 
 ### ① 网关服务
 网关服务，提供与客户端进行直接交互的作用，用于接收客户端的各项不同的请求，进行用户鉴权通过后，将请求分发到各个不同的子服务进行处理，接收到响应后，发送给客户端。
 
 用户鉴权指的是，客户端在登录成功后，后台会为客户端创建登录会话，并向客户端返回一个登录会话ID，往后，客户端发送的所有请求中都必须带有对应的会话ID进行身份识别，否则视为未登录，**不予提供除注册/登录/验证码获取以外的所有服务**。
+
+网关可配置 Agent Server 地址（`agent_server_host`、`agent_server_port`，默认 `127.0.0.1:8080`）。当发送的消息中含有 `@[显示名]{agent-xxx}` 格式的提及时，网关会通过 HTTP webhook 将该消息转发至 Agent Server 的 `/agent/webhook/message` 接口，由 Agent 服务进行智能回复。
 
 在网关服务中，基于不同的使用目的，向客户端提供两种不同的通信：
 
@@ -161,6 +164,16 @@
 语音转文字子服务，用于调用语音识别SDK，进行语音识别，将语音转为文字后返回给网关。语音转文字子服务只提供一个接口：
 - 语音消息的文字转换：客户端进行语音消息的文字转换。
 
+### ⑧ Agent 服务（Python）
+Agent 服务（`ChatSystem-Backend/8.Agent_Server`）是基于 **FastAPI + OpenAI Agents SDK** 的 Python 微服务，提供 AI 智能助手能力。该服务与 C++ 网关协作：
+
+- **Webhook 触发**：当用户发送的消息包含 `@[显示名]{agent-user-id}` 格式的提及时，C++ 网关会将消息 HTTP POST 到 `/agent/webhook/message`，由 Agent 服务异步处理并回复到会话。
+- **前端直连**：React 前端可通过代理直接调用 Agent 服务（如 `/agent/tasks` 创建任务、SSE 订阅任务事件）。
+- **主要接口**：`/agent/tasks`（任务创建）、`/agent/events`（SSE 事件流）、`/agent/approvals`（工具审批）、`/agent/agents`（Agent 用户管理）、`/agent/webhook/message`（网关 webhook）。
+- **运行**：端口 8080，使用 uv + Python 3.12，详见 `8.Agent_Server/PYTHON_SETUP.md`。
+
+技术栈：Python 3.12、FastAPI、uvicorn、OpenAI/OpenRouter API、MySQL、Redis、Docker（可选，用于 Python 代码沙箱执行）。
+
 
 ## 项目所使用到的框架/库
 - _**gflags**_：针对程序运行所需的运行参数解析/配置文件解析框架。
@@ -180,6 +193,7 @@
 - _**短信云平台**_：采用阿里云短信云平台实现手机短信验证码通知功能。
 - _**cmake**_：项目工程的构建工具。
 - _**docker**_：项目工程的一键式部署工具。
+- _**Python / FastAPI / uv**_（Agent 服务）：Agent 服务使用 Python 3.12、FastAPI、uvicorn，通过 OpenAI Agents SDK 实现智能助手能力。
 
 ## 后台服务技术框架图
 
@@ -2859,6 +2873,8 @@ DELETE /user
 
 7. **客户端长连接管理模块：** 建立用户 ID 与长连接句柄映射关系，便于后续根据用户 ID 找到连接进行事件通知。
 
+8. **Agent Server Webhook 模块：** 当发送新消息接口检测到消息正文中含有 `@[name]{agent-xxx}` 格式的提及时，通过 HTTP 将消息转发至 Agent Server 的 `/agent/webhook/message` 接口。可配置 `agent_server_host`（默认 127.0.0.1）、`agent_server_port`（默认 8080）；Docker 部署时需使用 `host.docker.internal` 或宿主机 IP 访问宿主机上的 Agent Server。
+
 ## 20.3 模块功能示意图
 
 （此处插入模块功能示意图）
@@ -3037,7 +3053,9 @@ DELETE /user
 2. 根据请求中的会话 ID 进行鉴权，并获取用户 ID，向请求中设置用户 ID。
 3. 查找消息转发子服务。
 4. 调用子服务对应接口进行业务处理。
-5. 若处理成功，则根据处理结果中的用户 ID 列表，循环找到目标长连接，根据处理结果中的消息字段组织新消息通知，逐个对目标进行新消息通知。
+5. 若处理成功：
+   - 检查消息正文是否包含 `@[显示名]{agent-xxx}` 格式的 @mention；若有，则通过 HTTP POST 将消息转发至 Agent Server 的 `/agent/webhook/message`（Agent Server 异步处理并写入回复消息）。
+   - 根据处理结果中的用户 ID 列表，循环找到目标长连接，根据处理结果中的消息字段组织新消息通知，逐个对目标进行新消息通知。
 6. 若处理失败，则根据处理结果中的错误提示信息，设置响应内容。
 7. 将处理结果响应给客户端。
 
@@ -3109,6 +3127,19 @@ DELETE /user
 
 # 项目部署
 
+## Agent Server 启动（Python）
+AI 智能助手功能依赖独立的 Agent Server。在启动 C++ 网关与子服务前或后，需要单独启动 Agent Server：
+
+```bash
+cd ChatSystem-Backend/8.Agent_Server
+source <项目根目录>/.venv/bin/activate   # 或使用 uv run
+uvicorn src.main:app --host 0.0.0.0 --port 8080 --reload
+```
+
+- 端口：8080（与网关配置 `agent_server_port` 一致）
+- 环境：需要 Python 3.12、uv；详见 `8.Agent_Server/PYTHON_SETUP.md`
+- 配置：`.env` 中设置 OpenAI/OpenRouter API、MySQL、Redis 等
+
 ## 开发阶段：子服务独立构建（推荐）
 开发时建议进入对应子服务目录，在该目录下创建 `build/`，所有中间产物仅生成在子服务的 `build/` 目录内，最终可执行文件也位于该目录：
 
@@ -3132,7 +3163,7 @@ make -j$(nproc)
 ```
 
 ## 部署阶段：顶层构建仅做编排
-部署时顶层 `ChatSystem-Backend` 的 `CMakeLists.txt` 仅负责进入 7 个子服务目录执行构建，
+部署时顶层 `ChatSystem-Backend` 的 `CMakeLists.txt` 仅负责进入 7 个 C++ 子服务目录执行构建；
 每个子服务在自己目录下的 `build/` 中生成中间产物和可执行文件。
 
 示例（顶层驱动整体构建）：
