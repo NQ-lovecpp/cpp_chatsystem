@@ -82,12 +82,142 @@ const ThinkComponent = memo(function ThinkComponent({ children, streamStatus }) 
 });
 
 /**
+ * 格式化工具参数为可读形式
+ */
+function formatToolArguments(name, rawArgs) {
+    if (!rawArgs) return null;
+    try {
+        const parsed = JSON.parse(rawArgs);
+        if (name === 'python_execute' && parsed.code) {
+            return { type: 'code', language: 'python', code: parsed.code };
+        }
+        return { type: 'json', data: parsed, formatted: JSON.stringify(parsed, null, 2) };
+    } catch {
+        return { type: 'text', text: rawArgs };
+    }
+}
+
+/**
+ * 解析 todo 工具返回的 JSON 结果
+ */
+function parseTodoResult(content) {
+    if (!content) return null;
+    try {
+        const data = JSON.parse(content);
+        if (data.type === 'todo_list' || data.type === 'todo_update') return data;
+    } catch { /* not JSON, ignore */ }
+    return null;
+}
+
+const TODO_STATUS_STYLE = {
+    idle: { bg: 'transparent', border: 'var(--color-border)', check: false, strike: false, spin: false },
+    pending: { bg: 'transparent', border: 'var(--color-border)', check: false, strike: false, spin: false },
+    running: { bg: 'transparent', border: '#1677ff', check: false, strike: false, spin: true },
+    completed: { bg: '#1677ff', border: '#1677ff', check: true, strike: true, spin: false },
+    failed: { bg: '#ff4d4f', border: '#ff4d4f', check: false, strike: false, spin: false },
+    skipped: { bg: 'transparent', border: 'var(--color-border)', check: false, strike: true, spin: false },
+};
+
+/**
+ * TodoCardBlock - Todo 列表内联卡片
+ */
+const TodoCardBlock = memo(function TodoCardBlock({ data }) {
+    const title = data.title || 'Agent Todos';
+    const todos = data.todos || [];
+    const progress = data.progress || { completed: 0, total: todos.length, percent: 0 };
+
+    return (
+        <div style={{
+            border: '1px solid var(--color-border)',
+            borderRadius: 12,
+            padding: '14px 16px',
+            margin: '6px 0',
+            background: 'var(--color-bg-elevated, var(--color-surface))',
+        }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <span style={{ fontSize: 18 }}>✔</span>
+                    <span style={{ fontWeight: 700, fontSize: 15, color: 'var(--color-text)' }}>{title}</span>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <span style={{ fontSize: 12, color: 'var(--color-text-secondary)' }}>
+                        Progress {progress.percent ?? Math.round((progress.completed / (progress.total || 1)) * 100)}%
+                    </span>
+                    <div style={{
+                        width: 60, height: 6, borderRadius: 3,
+                        background: 'var(--color-border)',
+                        overflow: 'hidden',
+                    }}>
+                        <div style={{
+                            width: `${progress.percent ?? Math.round((progress.completed / (progress.total || 1)) * 100)}%`,
+                            height: '100%', borderRadius: 3,
+                            background: '#1677ff',
+                            transition: 'width 0.3s',
+                        }} />
+                    </div>
+                </div>
+            </div>
+            <div style={{ fontWeight: 600, fontSize: 13, color: 'var(--color-text)', marginBottom: 6 }}>Progress</div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                {todos.map((todo, idx) => {
+                    const st = TODO_STATUS_STYLE[todo.status] || TODO_STATUS_STYLE.idle;
+                    return (
+                        <div key={todo.id || idx} style={{
+                            display: 'flex', alignItems: 'center', gap: 10,
+                            padding: '7px 0',
+                            borderBottom: idx < todos.length - 1 ? '1px solid var(--color-border)' : 'none',
+                        }}>
+                            <div style={{
+                                width: 18, height: 18, borderRadius: 4, flexShrink: 0,
+                                border: `2px solid ${st.border}`,
+                                background: st.bg,
+                                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            }}>
+                                {st.check && (
+                                    <svg width="10" height="8" viewBox="0 0 10 8" fill="none">
+                                        <path d="M1 4L3.5 6.5L9 1" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+                                    </svg>
+                                )}
+                                {st.spin && (
+                                    <svg width="12" height="12" viewBox="0 0 24 24" style={{ animation: 'spin 1s linear infinite' }}>
+                                        <circle cx="12" cy="12" r="10" stroke="#1677ff" strokeWidth="3" fill="none" strokeDasharray="31.4 31.4" strokeLinecap="round" />
+                                    </svg>
+                                )}
+                                {todo.status === 'failed' && (
+                                    <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
+                                        <path d="M2 2L8 8M8 2L2 8" stroke="white" strokeWidth="1.5" strokeLinecap="round" />
+                                    </svg>
+                                )}
+                            </div>
+                            <span style={{
+                                fontSize: 13,
+                                color: st.strike ? 'var(--color-text-muted, #999)' : 'var(--color-text)',
+                                textDecoration: st.strike ? 'line-through' : 'none',
+                            }}>
+                                {todo.text}
+                            </span>
+                        </div>
+                    );
+                })}
+            </div>
+        </div>
+    );
+});
+
+/**
  * ToolEventBlock - 工具调用与结果合并展示
  */
 const ToolEventBlock = memo(function ToolEventBlock({ event, isStreamingTail = false }) {
     const isPending = !event.result && (event.inProgress || isStreamingTail);
     const isSuccess = event.result?.status === 'success';
     const hasResult = !!event.result;
+
+    // Check if result is a todo card
+    const todoData = hasResult ? parseTodoResult(event.result.content) : null;
+    if (todoData) {
+        return <TodoCardBlock data={todoData} />;
+    }
+
     const title = isPending
         ? `Calling: ${event.name || 'tool'}`
         : `Called: ${event.name || 'tool'}`;
@@ -97,27 +227,75 @@ const ToolEventBlock = memo(function ToolEventBlock({ event, isStreamingTail = f
     const [doneExpandedKeys, setDoneExpandedKeys] = useState([]);
     const expandedKeys = isPending ? [key] : doneExpandedKeys;
 
+    const formattedArgs = useMemo(
+        () => formatToolArguments(event.name, event.arguments),
+        [event.name, event.arguments]
+    );
+
     const detailBlocks = [];
-    if (event.arguments) {
-        detailBlocks.push(
-            <div
-                key={`${key}-args`}
-                style={{
-                    border: '1px solid var(--color-border)',
-                    borderRadius: 8,
-                    padding: '8px 10px',
-                    maxHeight: 140,
-                    overflowY: 'auto',
-                    whiteSpace: 'pre-wrap',
-                    wordBreak: 'break-all',
-                    color: 'var(--color-text-secondary)',
-                    fontSize: 12,
-                }}
-            >
-                <div style={{ fontWeight: 600, marginBottom: 6, color: 'var(--color-text)' }}>Arguments</div>
-                {event.arguments}
-            </div>
-        );
+    if (formattedArgs) {
+        if (formattedArgs.type === 'code') {
+            detailBlocks.push(
+                <div key={`${key}-args`}>
+                    <div style={{ fontWeight: 600, marginBottom: 4, fontSize: 12, color: 'var(--color-text)' }}>Code</div>
+                    <pre style={{
+                        background: 'var(--color-surface)',
+                        border: '1px solid var(--color-border)',
+                        borderRadius: 8,
+                        padding: '8px 10px',
+                        maxHeight: 200,
+                        overflowY: 'auto',
+                        fontSize: 12,
+                        lineHeight: 1.6,
+                        margin: 0,
+                        color: 'var(--color-text-secondary)',
+                    }}>
+                        <code>{formattedArgs.code}</code>
+                    </pre>
+                </div>
+            );
+        } else if (formattedArgs.type === 'json') {
+            detailBlocks.push(
+                <div
+                    key={`${key}-args`}
+                    style={{
+                        border: '1px solid var(--color-border)',
+                        borderRadius: 8,
+                        padding: '8px 10px',
+                        maxHeight: 140,
+                        overflowY: 'auto',
+                        whiteSpace: 'pre-wrap',
+                        wordBreak: 'break-all',
+                        color: 'var(--color-text-secondary)',
+                        fontSize: 12,
+                        fontFamily: 'monospace',
+                    }}
+                >
+                    <div style={{ fontWeight: 600, marginBottom: 6, color: 'var(--color-text)' }}>Arguments</div>
+                    {formattedArgs.formatted}
+                </div>
+            );
+        } else {
+            detailBlocks.push(
+                <div
+                    key={`${key}-args`}
+                    style={{
+                        border: '1px solid var(--color-border)',
+                        borderRadius: 8,
+                        padding: '8px 10px',
+                        maxHeight: 140,
+                        overflowY: 'auto',
+                        whiteSpace: 'pre-wrap',
+                        wordBreak: 'break-all',
+                        color: 'var(--color-text-secondary)',
+                        fontSize: 12,
+                    }}
+                >
+                    <div style={{ fontWeight: 600, marginBottom: 6, color: 'var(--color-text)' }}>Arguments</div>
+                    {formattedArgs.text}
+                </div>
+            );
+        }
     }
     if (hasResult) {
         detailBlocks.push(

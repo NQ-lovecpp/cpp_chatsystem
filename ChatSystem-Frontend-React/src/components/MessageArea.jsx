@@ -6,7 +6,7 @@ import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { useChat } from '../contexts/ChatContext';
 import { useAuth } from '../contexts/AuthContext';
 import { useAgent } from '../contexts/AgentContext';
-import { sendTextMessage, sendImageMessage, sendFileMessage, searchMessages } from '../api/messageApi';
+import { sendTextMessage, sendImageMessage, sendFileMessage, searchMessages, getSingleFile } from '../api/messageApi';
 import MessageInput from './MessageInput';
 import SessionInfoModal from './SessionInfoModal';
 import SessionMembersModal from './SessionMembersModal';
@@ -14,6 +14,7 @@ import Avatar from './Avatar';
 import UserInfoCard from './UserInfoCard';
 import StreamingMarkdown from './agent/StreamingMarkdown';
 import BackgroundTaskPanel from './agent/BackgroundTaskPanel';
+import FilePreviewModal, { isPreviewable } from './FilePreview/FilePreviewModal';
 
 // 文件图标配置
 const FILE_ICONS = {
@@ -221,6 +222,37 @@ export default function MessageArea() {
     const [searchResults, setSearchResults] = useState([]);
     const [searching, setSearching] = useState(false);
     const [selectedUser, setSelectedUser] = useState(null);
+    const [filePreview, setFilePreview] = useState({ open: false, fileName: '', fileUrl: null, fileId: null });
+
+    const handleOpenFilePreview = useCallback(async (fileName, fileId) => {
+        setFilePreview({ open: true, fileName, fileUrl: null, fileId });
+        try {
+            const res = await getSingleFile(sessionId, user?.user_id, fileId);
+            if (res.success && res.file_data) {
+                const ext = (fileName || '').split('.').pop().toLowerCase();
+                const mimeMap = {
+                    pdf: 'application/pdf', doc: 'application/msword',
+                    docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+                    xls: 'application/vnd.ms-excel',
+                    xlsx: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+                    ppt: 'application/vnd.ms-powerpoint',
+                    pptx: 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+                    csv: 'text/csv', txt: 'text/plain',
+                    png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg',
+                    gif: 'image/gif', webp: 'image/webp', svg: 'image/svg+xml',
+                };
+                const mime = mimeMap[ext] || 'application/octet-stream';
+                const dataUrl = `data:${mime};base64,${res.file_data.file_content || res.file_data}`;
+                setFilePreview(prev => ({ ...prev, fileUrl: dataUrl }));
+            }
+        } catch (err) {
+            console.error('获取文件内容失败:', err);
+        }
+    }, [sessionId, user]);
+
+    const handleCloseFilePreview = useCallback(() => {
+        setFilePreview({ open: false, fileName: '', fileUrl: null, fileId: null });
+    }, []);
 
     // 智能滚动
     useEffect(() => {
@@ -487,17 +519,29 @@ export default function MessageArea() {
             case 2: { // FILE
                 const fileName = content.file_message?.file_name || '未知文件';
                 const fileSize = content.file_message?.file_size || 0;
+                const fileId = content.file_message?.file_id;
                 const icon = getFileIcon(fileName);
+                const canPreview = isPreviewable(fileName);
                 return (
-                    <div className="flex items-center gap-3 p-3 bg-white/80 rounded-xl min-w-[200px]">
+                    <div
+                        className={`flex items-center gap-3 p-3 bg-[var(--color-bg-elevated,white)]/80 rounded-xl min-w-[200px] ${canPreview ? 'cursor-pointer hover:shadow-md transition-shadow' : ''}`}
+                        onClick={canPreview && fileId ? () => handleOpenFilePreview(fileName, fileId) : undefined}
+                    >
                         <div className={`w-10 h-10 ${icon.bg} rounded-lg flex items-center justify-center shrink-0`}>
                             <span className={`text-xs font-bold ${icon.color}`}>{icon.label}</span>
                         </div>
                         <div className="flex-1 min-w-0">
-                            <p className="text-sm font-medium truncate text-gray-900">{fileName}</p>
-                            <p className="text-xs text-gray-400">{formatFileSize(fileSize)}</p>
+                            <p className="text-sm font-medium truncate text-[var(--color-text)]">{fileName}</p>
+                            <p className="text-xs text-[var(--color-text-muted)]">
+                                {formatFileSize(fileSize)}
+                                {canPreview && <span className="ml-2 text-[#1677ff]">点击预览</span>}
+                            </p>
                         </div>
-                        <button className="p-1.5 text-gray-400 hover:text-[#0B4F6C] hover:bg-[#E0F2F7] rounded-lg transition-colors shrink-0" title="下载文件">
+                        <button
+                            className="p-1.5 text-[var(--color-text-muted)] hover:text-[#0B4F6C] hover:bg-[#E0F2F7] rounded-lg transition-colors shrink-0"
+                            title="下载文件"
+                            onClick={(e) => { e.stopPropagation(); handleOpenFilePreview(fileName, fileId); }}
+                        >
                             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                             </svg>
@@ -727,6 +771,14 @@ export default function MessageArea() {
                     onViewProfile={handleViewUserProfile}
                 />
             )}
+
+            <FilePreviewModal
+                open={filePreview.open}
+                onClose={handleCloseFilePreview}
+                fileName={filePreview.fileName}
+                fileUrl={filePreview.fileUrl}
+                fileId={filePreview.fileId}
+            />
         </div>
     );
 }
