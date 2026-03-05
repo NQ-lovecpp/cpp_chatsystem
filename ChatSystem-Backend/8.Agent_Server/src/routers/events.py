@@ -18,6 +18,7 @@ if str(src_dir) not in sys.path:
 
 from auth import UserContext, require_auth
 from runtime import sse_bus, stream_registry
+from chat_agents.research_agent import _active_tasks as _research_tasks
 
 
 router = APIRouter(prefix="/events", tags=["events"])
@@ -72,17 +73,20 @@ async def subscribe_events(
     user: UserContext = Depends(require_auth)
 ):
     """
-    订阅任务级 SSE 事件流（保留兼容）
+    订阅任务级 SSE 事件流。
+    支持普通 Agent stream（stream_registry）和后台研究任务（_active_tasks）。
     """
-    stream = stream_registry.get(task_id)
-
-    if not stream:
-        raise HTTPException(status_code=404, detail="Stream not found")
-
-    if stream.user_id != user.user_id:
-        raise HTTPException(status_code=403, detail="Access denied")
-
-    logger.info(f"Task SSE subscription: stream={task_id}, user={user.user_id}")
+    # 优先检查后台研究任务（task_id 以 research_ 开头）
+    if task_id in _research_tasks:
+        logger.info(f"Research task SSE subscription: task={task_id}, user={user.user_id}")
+    else:
+        # 普通 Agent stream
+        stream = stream_registry.get(task_id)
+        if not stream:
+            raise HTTPException(status_code=404, detail="Stream not found")
+        if stream.user_id != user.user_id:
+            raise HTTPException(status_code=403, detail="Access denied")
+        logger.info(f"Task SSE subscription: stream={task_id}, user={user.user_id}")
 
     async def event_generator():
         async for event in sse_bus.subscribe(task_id, last_event_id):

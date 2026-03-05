@@ -115,8 +115,11 @@ export async function cancelAgentTask(sessionId, taskId) {
 /**
  * 获取后台任务列表（深度研究等）
  */
-export async function getBackgroundTasks() {
-    const response = await fetch(`${getAgentBaseUrl()}/tasks/background`);
+export async function getBackgroundTasks(chatSessionId) {
+    const url = chatSessionId
+        ? `${getAgentBaseUrl()}/tasks/background?chat_session_id=${encodeURIComponent(chatSessionId)}`
+        : `${getAgentBaseUrl()}/tasks/background`;
+    const response = await fetch(url);
     if (!response.ok) return { tasks: [] };
     return response.json();
 }

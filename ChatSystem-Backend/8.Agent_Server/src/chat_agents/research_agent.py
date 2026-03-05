@@ -81,29 +81,36 @@ WRITER_PROMPT = """你是一名资深研究员，负责根据搜索结果撰写�
 报告应结构清晰、论据充分、引用搜索中的关键事实。使用中文撰写。"""
 
 
-def _create_planner_agent(model: Optional[str] = None) -> Agent:
+# deepseek-r1 (thinking) 输出含 <think> 块，不适合 output_type 结构化 JSON
+# PlannerAgent 和 WriterAgent 需要 JSON 输出，使用 deepseek-chat (V3)
+# SearchAgent 只需纯文本输出，可使用 deepseek-r1 进行搜索推理
+RESEARCH_MODEL_TEXT = "deepseek/deepseek-r1-0528"         # 搜索/推理
+RESEARCH_MODEL_JSON = "deepseek/deepseek-chat"            # 结构化输出
+
+
+def _create_planner_agent() -> Agent:
     return Agent(
         name="PlannerAgent",
         instructions=PLANNER_PROMPT,
-        model=model or "openai/gpt-5-mini",
+        model=RESEARCH_MODEL_JSON,
         output_type=SearchPlan,
     )
 
 
-def _create_search_agent(model: Optional[str] = None) -> Agent:
+def _create_search_agent() -> Agent:
     return Agent(
         name="SearchAgent",
         instructions=SEARCH_PROMPT,
-        model=model or "openai/gpt-5-mini",
+        model=RESEARCH_MODEL_TEXT,
         tools=[web_search, web_open, web_find],
     )
 
 
-def _create_writer_agent(model: Optional[str] = None) -> Agent:
+def _create_writer_agent() -> Agent:
     return Agent(
         name="WriterAgent",
         instructions=WRITER_PROMPT,
-        model=model or "openai/gpt-5-mini",
+        model=RESEARCH_MODEL_JSON,
         output_type=ReportData,
     )
 
@@ -150,7 +157,11 @@ class DeepResearchManager:
 
             if report:
                 await self._deliver_report(topic, report)
-                await self._publish("task_status", {"status": "done", "summary": report.short_summary})
+                await self._publish("task_status", {
+                    "status": "done",
+                    "summary": report.short_summary,
+                    "report": self._format_report(topic, report),
+                })
             else:
                 await self._publish("error", {"message": "报告生成失败"})
 
@@ -233,8 +244,8 @@ class DeepResearchManager:
             logger.error(f"[{self.task_id}] Writing failed: {e}")
             return None
 
-    async def _deliver_report(self, topic: str, report: ReportData):
-        """将报告作为消息发送到聊天会话"""
+    def _format_report(self, topic: str, report: ReportData) -> str:
+        """格式化报告为 Markdown 字符串"""
         content = (
             f"## 深度研究完成: {topic}\n\n"
             f"**摘要**: {report.short_summary}\n\n"
@@ -245,6 +256,11 @@ class DeepResearchManager:
         )
         for q in report.follow_up_questions:
             content += f"- {q}\n"
+        return content
+
+    async def _deliver_report(self, topic: str, report: ReportData):
+        """将报告作为消息发送到聊天会话"""
+        content = self._format_report(topic, report)
 
         message = AgentMessage(
             message_id=str(uuid.uuid4()),
@@ -263,6 +279,12 @@ class DeepResearchManager:
         await dual_writer.write_agent_message(message, "AI 助手", wait_mysql=True)
 
         session_channel = f"session:{self.chat_session_id}"
+        # 先发 agent_start 让前端创建占位消息，再发 agent_done 填充内容
+        await sse_bus.publish(session_channel, "agent_start", {
+            "message_id": message.message_id,
+            "chat_session_id": self.chat_session_id,
+            "agent_user_id": self.agent_user_id,
+        })
         await sse_bus.publish(session_channel, "agent_done", {
             "message_id": message.message_id,
             "chat_session_id": self.chat_session_id,
@@ -301,8 +323,11 @@ async def run_deep_research(
 
     try:
         manager = DeepResearchManager(task_id, chat_session_id, agent_user_id)
-        await manager.run(topic, context)
+        report = await manager.run(topic, context)
         _active_tasks[task_id]["status"] = "done"
+        if report:
+            _active_tasks[task_id]["summary"] = report.short_summary
+            _active_tasks[task_id]["report"] = manager._format_report(topic, report)
     except Exception as e:
         logger.error(f"[{task_id}] Deep research task failed: {e}", exc_info=True)
         _active_tasks[task_id]["status"] = "failed"

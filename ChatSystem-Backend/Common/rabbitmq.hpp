@@ -6,10 +6,12 @@
 #include <openssl/opensslv.h>
 #include <amqpcpp/message.h>
 
+#include <atomic>
 #include <functional>
 #include <mutex>
 #include <queue>
 #include <string>
+#include <vector>
 #include "logger.hpp"
 
 namespace chen_im {
@@ -26,9 +28,15 @@ private:
     std::unique_ptr<AMQP::TcpChannel   > _channel;
     std::thread _loop_thread;
 
+    // ack 机制：带 generation 防止旧 delivery tag 污染新 channel
+    struct AckItem {
+        uint64_t deliveryTag;
+        uint64_t generation;
+    };
     struct ev_async      _ack_watcher;
     std::mutex           _ack_mutex;
-    std::queue<uint64_t> _pending_acks;
+    std::queue<AckItem>  _pending_acks;
+    std::atomic<uint64_t> _channel_generation{0};
 
     struct PendingPublish {
         std::string exchange;
@@ -38,6 +46,15 @@ private:
     struct ev_async            _publish_watcher;
     std::mutex                 _publish_mutex;
     std::queue<PendingPublish> _pending_publishes;
+
+    // channel 重连机制
+    struct ev_async _recreate_channel_watcher;
+    struct ConsumerReg {
+        std::string queue_name;
+        std::string tag;
+        std::function<void(const char*, size_t)> callback;
+    };
+    std::vector<ConsumerReg> _registered_consumers;
 
 public:
     using OnGetMessage = std::function<void(const char*, size_t)>;
@@ -56,6 +73,10 @@ public:
         _publish_watcher.data = this;
         ev_async_init(&_publish_watcher, _publish_watcher_cb);
         ev_async_start(_loop, &_publish_watcher);
+
+        _recreate_channel_watcher.data = this;
+        ev_async_init(&_recreate_channel_watcher, _recreate_channel_cb);
+        ev_async_start(_loop, &_recreate_channel_watcher);
     }
 
     void declear_all_components(const std::string &exchange_name,
@@ -117,21 +138,8 @@ public:
                          std::function<void(const char*, size_t)> callback)
     {
         LOG_DEBUG("Consuming messages from queue: {} with tag: {}", queue_name, tag);
-        _channel->consume(queue_name, tag)
-            .onReceived([this, callback](const AMQP::Message &message, uint64_t deliveryTag, bool redelivered) {
-                if (!callback) {
-                    LOG_ERROR("Callback function is empty!");
-                    abort();
-                }
-                std::vector<char> body(message.body(), message.body() + message.bodySize());
-                std::thread([this, callback, body = std::move(body), deliveryTag]() mutable {
-                    callback(body.data(), body.size());
-                    _schedule_ack(deliveryTag);
-                }).detach();
-            })
-            .onError([queue_name](const char* msg) {
-                LOG_ERROR("subscribe {} failed: {}", queue_name, msg);
-            });
+        _registered_consumers.push_back({queue_name, tag, callback});
+        _do_consume(queue_name, tag, callback);
         return true;
     }
 
@@ -146,26 +154,77 @@ public:
     }
 
 private:
-    void _schedule_ack(uint64_t deliveryTag)
+    void _do_consume(const std::string& queue_name, const std::string& tag,
+                     const std::function<void(const char*, size_t)>& callback)
+    {
+        _channel->consume(queue_name, tag)
+            .onReceived([this, callback](const AMQP::Message &message, uint64_t deliveryTag, bool redelivered) {
+                if (!callback) {
+                    LOG_ERROR("Callback function is empty!");
+                    abort();
+                }
+                uint64_t gen = _channel_generation.load();
+                std::vector<char> body(message.body(), message.body() + message.bodySize());
+                std::thread([this, callback, body = std::move(body), deliveryTag, gen]() mutable {
+                    callback(body.data(), body.size());
+                    _schedule_ack(deliveryTag, gen);
+                }).detach();
+            })
+            .onError([this, queue_name](const char* msg) {
+                LOG_ERROR("subscribe {} failed: {}, scheduling channel reconnect", queue_name, msg);
+                _schedule_channel_recreate();
+            });
+    }
+
+    void _schedule_ack(uint64_t deliveryTag, uint64_t generation)
     {
         {
             std::lock_guard<std::mutex> lock(_ack_mutex);
-            _pending_acks.push(deliveryTag);
+            _pending_acks.push({deliveryTag, generation});
         }
         ev_async_send(_loop, &_ack_watcher);
+    }
+
+    void _schedule_channel_recreate()
+    {
+        ev_async_send(_loop, &_recreate_channel_watcher);
     }
 
     static void _ack_watcher_cb(struct ev_loop *loop, ev_async *w, int revents)
     {
         MQClient *self = static_cast<MQClient*>(w->data);
-        std::queue<uint64_t> acks;
+        std::queue<AckItem> acks;
         {
             std::lock_guard<std::mutex> lock(self->_ack_mutex);
             std::swap(acks, self->_pending_acks);
         }
+        uint64_t current_gen = self->_channel_generation.load();
         while (!acks.empty()) {
-            self->_channel->ack(acks.front());
+            const auto& item = acks.front();
+            if (item.generation == current_gen) {
+                self->_channel->ack(item.deliveryTag);
+            } else {
+                LOG_DEBUG("Discarding stale ack: delivery_tag={}, gen={} (current={})",
+                          item.deliveryTag, item.generation, current_gen);
+            }
             acks.pop();
+        }
+    }
+
+    static void _recreate_channel_cb(struct ev_loop *loop, ev_async *w, int revents)
+    {
+        MQClient *self = static_cast<MQClient*>(w->data);
+        LOG_WARN("AMQP channel error detected, recreating channel and re-registering {} consumers...",
+                 self->_registered_consumers.size());
+
+        // 递增 generation，使所有来自旧 channel 的 ack 在 _ack_watcher_cb 中被丢弃
+        self->_channel_generation.fetch_add(1);
+
+        self->_channel = std::make_unique<AMQP::TcpChannel>(self->_connection.get());
+
+        for (const auto& reg : self->_registered_consumers) {
+            LOG_INFO("Re-registering consumer for queue: {}", reg.queue_name);
+            self->_do_consume(reg.queue_name, reg.tag, reg.callback);
         }
     }
 

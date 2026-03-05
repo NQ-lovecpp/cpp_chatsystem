@@ -120,9 +120,14 @@ async def create_task(
 
 
 @router.get("/background")
-async def list_background_tasks():
-    """获取所有活跃的后台任务（深度研究等）— 必须定义在 /{task_id} 之前"""
-    return {"tasks": get_active_tasks()}
+async def list_background_tasks(
+    chat_session_id: Optional[str] = None,
+):
+    """获取后台任务（深度研究等）— 按 chat_session_id 过滤，必须定义在 /{task_id} 之前"""
+    tasks = get_active_tasks()
+    if chat_session_id:
+        tasks = [t for t in tasks if t.get("chat_session_id") == chat_session_id]
+    return {"tasks": tasks}
 
 
 @router.get("/{task_id}")

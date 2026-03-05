@@ -24,7 +24,7 @@ class Settings(BaseSettings):
     # OpenRouter 配置
     openrouter_api_key: Optional[str] = os.getenv("OPENROUTER_API_KEY")
     openrouter_base_url: str = "https://openrouter.ai/api/v1"
-    openrouter_model: str = "openai/gpt-5-mini"
+    openrouter_model: str = "openai/gpt-4o-mini"
     
     # 代理配置 (Clash)
     http_proxy: Optional[str] = None
