@@ -136,7 +136,7 @@ data: {"task_id": "xxx", "status": "done"}
 
 在 [gateway_server.hpp](ChatSystem-Backend/7.Gateway_Server/source/gateway_server.hpp) 中增加 HTTP 代理：
 
-- 路径：`/service/agent/*`（如 `/service/agent/tasks`, `/service/agent/events`）
+- 路径：`/service/agent/`*（如 `/service/agent/tasks`, `/service/agent/events`）
 - 鉴权：从请求体或 Header 解析 `session_id`，调用 `_redis_session->get_uid(ssid)` 获取 `user_id`
 - 转发：HTTP POST/GET 到 Agent_Server，附加 Header `X-User-Id: {user_id}`，`X-Session-Id: {session_id}`
 
@@ -145,7 +145,7 @@ data: {"task_id": "xxx", "status": "done"}
 - 若前端用 JSON：网关解析 JSON，校验 `session_id`，注入 `user_id` 后转发
 - 若保持 Protobuf：需为 Agent 单独定义 JSON 接口，与现有 Protobuf 并存
 
-**建议**：Agent 相关接口统一用 JSON，网关对 `/service/agent/*` 做特殊处理（解析 JSON 鉴权后转发）。
+**建议**：Agent 相关接口统一用 JSON，网关对 `/service/agent/`* 做特殊处理（解析 JSON 鉴权后转发）。
 
 ---
 
@@ -289,7 +289,7 @@ items = [
   - 实现 `POST /tasks`、`GET /events`（SSE），参考 5_todos 的队列与 worker
   - 实现 `add_todo`、`set_todo_status` 工具
 2. **Phase 2 - 网关代理与鉴权**
-  - 网关增加 `/service/agent/*` 路由，鉴权后转发并注入 `X-User-Id`
+  - 网关增加 `/service/agent/`* 路由，鉴权后转发并注入 `X-User-Id`
   - 前端通过现有 `sessionId` 调用 Agent 接口
 3. **Phase 3 - 聊天工具与 DB**
   - 实现 `get_session_messages`、`get_user_sessions` 等工具，直连 MySQL

@@ -706,6 +706,7 @@ namespace chen_im
                 req.add_file_id_list(fid);
             }
             brpc::Controller cntl;
+            cntl.set_timeout_ms(10000); // 文件下载操作设置10秒超时
             stub.GetMultiFile(&cntl, &req, &rsp, nullptr); // 真正的调用
             if (cntl.Failed() == true || rsp.success() == false) {
                 LOG_ERROR("文件子服务调用失败，原因：{}！", cntl.ErrorText());
@@ -745,6 +746,7 @@ namespace chen_im
             req.mutable_file_data()->set_file_size(fsize);
             req.mutable_file_data()->set_file_content(body);
             brpc::Controller cntl;
+            cntl.set_timeout_ms(10000); // 文件上传操作设置10秒超时
             stub.PutSingleFile(&cntl, &req, &rsp, nullptr);
             if (cntl.Failed() == true || rsp.success() == false)
             {

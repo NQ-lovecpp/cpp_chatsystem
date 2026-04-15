@@ -129,7 +129,7 @@ tools/
 
 ### 3.4 MCP 服务检查与清理
 
-**检查 [mcp-servers**](ChatSystem-Backend/8.Agent_Server/src/tools/mcp-servers)：
+**检查 [mcp-servers](ChatSystem-Backend/8.Agent_Server/src/tools/mcp-servers)**：
 
 - **背景**：browser_server、python_server 此前为 gpt-oss harmony 格式定制（openai_harmony、Message/TextContent 等）。OpenRouter 等提供商已自行解析，此处无需再做 harmony 解析。
 - **清理**：移除 harmony 相关解析逻辑，简化为纯文本输入/输出，供任意 OpenRouter 模型调用。
