@@ -125,7 +125,7 @@ public:
         if (!Serialize(body, &body_str)) return false;
 
         auto resp = client_->Put("/collections/" + name_, body_str);
-        if (resp.status_code != 200) {
+        if (resp.status_code < 200 || resp.status_code >= 300) {
             LOG_ERROR("qdrant: 创建集合 {} 失败，HTTP {}，响应：{}",
                       name_, resp.status_code, resp.text);
             return false;
@@ -136,9 +136,14 @@ public:
     }
 
     // DELETE /collections/{name}
+    // 幂等：集合本来就不存在（404）视为成功，调用方可以放心在 create 前先 drop 一下。
     bool drop_and_send() {
         auto resp = client_->Delete("/collections/" + name_);
-        if (resp.status_code != 200) {
+        if (resp.status_code == 404) {
+            LOG_INFO("qdrant: 集合 {} 本来就不存在，跳过删除", name_);
+            return true;
+        }
+        if (resp.status_code < 200 || resp.status_code >= 300) {
             LOG_ERROR("qdrant: 删除集合 {} 失败，HTTP {}，响应：{}",
                       name_, resp.status_code, resp.text);
             return false;
@@ -197,7 +202,7 @@ public:
 
         auto resp = client_->Put("/collections/" + collection_ + "/points?wait=true",
                                  body_str);
-        if (resp.status_code != 200) {
+        if (resp.status_code < 200 || resp.status_code >= 300) {
             LOG_ERROR("qdrant: upsert 到 {} 失败，HTTP {}，响应：{}",
                       collection_, resp.status_code, resp.text);
             return false;
@@ -262,7 +267,7 @@ public:
 
         auto resp = client_->Post("/collections/" + collection_ + "/points/search",
                                   body_str);
-        if (resp.status_code != 200) {
+        if (resp.status_code < 200 || resp.status_code >= 300) {
             LOG_ERROR("qdrant: 检索集合 {} 失败，HTTP {}，响应：{}",
                       collection_, resp.status_code, resp.text);
             return Json::Value(Json::arrayValue);
@@ -312,7 +317,7 @@ public:
 
         auto resp = client_->Post(
             "/collections/" + collection_ + "/points/delete?wait=true", body_str);
-        if (resp.status_code != 200) {
+        if (resp.status_code < 200 || resp.status_code >= 300) {
             LOG_ERROR("qdrant: 删除点失败，HTTP {}，响应：{}",
                       resp.status_code, resp.text);
             return false;
