@@ -3,6 +3,7 @@
  */
 
 import { httpPost, httpPostWithSession } from './httpClient';
+import { getHttpBaseUrl } from './config';
 
 // API 路径
 const API = {
@@ -16,6 +17,7 @@ const API = {
     SET_AVATAR: '/service/user/set_avatar',
     SET_DESCRIPTION: '/service/user/set_description',
     SET_PHONE: '/service/user/set_phone',
+    SESSION_REFRESH: '/service/user/session_refresh',
 };
 
 /**
@@ -82,4 +84,29 @@ export async function phoneLogin(phoneNumber, verifyCodeId, verifyCode) {
         verify_code_id: verifyCodeId,
         verify_code: verifyCode,
     });
+}
+
+/**
+ * 会话续期：心跳触发，续 Redis 中 session/status 的 TTL。
+ * 端点不走 protobuf：请求体即 sessionId 字符串；
+ *   - 200: ok（已刷新）
+ *   - 401: session 过期，调用方应执行登出
+ *   - 其它/网络错: 视为 transient，不要清除登录态
+ */
+export async function sessionRefresh(sessionId) {
+    if (!sessionId) return { success: false, transient: false, errmsg: 'no session' };
+    const url = `${getHttpBaseUrl()}${API.SESSION_REFRESH}`;
+    try {
+        const resp = await fetch(url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'text/plain' },
+            body: sessionId,
+        });
+        if (resp.status === 200) return { success: true, transient: false };
+        if (resp.status === 401) return { success: false, transient: false, errmsg: 'session expired' };
+        // 5xx / 其它 -> transient
+        return { success: false, transient: true, errmsg: `HTTP ${resp.status}` };
+    } catch (e) {
+        return { success: false, transient: true, errmsg: e.message || 'network error' };
+    }
 }

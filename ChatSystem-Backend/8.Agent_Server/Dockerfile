@@ -12,8 +12,19 @@ COPY pyproject.toml uv.lock .python-version* ./
 # 复制 Agent Server 源码
 COPY ChatSystem-Backend/8.Agent_Server/ ./agent_server/
 
-# 安装依赖（不安装 workspace 自身，仅安装依赖）
-RUN uv sync --frozen --no-install-project 2>/dev/null || uv sync --no-install-project
+# 镜像源：默认走清华 pypi 镜像，避免 build container 内访问 pypi.org 超时。
+# 想用上游 pypi 时可在 build 时覆盖：
+#   docker compose build --build-arg PIP_INDEX_URL=https://pypi.org/simple agent_server
+ARG PIP_INDEX_URL=https://pypi.tuna.tsinghua.edu.cn/simple
+ENV UV_INDEX_URL=${PIP_INDEX_URL}
+ENV PIP_INDEX_URL=${PIP_INDEX_URL}
+
+# BuildKit 会从宿主机 ~/.docker/config.json 注入 HTTP(S)_PROXY；
+# 容器内 127.0.0.1 上没有代理监听，且清华源国内直连可达，故构建期清空代理。
+RUN HTTP_PROXY= HTTPS_PROXY= http_proxy= https_proxy= ALL_PROXY= all_proxy= \
+    uv sync --frozen --no-install-project 2>/dev/null \
+ || HTTP_PROXY= HTTPS_PROXY= http_proxy= https_proxy= ALL_PROXY= all_proxy= \
+    uv sync --no-install-project
 
 # 工作目录设为 src
 WORKDIR /app/agent_server/src

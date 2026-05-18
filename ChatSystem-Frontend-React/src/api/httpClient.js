@@ -1246,8 +1246,14 @@ export async function httpPost(path, data) {
             body: body,
         });
 
+        // 5xx / 网络层报错：标记为 transient，由调用方决定是否清除登录态
         if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
+            const transient = response.status >= 500 || response.status === 0;
+            return {
+                success: false,
+                transient,
+                errmsg: `HTTP ${response.status}`,
+            };
         }
 
         // 解析响应
@@ -1258,17 +1264,21 @@ export async function httpPost(path, data) {
         console.log('[HTTP] Decoded response:', decoded);
 
         if (decoded) {
-            return decoded;
+            // 业务层失败不算 transient
+            return { transient: false, ...decoded };
         }
 
         return {
             success: false,
+            transient: false,
             errmsg: '无法解析服务器响应'
         };
     } catch (error) {
+        // fetch 抛异常一律视作 transient（DNS、断网、CORS、AbortError 等）
         console.error('HTTP request failed:', error);
         return {
             success: false,
+            transient: true,
             errmsg: error.message || '网络请求失败',
         };
     }

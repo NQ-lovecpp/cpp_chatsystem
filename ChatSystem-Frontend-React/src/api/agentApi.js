@@ -3,18 +3,9 @@
  * 与 Agent Server 的 HTTP/SSE 通信
  */
 
-import { getHttpBaseUrl } from './config';
-
-// Agent Server 基础 URL（开发环境通过 Vite 代理）
-const isDev = import.meta.env?.DEV || window.location.hostname === 'localhost';
-
+// Agent Server 基础 URL：开发用 Vite 代理、生产用 nginx 反代，均落到相对路径 /agent
 function getAgentBaseUrl() {
-    if (isDev) {
-        // 开发模式使用 Vite 代理
-        return '/agent';
-    }
-    // 生产模式：假设 Agent Server 与 Gateway 同域，通过网关代理
-    return `${getHttpBaseUrl()}/service/agent`;
+    return '/agent';
 }
 
 /**

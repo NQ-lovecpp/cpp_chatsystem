@@ -122,8 +122,9 @@ namespace chen_im
     public:
         using ptr = std::shared_ptr<Status>;
         static constexpr std::string_view KEY_PREFIX = "status:";
-        // TTL 10 分钟：gateway 异常重启后最多等 10 分钟即可自动过期
-        static constexpr auto DEFAULT_TTL = std::chrono::minutes(10);
+        // TTL 与 Session 对齐为 24 小时；HTTP 鉴权命中时也会 refresh，
+        // 真正的"是否在线"由长连接生命周期 + gateway 启动时的 flush_all_status 决定。
+        static constexpr auto DEFAULT_TTL = std::chrono::hours(24);
 
         Status(const std::shared_ptr<sw::redis::Redis> &redis_client) : _redis_client(redis_client) {}
         

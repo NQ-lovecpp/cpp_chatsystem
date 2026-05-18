@@ -37,6 +37,7 @@ namespace chen_im
 #define USERNAME_LOGIN "/service/user/username_login"               // "user.proto" rpc UserLogin()
 #define PHONE_REGISTER "/service/user/phone_register"               // "user.proto" rpc PhoneRegister()
 #define PHONE_LOGIN "/service/user/phone_login"                     // "user.proto" rpc PhoneLogin()
+#define SESSION_REFRESH "/service/user/session_refresh"             // 由 gateway 直接处理：刷新 session/status TTL
 
 // 其余23个都是需要鉴权的，也就是判断是否登录了
 // 有5个HTTP接口会通过websocket给客户端推送消息，具体推送的API定义在notify.proto里面
@@ -125,6 +126,7 @@ namespace chen_im
             _http_server.Post(USERNAME_LOGIN,        (httplib::Server::Handler)std::bind(&GatewayServer::UserLogin, this, std::placeholders::_1, std::placeholders::_2));
             _http_server.Post(PHONE_REGISTER, (httplib::Server::Handler)std::bind(&GatewayServer::PhoneRegister, this, std::placeholders::_1, std::placeholders::_2));
             _http_server.Post(PHONE_LOGIN, (httplib::Server::Handler)std::bind(&GatewayServer::PhoneLogin, this, std::placeholders::_1, std::placeholders::_2));
+            _http_server.Post(SESSION_REFRESH, (httplib::Server::Handler)std::bind(&GatewayServer::SessionRefresh, this, std::placeholders::_1, std::placeholders::_2));
             _http_server.Post(GET_USERINFO, (httplib::Server::Handler)std::bind(&GatewayServer::GetUserInfo, this, std::placeholders::_1, std::placeholders::_2));
             _http_server.Post(SET_USER_AVATAR, (httplib::Server::Handler)std::bind(&GatewayServer::SetUserAvatar, this, std::placeholders::_1, std::placeholders::_2));
             _http_server.Post(SET_USER_NICKNAME, (httplib::Server::Handler)std::bind(&GatewayServer::SetUserNickname, this, std::placeholders::_1, std::placeholders::_2));
@@ -189,6 +191,19 @@ namespace chen_im
         }
 
     private:
+        // 鉴权同时刷新会话/在线状态 TTL；HTTP 路径上每命中一次 session 就续命，
+        // 实现"用户活跃就一直保持登录"的滑动 TTL 行为。WebSocket 路径不走这里，
+        // 由 keepAlive() 的 60s 心跳负责刷新。
+        sw::redis::OptionalString authenticate_and_refresh(const std::string &ssid)
+        {
+            auto uid = _redis_session->get_uid(ssid);
+            if (uid) {
+                _redis_session->refresh(ssid);
+                _redis_status->refresh(*uid);
+            }
+            return uid;
+        }
+
         void when_websocket_connection_open(websocketpp::connection_hdl hdl)
         {
             LOG_DEBUG("websocket长连接建立成功 {}", (size_t)_ws_server.get_con_from_hdl(hdl).get());
@@ -484,6 +499,38 @@ namespace chen_im
             response.set_content(rsp.SerializeAsString(), "application/x-protobuf");
         }
 
+        // 极简会话续期：请求 body 是裸 session_id；命中即刷新 TTL，返回 200，文本 ok；
+        // 未命中或为空返回 401。前端可以无脑 POST 一个裸 sessionId 上来做心跳，不走 protobuf。
+        void SessionRefresh(const httplib::Request &request, httplib::Response &response)
+        {
+            std::string ssid = request.body;
+            // 容忍 JSON 形式 {"session_id":"..."} —— 简单字串裁切，避免引入 JSON 依赖
+            if (!ssid.empty() && ssid.front() == '{') {
+                auto p = ssid.find("\"session_id\"");
+                if (p != std::string::npos) {
+                    auto colon = ssid.find(':', p);
+                    auto q1    = ssid.find('"', colon == std::string::npos ? p : colon);
+                    auto q2    = q1 == std::string::npos ? std::string::npos : ssid.find('"', q1 + 1);
+                    if (q1 != std::string::npos && q2 != std::string::npos) {
+                        ssid = ssid.substr(q1 + 1, q2 - q1 - 1);
+                    }
+                }
+            }
+            if (ssid.empty()) {
+                response.status = 400;
+                response.set_content("missing session_id", "text/plain");
+                return;
+            }
+            auto uid = authenticate_and_refresh(ssid);
+            if (!uid) {
+                response.status = 401;
+                response.set_content("session expired", "text/plain");
+                return;
+            }
+            response.status = 200;
+            response.set_content("ok", "text/plain");
+        }
+
         void GetUserInfo(const httplib::Request &request, httplib::Response &response)
         {
             // 1. 取出http请求正文，将正文进行反序列化
@@ -503,7 +550,7 @@ namespace chen_im
             }
             // 2. 客户端身份识别与鉴权
             std::string ssid = req.session_id();
-            auto uid = _redis_session->get_uid(ssid);
+            auto uid = authenticate_and_refresh(ssid);
             if (!uid)
             {
                 LOG_ERROR("{} 获取登录会话关联用户信息失败！", ssid);
@@ -548,7 +595,7 @@ namespace chen_im
             }
             // 2. 客户端身份识别与鉴权
             std::string ssid = req.session_id();
-            auto uid = _redis_session->get_uid(ssid);
+            auto uid = authenticate_and_refresh(ssid);
             if (!uid)
             {
                 LOG_ERROR("{} 获取登录会话关联用户信息失败！", ssid);
@@ -593,7 +640,7 @@ namespace chen_im
             }
             // 2. 客户端身份识别与鉴权
             std::string ssid = req.session_id();
-            auto uid = _redis_session->get_uid(ssid);
+            auto uid = authenticate_and_refresh(ssid);
             if (!uid)
             {
                 LOG_ERROR("{} 获取登录会话关联用户信息失败！", ssid);
@@ -638,7 +685,7 @@ namespace chen_im
             }
             // 2. 客户端身份识别与鉴权
             std::string ssid = req.session_id();
-            auto uid = _redis_session->get_uid(ssid);
+            auto uid = authenticate_and_refresh(ssid);
             if (!uid)
             {
                 LOG_ERROR("{} 获取登录会话关联用户信息失败！", ssid);
@@ -683,7 +730,7 @@ namespace chen_im
             }
             // 2. 客户端身份识别与鉴权
             std::string ssid = req.session_id();
-            auto uid = _redis_session->get_uid(ssid);
+            auto uid = authenticate_and_refresh(ssid);
             if (!uid)
             {
                 LOG_ERROR("{} 获取登录会话关联用户信息失败！", ssid);
@@ -728,7 +775,7 @@ namespace chen_im
             }
             // 2. 客户端身份识别与鉴权
             std::string ssid = req.session_id();
-            auto uid = _redis_session->get_uid(ssid);
+            auto uid = authenticate_and_refresh(ssid);
             if (!uid)
             {
                 LOG_ERROR("{} 获取登录会话关联用户信息失败！", ssid);
@@ -799,7 +846,7 @@ namespace chen_im
             }
             // 2. 客户端身份识别与鉴权
             std::string ssid = req.session_id();
-            auto uid = _redis_session->get_uid(ssid);
+            auto uid = authenticate_and_refresh(ssid);
             if (!uid)
             {
                 LOG_ERROR("{} 获取登录会话关联用户信息失败！", ssid);
@@ -861,7 +908,7 @@ namespace chen_im
             }
             // 2. 客户端身份识别与鉴权
             std::string ssid = req.session_id();
-            const std::optional<std::string> &uid = _redis_session->get_uid(ssid);
+            const std::optional<std::string> &uid = authenticate_and_refresh(ssid);
             if (!uid)
             {
                 LOG_ERROR("{} 获取登录会话关联用户信息失败！", ssid);
@@ -970,7 +1017,7 @@ namespace chen_im
             }
             // 2. 客户端身份识别与鉴权
             std::string ssid = req.session_id();
-            auto uid = _redis_session->get_uid(ssid);
+            auto uid = authenticate_and_refresh(ssid);
             if (!uid)
             {
                 LOG_ERROR("{} 获取登录会话关联用户信息失败！", ssid);
@@ -1024,7 +1071,7 @@ namespace chen_im
             }
             // 2. 客户端身份识别与鉴权
             std::string ssid = req.session_id();
-            auto uid = _redis_session->get_uid(ssid);
+            auto uid = authenticate_and_refresh(ssid);
             if (!uid)
             {
                 LOG_ERROR("{} 获取登录会话关联用户信息失败！", ssid);
@@ -1068,7 +1115,7 @@ namespace chen_im
             }
             // 2. 客户端身份识别与鉴权
             std::string ssid = req.session_id();
-            auto uid = _redis_session->get_uid(ssid);
+            auto uid = authenticate_and_refresh(ssid);
             if (!uid)
             {
                 LOG_ERROR("{} 获取登录会话关联用户信息失败！", ssid);
@@ -1112,7 +1159,7 @@ namespace chen_im
             }
             // 2. 客户端身份识别与鉴权
             std::string ssid = req.session_id();
-            auto uid = _redis_session->get_uid(ssid);
+            auto uid = authenticate_and_refresh(ssid);
             if (!uid)
             {
                 LOG_ERROR("{} 获取登录会话关联用户信息失败！", ssid);
@@ -1156,7 +1203,7 @@ namespace chen_im
             }
             // 2. 客户端身份识别与鉴权
             std::string ssid = req.session_id();
-            auto uid = _redis_session->get_uid(ssid);
+            auto uid = authenticate_and_refresh(ssid);
             if (!uid)
             {
                 LOG_ERROR("{} 获取登录会话关联用户信息失败！", ssid);
@@ -1201,7 +1248,7 @@ namespace chen_im
             }
             // 2. 客户端身份识别与鉴权
             std::string ssid = req.session_id();
-            auto uid = _redis_session->get_uid(ssid);
+            auto uid = authenticate_and_refresh(ssid);
             if (!uid)
             {
                 LOG_ERROR("{} 获取登录会话关联用户信息失败！", ssid);
@@ -1246,7 +1293,7 @@ namespace chen_im
             }
             // 2. 客户端身份识别与鉴权
             std::string ssid = req.session_id();
-            auto uid = _redis_session->get_uid(ssid);
+            auto uid = authenticate_and_refresh(ssid);
             if (!uid)
             {
                 LOG_ERROR("{} 获取登录会话关联用户信息失败！", ssid);
@@ -1290,7 +1337,7 @@ namespace chen_im
             }
             // 2. 客户端身份识别与鉴权
             std::string ssid = req.session_id();
-            auto uid = _redis_session->get_uid(ssid);
+            auto uid = authenticate_and_refresh(ssid);
             if (!uid)
             {
                 LOG_ERROR("{} 获取登录会话关联用户信息失败！", ssid);
@@ -1353,7 +1400,7 @@ namespace chen_im
             }
             // 2. 客户端身份识别与鉴权
             std::string ssid = req.session_id();
-            auto uid = _redis_session->get_uid(ssid);
+            auto uid = authenticate_and_refresh(ssid);
             if (!uid)
             {
                 LOG_ERROR("{} 获取登录会话关联用户信息失败！", ssid);
@@ -1396,7 +1443,7 @@ namespace chen_im
             }
             // 2. 客户端身份识别与鉴权
             std::string ssid = req.session_id();
-            auto uid = _redis_session->get_uid(ssid);
+            auto uid = authenticate_and_refresh(ssid);
             if (!uid)
             {
                 LOG_ERROR("{} 获取登录会话关联用户信息失败！", ssid);
@@ -1439,7 +1486,7 @@ namespace chen_im
             }
             // 2. 客户端身份识别与鉴权
             std::string ssid = req.session_id();
-            auto uid = _redis_session->get_uid(ssid);
+            auto uid = authenticate_and_refresh(ssid);
             if (!uid)
             {
                 LOG_ERROR("{} 获取登录会话关联用户信息失败！", ssid);
@@ -1482,7 +1529,7 @@ namespace chen_im
             }
             // 2. 客户端身份识别与鉴权
             std::string ssid = req.session_id();
-            auto uid = _redis_session->get_uid(ssid);
+            auto uid = authenticate_and_refresh(ssid);
             if (!uid)
             {
                 LOG_ERROR("{} 获取登录会话关联用户信息失败！", ssid);
@@ -1525,7 +1572,7 @@ namespace chen_im
             }
             // 2. 客户端身份识别与鉴权
             std::string ssid = req.session_id();
-            auto uid = _redis_session->get_uid(ssid);
+            auto uid = authenticate_and_refresh(ssid);
             if (!uid)
             {
                 LOG_ERROR("{} 获取登录会话关联用户信息失败！", ssid);
@@ -1568,7 +1615,7 @@ namespace chen_im
             }
             // 2. 客户端身份识别与鉴权
             std::string ssid = req.session_id();
-            auto uid = _redis_session->get_uid(ssid);
+            auto uid = authenticate_and_refresh(ssid);
             if (!uid)
             {
                 LOG_ERROR("{} 获取登录会话关联用户信息失败！", ssid);
@@ -1611,7 +1658,7 @@ namespace chen_im
             }
             // 2. 客户端身份识别与鉴权
             std::string ssid = req.session_id();
-            auto uid = _redis_session->get_uid(ssid);
+            auto uid = authenticate_and_refresh(ssid);
             if (!uid)
             {
                 LOG_ERROR("{} 获取登录会话关联用户信息失败！", ssid);
@@ -1655,7 +1702,7 @@ namespace chen_im
             }
             // 2. 客户端身份识别与鉴权
             std::string ssid = req.session_id();
-            auto uid = _redis_session->get_uid(ssid);
+            auto uid = authenticate_and_refresh(ssid);
             if (!uid)
             {
                 LOG_ERROR("{} 获取登录会话关联用户信息失败！", ssid);
@@ -1700,7 +1747,7 @@ namespace chen_im
             }
             // 2. 客户端身份识别与鉴权
             std::string ssid = req.session_id();
-            auto uid = _redis_session->get_uid(ssid);
+            auto uid = authenticate_and_refresh(ssid);
             if (!uid)
             {
                 LOG_ERROR("{} 获取登录会话关联用户信息失败！", ssid);

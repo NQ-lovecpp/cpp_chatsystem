@@ -57,6 +57,7 @@ from tools.db_tools import (
     search_messages,
     get_user_sessions,
 )
+from tools.todo_tools import add_todos, update_todo, list_todos
 from chat_agents.research_agent import run_deep_research, get_active_tasks
 from tools.sdk_tools import current_task_id, current_user_id, current_chat_session_id
 
@@ -74,7 +75,8 @@ SESSION_AGENT_SYSTEM_PROMPT = """你是聊天会话中的 AI 助手成员。你�
 2. **搜索信息**：使用网页搜索获取最新信息
 3. **执行代码**：执行 Python 代码（需要审批）
 4. **查询数据**：获取聊天历史、会话成员、用户信息等
-5. **深度研究**：当用户需要深入研究某个主题时，使用 create_deep_research 工具。先向用户确认研究范围和侧重点，收集充足信息后再创建研究任务。研究会在后台执行，完成后自动发送报告。
+5. **任务规划**：使用 add_todos 添加任务步骤，用 update_todo 更新进度，用 list_todos 查看当前任务列表。适合复杂多步骤任务，让用户了解进度。
+6. **深度研究**：当用户需要深入研究某个主题时，使用 create_deep_research 工具。先向用户确认研究范围和侧重点，收集充足信息后再创建研究任务。研究会在后台执行，完成后自动发送报告。
 
 ## 搜索任务流程
 搜索类任务完整流程：web_search(获取结果) → web_open(用链接ID如0打开) → web_find(在页面查找) → 综合后回复。
@@ -297,6 +299,7 @@ def create_session_agent(
         tools=[
             web_search, web_open, web_find, python_tool,
             get_chat_history, get_session_members, get_user_info, search_messages,
+            add_todos, update_todo, list_todos,
             create_deep_research,
         ],
         hooks=SessionAgentHooks(state),
@@ -462,7 +465,10 @@ async def run_session_agent(
         yield {"type": "done", "result": final_text}
 
     except Exception as e:
-        logger.error(f"SessionAgent error: {e}", exc_info=True)
+        logger.opt(exception=True).error(f"SessionAgent error: {e!r}")
+        body = getattr(getattr(e, "response", None), "text", None)
+        if body:
+            logger.error(f"SessionAgent upstream response body: {body[:2000]}")
         await sse_bus.publish(session_channel, "agent_error", {
             "message_id": message_id,
             "error": str(e),

@@ -391,3 +391,31 @@ services:
       interval: 10s
       timeout: 5s
       retries: 3
+
+  # ========== 前端 ==========
+
+  frontend:
+    build:
+      context: ../ChatSystem-Frontend-React
+      dockerfile: Dockerfile
+    image: chatsystem_frontend:v1
+    container_name: frontend
+    hostname: frontend
+    networks:
+      - chatsystem-overlay
+    ports:
+      - "8000:10010"     # 宿主机 8000 -> 容器 nginx 10010
+    deploy:
+      replicas: 1
+      restart_policy:
+        condition: on-failure
+    depends_on:
+      gateway_server:
+        condition: service_healthy
+      agent_server:
+        condition: service_healthy
+    healthcheck:
+      test: [ "CMD-SHELL", "wget -qO- http://localhost:10010/ >/dev/null 2>&1 || exit 1" ]
+      interval: 30s
+      timeout: 5s
+      retries: 3

@@ -84,10 +84,10 @@ namespace chen_im
         {
             std::vector<User> res;
             Json::Value json_user = ESSearch("user", "_doc", _es_client)
-                                        .append_should_match("phone.keyword", key)
-                                        .append_should_match("user_id.keyword", key)
+                                        .append_should_match("phone", key)       // 修复：移除 .keyword 后缀
+                                        .append_should_match("user_id", key)    // 修复：移除 .keyword 后缀
                                         .append_should_match("nickname", key)
-                                        .append_must_not_terms("user_id.keyword", uid_list)
+                                        .append_must_not_terms("user_id", uid_list)  // 修复：移除 .keyword 后缀
                                         .search();
             if (json_user.isArray() == false)
             {
@@ -178,7 +178,7 @@ namespace chen_im
         {
             std::vector<chen_im::Message> res;
             Json::Value json_user = ESSearch("message", "_doc", _es_client)
-                                        .append_must_term("chat_session_id.keyword", ssid)
+                                        .append_must_term("chat_session_id", ssid)  // 修复：移除 .keyword 后缀
                                         .append_must_match("content", key)
                                         .search();
             if (json_user.isArray() == false)

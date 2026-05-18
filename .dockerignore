@@ -1,10 +1,40 @@
-# 排除 Docker 构建不需要的目录，避免权限与体积问题
-docker_image_data
+# 排除 Docker 构建不需要的目录，避免权限与体积问题。
+# 注意：根级 .dockerignore 用于 agent_server（context: .. -> 仓库根）。
+# 模式不递归，所以需要显式 ** 或路径前缀。
+
+# 容器运行时挂载出来的数据卷（root 拥有，普通用户读不到，会卡住 build）
+**/docker_image_data
+**/docker_image_data/**
+
+# 编译产物（每个 C++ 子服务的 build/ 都很大且非 agent_server 需要）
+**/build
+**/build/**
+build
+
+# 虚拟环境 / 依赖目录
 .venv
 venv
+**/.venv
+**/venv
 node_modules
+**/node_modules
+**/__pycache__
+*.pyc
+
+# Git / 编辑器 / 日志
 .git
+.cursor
+.claude
+.idea
+.vscode
+**/*.log
 dist
-*.log
+**/dist
+
+# 仅 agent_server 用的 build context：把同源的另两端排除掉（节省 200MB+）
 ChatSystem-Frontend-React
-build
+ChatSystem-Frontend-QtProj
+Pics
+Frontend_Stitch
+Docs-and-demos
+*.png

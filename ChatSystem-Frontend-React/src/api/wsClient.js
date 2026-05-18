@@ -70,8 +70,8 @@ class WebSocketClient {
         this.ws = null;
         this.sessionId = null;
         this.reconnectAttempts = 0;
-        this.maxReconnectAttempts = 5;
-        this.reconnectDelay = 3000;
+        // 提高重连韧性：~50 次足够覆盖任何短暂的 gateway/网络中断
+        this.maxReconnectAttempts = 50;
         this.messageHandlers = new Map();
         this.isConnecting = false;
     }
@@ -266,7 +266,7 @@ class WebSocketClient {
     }
 
     /**
-     * 尝试重连
+     * 尝试重连：指数退避，封顶 30s
      */
     attemptReconnect() {
         if (this.reconnectAttempts >= this.maxReconnectAttempts) {
@@ -275,13 +275,14 @@ class WebSocketClient {
         }
 
         this.reconnectAttempts++;
-        console.log(`[WebSocket] Reconnecting in ${this.reconnectDelay}ms (attempt ${this.reconnectAttempts})`);
+        const delay = Math.min(30000, 1000 * Math.pow(2, Math.min(this.reconnectAttempts, 5)));
+        console.log(`[WebSocket] Reconnecting in ${delay}ms (attempt ${this.reconnectAttempts})`);
 
         setTimeout(() => {
             if (this.sessionId) {
                 this.connect(this.sessionId);
             }
-        }, this.reconnectDelay);
+        }, delay);
     }
 
     /**

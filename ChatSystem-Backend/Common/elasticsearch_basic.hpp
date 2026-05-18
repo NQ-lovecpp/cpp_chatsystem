@@ -342,7 +342,7 @@ public:
         Json::Value fields;
         for(const auto& val:value)
         {
-            fields["key"].append(val);
+            fields[key].append(val);  // 修复：使用参数key而不是字面字符串"key"
         }
         Json::Value terms;
         terms["terms"]=fields;

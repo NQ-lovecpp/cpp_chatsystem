@@ -35,7 +35,7 @@ class OpenRouterModelProvider(ModelProvider):
     def __init__(
         self,
         api_key: Optional[str] = None,
-        base_url: str = "https://openrouter.ai/api/v1/responses",
+        base_url: str = "https://openrouter.ai/api/v1",
         default_model: str = "openai/gpt-4o-mini"
     ):
         self.api_key = api_key or settings.openrouter_api_key
@@ -57,7 +57,8 @@ class OpenRouterModelProvider(ModelProvider):
     def get_model(self, model_name: Optional[str] = None) -> Model:
         """获取模型实例"""
         model = model_name or self.default_model
-        return OpenAIResponsesModel(
+        # OpenRouter 走 Chat Completions：其 /responses 对开源模型经常 500
+        return OpenAIChatCompletionsModel(
             model=model,
             openai_client=self.client
         )
